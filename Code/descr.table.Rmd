@@ -1,0 +1,56 @@
+---
+output: word_document
+---
+
+```{r setup, include=FALSE}
+# clear all
+rm(list = ls(all.names = TRUE))
+if(!is.null(dev.list())) dev.off()
+cat('\014')
+
+library(arsenal)
+library(knitr)
+
+load('Z:/Project Melanoom/Code/PaperMelanoma/Data/descr.data.Rdata')
+data.to.be.imputed$MSM <- factor(data.to.be.imputed$MSM, labels=c("Other", "Death by melanoma"))
+data.to.be.imputed$multiple.fields <- factor(data.to.be.imputed$multiple.fields, labels=c("Other", "Multiple SN fields"))
+descr.table <- arsenal::tableby(Center ~ SNstatus+Sex
+                                +Age.SN+includeNA(Ulceration)
+                                +includeNA(Loc_CAT)+includeNA(Histology)
+                                +Breslow+multiple.fields
+                                +Tot_SNs_neg+Tot_SNs_pos
+                                +Rdamcrit+includeNA(Dewar)+includeNA(Mitosis)
+                                +Recurrence+dead
+                                +MSM+logRec.time+logFU.time, data=data.to.be.imputed, 
+                                total.pos="before",
+                                digits = 1,
+                                test = F,
+                                total = T,
+                                numeric.test = "kwt", cat.test = "chisq",
+                                numeric.stats = c("meansd", "medianq1q3", "range", "Nmiss2"),
+                                cat.stats = c("countpct"),
+                                stats.labels = list(
+                                  meansd = "Mean (SD)",
+                                  medianq1q3 = "Median (Q1, Q3)",
+                                  range = "Min - Max",
+                                  Nmiss2 = "Missing"
+                                ))
+my_labels <- list(
+  SNstatus = "SN status",
+  Age.SN = "Age",
+  Loc_CAT = "Location",
+  multiple.fields = "Multiple fields",
+  Tot_SNs_neg = "Total number of negative SN",
+  Tot_SNs_pos = "Total number of positive SN",
+  Rdamcrit = "SN tumour burden",
+  Dewar = "Location metastasis in lymph",
+  dead = "Deaths",
+  MSM = "Melanoma specific mortality"
+)
+```
+
+Table 1. Descriptive statistics.
+```{r echo=FALSE}
+knitr::kable(summary(descr.table, labelTranslations=my_labels))
+```
+
