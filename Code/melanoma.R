@@ -9,16 +9,13 @@ cat('\014')
 #####
 
 # load libraries
-library(foreign)   # Reading external (spps) data
-library(mice)      # Multipe imputation
-library(survminer) # Kaplan-Meier plot
-library(prodlim)   # median follow-up time
-library(glmnet)    # LASSO
-library(rms)       # rcs
-library(Hmisc)     # rcorr.cens and fit.mult.impute
-library(mitools)   # MIcombine
-library(arsenal)   # descriptives table
-library(png)       # reading PNG images
+library(foreign)
+library(mice)
+library(survminer)
+library(prodlim)
+library(rms)
+library(Hmisc)
+library(png)
 set.seed(100)
 
 source("./Code/table.missing.values.R") # import function to create table of missing values
@@ -153,11 +150,11 @@ survminer::ggsurvplot(center.MSM.KM, conf.int=TRUE, risk.table=TRUE)
 #####
 ##### MEDIAN FOLLOW-UP TIME
 #####
-median.FU.time.total <- stats::quantile(prodlim::prodlim(Hist(exp(logFU.time), MSM)~1, data=complete.imputed.data, reverse=TRUE))
+median.FU.time.total <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM)~1, data=complete.imputed.data, reverse=TRUE))
 tab.FU.time <- c("total", paste(sprintf("%.2f", median.FU.time.total$quantiles.survival[3, "quantile"]),
                  paste0("[", sprintf("%.2f", median.FU.time.total$quantiles.survival[3, "lower"]), "; ",
                         sprintf("%.2f", median.FU.time.total$quantiles.survival[3, "upper"]), "]")))
-median.FU.time <- stats::quantile(prodlim::prodlim(Hist(exp(logFU.time), MSM)~Center, data=complete.imputed.data, reverse=TRUE))
+median.FU.time <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM)~Center, data=complete.imputed.data, reverse=TRUE))
 median.FU.time
 for (center in sort(as.character(unique(sel.data$Center)))){
   med.FU.table <- eval(parse(text=paste0("median.FU.time$`Center=", center, "`")))
@@ -346,7 +343,7 @@ cindex.AJCC.8.se.pos <- rep(0, m)
 cindex.AJCC.8.neg <- rep(0, m)
 cindex.AJCC.8.se.neg <- rep(0, m)
 for (i in 1:m){
-  imputation.i <- complete(imputed.data,i)
+  imputation.i <- mice::complete(imputed.data,i)
   TNM.8.i <- rep("", nrow(imputation.i))
   AJCC.8.i <- rep(0, nrow(imputation.i))
   for (patient in 1:nrow(imputation.i)){
@@ -535,7 +532,7 @@ f.mi.BS.Rec <- Hmisc::fit.mult.impute(form.BS.Rec,cph,xtrans=imputed.data,data=d
 round(stats::anova(f.mi.BS.Rec)[order(stats::anova(f.mi.BS.Rec)[, 'P']),], 3)
 
 # # TODO: test
-# test <- cph(S.Rec ~ log(Breslow)+Ulceration+Loc_CAT, data=complete.imputed.data, subset=complete.imputed.data$SNstatus=="Negative")
+# test <- rms::cph(S.Rec ~ log(Breslow)+Ulceration+Loc_CAT, data=complete.imputed.data, subset=complete.imputed.data$SNstatus=="Negative")
 # summary(test, Breslow=c(1.1, 3), Loc_CAT="arm")
 # coxph(S.Rec ~ Age.SN+log(Breslow)+Rdamcrit+Ulceration, data=complete.imputed.data, subset=complete.imputed.data$SNstatus=="Positive")
 # summary(f.mi.BS.Rec, Breslow=c(1.1, 3), Loc_CAT="arm")
@@ -743,7 +740,7 @@ for (model in list('Rec', 'MSM.refit')){
     p <- matrix(NA, nrow(sel.data), m)
     for (i in 1:m){
       # predicted lp for imputation i
-      lp.i <- predict(f.mi,newdata=complete(imputed.data,i), type="lp")
+      lp.i <- predict(f.mi,newdata=mice::complete(imputed.data,i), type="lp")
       # baseline hazard
       f.basehaz <- survival::basehaz(f.mi,TRUE)
       h0.i <- f.basehaz$hazard[f.basehaz$time==max(f.basehaz$time[f.basehaz$time<=horizon])]
@@ -779,7 +776,7 @@ for (type in c("full", "BS")){
   cindex.MSM.refit <- rep(0, m)
   cindex.se.MSM.refit <- rep(0, m)
   for (i in 1:m){
-    rc <- Hmisc::rcorr.cens(-predict(f.mi,newdata=complete(imputed.data,i), type="lp"), S.MSM)
+    rc <- Hmisc::rcorr.cens(-predict(f.mi,newdata=mice::complete(imputed.data,i), type="lp"), S.MSM)
     cindex.MSM.refit[i]<-rc["C Index"]
     cindex.se.MSM.refit[i]<-rc["S.D."]/2
   }
@@ -839,7 +836,7 @@ for (model in c('Rec', 'MSM')){
         h0.notj<-f.basehaz.notj$hazard[f.basehaz.notj$time==max(f.basehaz.notj$time[f.basehaz.notj$time<=horizon])]
       } else if (model=="MSM"){
         lp.notj<-f.mi.Rec.notj$linear
-        f.MSM.notj<-cph(S.notj~lp.notj,y=TRUE,x=TRUE)
+        f.MSM.notj<-rms::cph(S.notj~lp.notj,y=TRUE,x=TRUE)
 
         f.basehaz.notj<-basehaz(f.MSM.notj,TRUE)
         h0.notj<-f.basehaz.notj$hazard[f.basehaz.notj$time==max(f.basehaz.notj$time[f.basehaz.notj$time<=horizon])]
@@ -857,7 +854,7 @@ for (model in c('Rec', 'MSM')){
         S <- S.j[select.patients,]
         p <- matrix(NA, nrow(S), m)
         for (i in 1:m){
-          lp.i<-predict(f.mi.Rec.notj,newdata=complete(imputed.data,i)[data.to.be.imputed$Center==Centers[j],], type="lp")
+          lp.i<-predict(f.mi.Rec.notj,newdata=mice::complete(imputed.data,i)[data.to.be.imputed$Center==Centers[j],], type="lp")
 
           if (model=="MSM"){
             lp.i<-predict(f.MSM.notj,newdata=lp.i)
