@@ -19,10 +19,7 @@ rscript <- function(status, age, ulceration, location, breslow, tumor_burden) {
     coef.Rec["Breslow"]*(log(breslow)-c.Breslow)+
     coef.Rec["Rdamcrit"]*log(tumor_burden)+
     coef.Rec["SNstatus=Positive * Breslow"]*(log(breslow)-c.Breslow)*status-center.Rec
-  print(as.numeric(lp))
   p.Rec <- 1-exp(-h0.Rec*exp(lp))
-  print(as.numeric(p.Rec))
-  S <- 100 - 100*h0.Rec^exp(lp)
-  return(as.numeric(S))
+  return(as.numeric(p.Rec))
 }
 rscript(0, 55, 0, 0, 7, 1)

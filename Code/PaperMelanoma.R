@@ -47,6 +47,8 @@ cat("Number of patients excluded:", nrow(original.data)-nrow(sel.data), "\n")
 # Omit patient A0523 - no last follow-up date
 sel.data <- sel.data[sel.data$DatabaseNR!="A0523               ",]
 
+# TODO: 11 patients with positive SN have SN tumour burden of exactly 1
+sum(sel.data$Rdamcrit==1&sel.data$SNstatus=="Positive"&!is.na(sel.data$Rdamcrit))
 # Set Rdamcrit of negative SN patients equal to 0
 sel.data$Rdamcrit[sel.data$SNstatus=="Negative"] <- 1 # since log(1) = 0
 
@@ -129,15 +131,15 @@ m <- 5
 
 # OR LOAD
 load('./Data/imputed.data.RData')
-complete.imputed.data <- mice::complete(imputed.data, m)
-summary(complete.imputed.data)
-missings.table(complete.imputed.data)
+last.imputed.data.set <- mice::complete(imputed.data, m)
+summary(last.imputed.data.set)
+missings.table(last.imputed.data.set)
 
 #####
 ##### SET SURVIVAL
 #####
-S.Rec <- survival::Surv(exp(complete.imputed.data$logRec.time), sel.data$Recurrence=="recurred")
-S.MSM <- survival::Surv(exp(complete.imputed.data$logFU.time), sel.data$MSM)
+S.Rec <- survival::Surv(exp(last.imputed.data.set$logRec.time), sel.data$Recurrence=="recurred")
+S.MSM <- survival::Surv(exp(last.imputed.data.set$logFU.time), sel.data$MSM)
 
 #####
 ##### KAPLAN MEIER PLOTS
@@ -150,11 +152,11 @@ survminer::ggsurvplot(center.MSM.KM, conf.int=TRUE, risk.table=TRUE)
 #####
 ##### MEDIAN FOLLOW-UP TIME
 #####
-median.FU.time.total <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM)~1, data=complete.imputed.data, reverse=TRUE))
+median.FU.time.total <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM)~1, data=last.imputed.data.set, reverse=TRUE))
 tab.FU.time <- c("total", paste(sprintf("%.2f", median.FU.time.total$quantiles.survival[3, "quantile"]),
                  paste0("[", sprintf("%.2f", median.FU.time.total$quantiles.survival[3, "lower"]), "; ",
                         sprintf("%.2f", median.FU.time.total$quantiles.survival[3, "upper"]), "]")))
-median.FU.time <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM)~Center, data=complete.imputed.data, reverse=TRUE))
+median.FU.time <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM)~Center, data=last.imputed.data.set, reverse=TRUE))
 median.FU.time
 for (center in sort(as.character(unique(sel.data$Center)))){
   med.FU.table <- eval(parse(text=paste0("median.FU.time$`Center=", center, "`")))
@@ -497,16 +499,9 @@ anova(f.mi.full.Rec)
 summary(f.mi.full.Rec)
 
 #####
-##### Test proportional hazards assumption
-#####
-test.prop<-survival::cox.zph(f.mi.full.Rec$fits[[1]])
-test.prop
-plot(test.prop)
-
-#####
 ##### BACKWARD SELECTION crit = 0.01
 #####
-c.Breslow <- mean(log(complete.imputed.data$Breslow))
+c.Breslow <- mean(log(last.imputed.data.set$Breslow))
 form.BS.Rec <- S.Rec ~
   SNstatus +
   #8 Sex +
@@ -530,12 +525,6 @@ form.BS.Rec <- S.Rec ~
 f.mi.BS.Rec <- Hmisc::fit.mult.impute(form.BS.Rec,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
                            pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
 round(stats::anova(f.mi.BS.Rec)[order(stats::anova(f.mi.BS.Rec)[, 'P']),], 3)
-
-# # TODO: test
-# test <- rms::cph(S.Rec ~ log(Breslow)+Ulceration+Loc_CAT, data=complete.imputed.data, subset=complete.imputed.data$SNstatus=="Negative")
-# summary(test, Breslow=c(1.1, 3), Loc_CAT="arm")
-# coxph(S.Rec ~ Age.SN+log(Breslow)+Rdamcrit+Ulceration, data=complete.imputed.data, subset=complete.imputed.data$SNstatus=="Positive")
-# summary(f.mi.BS.Rec, Breslow=c(1.1, 3), Loc_CAT="arm")
 
 ###
 ### Melanoma specific mortality REFIT
@@ -595,7 +584,6 @@ utils::write.table(paste0(sprintf("%.2f", stats::coef(f.mi.BS.MSM)), " [",
             sprintf("%.2f", as.numeric(stats::confint(f.mi.BS.MSM))[2]), "]"),
             file='./Results/calibration.MSS.txt', row.names=FALSE, col.names=FALSE)
 MSM.cal.fact <- stats::coef(f.mi.BS.MSM)
-stats::confint(f.mi.BS.MSM)
 
 ###
 ### Summarize full model
@@ -612,18 +600,26 @@ for (model in c('Rec', 'MSM.refit')){
 
   anova.full <- stats::anova(f.mi.full)[,1]
 
-  full.table <- cbind(c(NA, sprintf("%.2f", exp(f.mi.full$coefficients[2:13])), rep(NA, 5)), # COEF NEG
-                      c(NA, CI.neg[2:13], rep(NA, 5)), # CI NEG
-                      sprintf("%.2f", c(exp(f.mi.full$coefficients[1]), # COEF POS
+  full.table <- cbind(c(NA, sprintf("%.2f", exp(f.mi.full$coefficients[2:13])), # COEF NEG
+                        rep(NA, 5)),
+                      c(NA, CI.neg[2:13],                                       # CI NEG
+                        rep(NA, 5)),
+                      sprintf("%.2f", c(exp(f.mi.full$coefficients[1]),         # COEF POS
                         exp(f.mi.full$coefficients[2:12])*exp(f.mi.full$coefficients[20:30]),
                         exp(f.mi.full$coefficients[14]), exp(f.mi.full$coefficients[15:19]))),
-                      c(CI.neg[1], CI.pos), # CI POS
-                      c(sprintf("%.1f", anova.full[c(1, 3, 5, 7, 9)]), rep(NA, 2), # CHI2 NEG
-                            sprintf("%.1f", anova.full[11]), rep(NA, 2),
-                            sprintf("%.1f", anova.full[c(13, 15, 17, 19, 20)]), rep(NA, 3)),
-                      c(sprintf("%.1f", anova.full[c(2, 21, 22, 23, 24)]), rep(NA, 2), # CHI2 POS
-                            sprintf("%.1f", anova.full[25]), rep(NA, 2),
-                            sprintf("%.1f", anova.full[c(26:27, 18)]), rep(NA, 5)))
+                      c(CI.neg[1], CI.pos),                                     # CI POS
+                      c(sprintf("%.1f", anova.full[c(1, 3, 5, 7, 9)]),          # CHI2 NEG
+                        rep(NA, 2),
+                        sprintf("%.1f", anova.full[11]),
+                        rep(NA, 2),
+                        sprintf("%.1f", anova.full[c(13, 15, 17, 19, 20)]),
+                        rep(NA, 3)),
+                      c(sprintf("%.1f", anova.full[c(2, 21, 22, 23, 24)]),      # CHI2 POS
+                        rep(NA, 2),
+                        sprintf("%.1f", anova.full[25]),
+                        rep(NA, 2),
+                        sprintf("%.1f", anova.full[c(26:27, 18)]),
+                        rep(NA, 5)))
 
   ncols <- 6
   final.table <- rbind(full.table[1:4,],
@@ -644,28 +640,21 @@ for (model in c('Rec', 'MSM.refit')){
 ###
 ### Summarize selected model
 ###
-for (model in c('Rec', 'MSM', 'MSM.refit')){
-  if (model=="MSM"){
-    mult.factor <- MSM.cal.fact # if MSM, multiply by MSM.cal.fact
-    f.mi.BS <- eval(parse(text=paste0('f.mi.BS.Rec'))) # use recurrence model if calibrated MSM
-  }
-  else{
-    mult.factor <- 1 # if Rec or MSM.refit, don't multiply
-    f.mi.BS <- eval(parse(text=paste0('f.mi.BS.', model)))
-  }
+for (model in c('Rec', 'MSM.refit')){
+  f.mi.BS <- eval(parse(text=paste0('f.mi.BS.', model)))
 
-  CI.lower.neg <- exp(mult.factor*confint(f.mi.BS)[,1])
-  CI.upper.neg <- exp(mult.factor*confint(f.mi.BS)[,2])
+  CI.lower.neg <- exp(confint(f.mi.BS)[,1])
+  CI.upper.neg <- exp(confint(f.mi.BS)[,2])
   CI.neg <- paste0("[", sprintf("%.2f", CI.lower.neg), "; ", sprintf("%.2f", CI.upper.neg), "]")
 
   anova.BS <- anova(f.mi.BS)[,1]
 
-  CI.pos <- paste0("[", sprintf("%.2f", exp(mult.factor*confint(f.mi.BS)[7,1])*exp(mult.factor*confint(f.mi.BS)[9,1])),
-                   "; ", sprintf("%.2f", exp(mult.factor*confint(f.mi.BS)[7,2])*exp(mult.factor*confint(f.mi.BS)[9,2])), "]")
+  CI.pos <- paste0("[", sprintf("%.2f", exp(confint(f.mi.BS)[7,1])*exp(confint(f.mi.BS)[9,1])),
+                   "; ", sprintf("%.2f", exp(confint(f.mi.BS)[7,2])*exp(confint(f.mi.BS)[9,2])), "]")
 
-  BS.table <- cbind(c(NA, sprintf("%.2f", exp(mult.factor*f.mi.BS$coefficients[2:7])), NA), # COEF NEG
+  BS.table <- cbind(c(NA, sprintf("%.2f", exp(f.mi.BS$coefficients[2:7])), NA), # COEF NEG
                     c(NA, CI.neg[2:7], NA), # CI NEG
-                    sprintf("%.2f", exp(mult.factor*f.mi.BS$coefficients[1:8])*c(rep(1, 6), exp(mult.factor*f.mi.BS$coefficients[9]), 1)), #COEF POS
+                    sprintf("%.2f", exp(f.mi.BS$coefficients[1:8])*c(rep(1, 6), exp(f.mi.BS$coefficients[9]), 1)), #COEF POS
                     c(CI.neg[1:6], CI.pos, CI.neg[8]), # CI POS
                     c(NA, sprintf("%.1f", anova.BS[3:5]), rep(NA, 2), sprintf("%.1f", anova.BS[c(6, 8)])), # CHI2 NEG
                     c(sprintf("%.1f", anova.BS[1]), rep(NA, 5), # CHI2 POS
@@ -745,7 +734,7 @@ for (model in list('Rec', 'MSM.refit')){
       f.basehaz <- survival::basehaz(f.mi,TRUE)
       h0.i <- f.basehaz$hazard[f.basehaz$time==max(f.basehaz$time[f.basehaz$time<=horizon])]
       # probabilities
-      p.i <- fun.event(lp=lp.i, h0=h0.i) # MSM.refit doesn't need to be multiplied with MSM.cal.fact
+      p.i <- fun.event(lp=lp.i, h0=h0.i)
       p[, i] <- p.i
     }
 
@@ -770,7 +759,7 @@ for (model in list('Rec', 'MSM.refit')){
   }
 }
 
-# MSM recalibration
+# C-index of calibrated MSM
 for (type in c("full", "BS")){
   f.mi <- eval(parse(text=paste0('f.mi.', type, '.Rec')))
   cindex.MSM.refit <- rep(0, m)
@@ -794,16 +783,55 @@ for (type in c("full", "BS")){
 final.full.table.Rec[is.na(final.full.table.Rec)] <- ""
 final.full.table.MSM.refit[is.na(final.full.table.MSM.refit)] <- ""
 final.BS.table.Rec[is.na(final.BS.table.Rec)] <- ""
-final.BS.table.MSM[is.na(final.BS.table.MSM)] <- ""
-final.BS.table.MSM["C-index MSM",] <- final.BS.table.Rec[nrow(final.BS.table.Rec),]
 final.BS.table.MSM.refit[is.na(final.BS.table.MSM.refit)] <- ""
 
+# set rownames
+final.full.table.Rec <- as.data.frame(final.full.table.Rec)
+row.names(final.full.table.Rec) <- c("Positive SN status", "Male",
+                                     "Age", "Ulceration", "Location",
+                                     "Arm", "Leg", "Trunk", "Head and neck",
+                                     "Histology", "SSM", "NM", "ALM", "Other",
+                                     "Breslow", "Multiple fields",
+                                     "Total number of nodes",
+                                     "SN tumour burden",
+                                     "Location metastasis in lymph node",
+                                     "Subcap", "Combined", "Parenchymal",
+                                     "Multifocal", "Extensive",
+                                     rownames(final.full.table.Rec)[25:26])
+final.full.table.MSM.refit <- as.data.frame(final.full.table.MSM.refit)
+row.names(final.full.table.MSM.refit) <- c("Positive SN status", "Male",
+                                           "Age", "Ulceration", "Location",
+                                           "Arm", "Leg", "Trunk", "Head and neck",
+                                           "Histology", "SSM", "NM", "ALM", "Other",
+                                           "Breslow", "Multiple fields",
+                                           "Total number of nodes",
+                                           "SN tumour burden",
+                                           "Location metastasis in lymph node",
+                                           "Subcap", "Combined", "Parenchymal",
+                                           "Multifocal", "Extensive",
+                                           row.names(final.full.table.Rec)[25])
+final.BS.table.Rec <- as.data.frame(final.BS.table.Rec)
+row.names(final.BS.table.Rec) <- c("Positive SN status", "Age", "Ulceration",
+                                   "Location", "Arm", "Leg", "Trunk",
+                                   "Head and neck",
+                                   "Breslow", "SN tumour burden",
+                                   row.names(final.BS.table.Rec)[11:12])
+final.BS.table.MSM.refit <- as.data.frame(final.BS.table.MSM.refit)
+row.names(final.BS.table.MSM.refit) <- c("Positive SN status", "Age", "Ulceration",
+                                         "Location", "Arm", "Leg", "Trunk",
+                                         "Head and neck",
+                                         "Breslow", "SN tumour burden",
+                                         row.names(final.BS.table.MSM.refit)[11])
+
 # save tables
-write.table(final.full.table.Rec,file='./Results/final.full.table.Rec.txt')
-write.table(final.full.table.MSM.refit,file='./Results/final.full.table.MSM.refit.txt')
-write.table(final.BS.table.Rec,file='./Results/final.BS.table.Rec.txt')
-write.table(final.BS.table.MSM,file='./Results/final.BS.table.MSM.txt')
-write.table(final.BS.table.MSM.refit,file='./Results/final.BS.table.MSM.refit.txt')
+write.table(final.full.table.Rec,
+            file='./Results/final.full.table.Rec.txt', sep=",")
+write.table(final.full.table.MSM.refit,
+            file='./Results/final.full.table.MSM.refit.txt', sep=",")
+write.table(final.BS.table.Rec,
+            file='./Results/final.BS.table.Rec.txt', sep=",")
+write.table(final.BS.table.MSM.refit,
+            file='./Results/final.BS.table.MSM.refit.txt', sep=",")
 
 #####
 ##### Cross validation recurrence 5-year
@@ -928,7 +956,6 @@ int.Rec <- attributes(nom.0)$info$Intercept
 f.Rec.basehaz <- basehaz(f.mi.BS.Rec,TRUE)
 h0.Rec <- f.Rec.basehaz$hazard[f.Rec.basehaz$time==max(f.Rec.basehaz$time[f.Rec.basehaz$time<=horizon])]
 lp.range <- int.Rec+rc.Rec*(0:10)*2
-par(mar = rep(0, 4))
 nom <- nomogram(f.mi.BS.Rec, maxscale=10,
               Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class,
               lp=TRUE, fun.at=fun.event(lp=lp.range, h0=h0.Rec))
@@ -937,14 +964,12 @@ attributes(nom)$names[attributes(nom)$names=="Loc_CAT"]<-"Location"
 attributes(nom)$names[attributes(nom)$names=="Rdamcrit"]<-"Tumor burden"
 attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Positive)"]<-"Breslow + positive SN"
 attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Negative)"]<-"Breslow + negative SN"
+# set margins
+par(mar = rep(0, 4))
+# plot nomogram
 plot(nom, total.sep.page=TRUE, col.grid=gray(c(0.8, 0.95)))
 nom.0
 nom
-
-# Slope and intercept of recurrence and MSM
-int.Rec
-# check that int is same as this:
-log(20)*f.mi.BS.Rec$coef["Age.SN"]+log(0.1)*f.mi.BS.Rec$coef["Breslow"]+log(0.01)*f.mi.BS.Rec$coef["Rdamcrit"]-f.mi.BS.Rec$center
 
 ####
 #### RISK SCORE DISTRIBUTION
@@ -961,15 +986,15 @@ f.MSM.basehaz <- basehaz(f.mi.BS.MSM,TRUE)
 h0.MSM <- f.MSM.basehaz$hazard[f.MSM.basehaz$time==max(f.MSM.basehaz$time[f.MSM.basehaz$time<=horizon])]
 lp.MSM <- f.mi.BS.MSM$linear
 
-Breslow.trunc <- complete.imputed.data$Breslow
-Breslow.trunc[complete.imputed.data$Breslow<0.1] <- .1
-Breslow.trunc[complete.imputed.data$Breslow>7] <- 7
-lp.score.Rec <- predict(f.mi.BS.Rec,newdata=data.frame(SNstatus=complete.imputed.data$SNstatus,
-                                                Age.SN=complete.imputed.data$Age.SN,
-                                                Ulceration=complete.imputed.data$Ulceration,
-                                                Loc_CAT=complete.imputed.data$Loc_CAT,
+Breslow.trunc <- last.imputed.data.set$Breslow
+Breslow.trunc[last.imputed.data.set$Breslow<0.1] <- .1
+Breslow.trunc[last.imputed.data.set$Breslow>7] <- 7
+lp.score.Rec <- predict(f.mi.BS.Rec,newdata=data.frame(SNstatus=last.imputed.data.set$SNstatus,
+                                                Age.SN=last.imputed.data.set$Age.SN,
+                                                Ulceration=last.imputed.data.set$Ulceration,
+                                                Loc_CAT=last.imputed.data.set$Loc_CAT,
                                                 Breslow=Breslow.trunc,
-                                                Rdamcrit=complete.imputed.data$Rdamcrit))
+                                                Rdamcrit=last.imputed.data.set$Rdamcrit))
 mean(lp.score.Rec)
 score.Rec <- round((lp.score.Rec-int.Rec)/rc.Rec,0)
 max.breaks <- max.range+1
@@ -977,22 +1002,6 @@ h.Rec <- hist(score.Rec,plot=FALSE,breaks=0:max.breaks,right=FALSE)
 
 # score table
 data.frame(table(score.Rec)/length(score.Rec))
-
-###
-### Check mean event rates of risk distribution
-###
-# Recurrence
-sum(h.Rec$density*fun.event(lp=lp.points.Rec, h0=h0.Rec))
-# equal to the 5-year survival probability, kaplanmeier op 5 jaar, survfit op 5 jaar
-SF<-survfit(S.Rec~1,data=sel.data)
-100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
-mean(fun.event(lp=lp.score.Rec, h0=h0.Rec))
-
-# MSM
-sum(h.Rec$density*fun.event(lp=lp.points.MSM, h0=h0.MSM))
-SF<-survfit(S.MSM~1,data=sel.data)
-100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
-mean(fun.event(lp=lp.MSM, h0=h0.MSM))
 
 # make plot
 h.plot <- h.Rec
@@ -1011,31 +1020,49 @@ mtext(side = 4, line = 3, 'Risk score distribution (%)')
 par(new = TRUE)
 plot(h.plot,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,main=NA,col="white")
 
-# par(new = TRUE)
-# h.q <- h.plot
-# h.q$density[h.plot$breaks>quantile(score.Rec,1/3)]<-0
-# plot(h.q,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,main=NA,col="#CCFF33")
-#
-# par(new = TRUE)
-# h.q <- h.plot
-# h.q$density[h.plot$breaks<=quantile(score.Rec,1/3)|h.plot$breaks>quantile(score.Rec,2/3)]<-0
-# plot(h.q,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,main=NA,col= "#FFCC33")
-#
-# par(new = TRUE)
-# h.q <- h.plot
-# h.q$density[h.plot$breaks<=quantile(score.Rec,2/3)]<-0
-# plot(h.q,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,main=NA,col="#FF6633")
-
 par(new = TRUE)
 plot(points.range,p.Rec*100,type="b",lwd=1,xlim=x.lim,ylim=y.lim,pch=15, xlab="Risk score",ylab="Predicted 5-year risk (%)")
 points(points.range,p.MSM*100,type="b",lwd=1,xlim=x.lim,ylim=y.lim,pch=16)
 legend(x=0,y=100,legend=c("Recurrence","Melanoma-specific mortality"),pch=c(15,16),cex=.9,bg='white')
 grDevices::dev.off()
 
+# reset margins
+par(mar = c(5,5,2,5))
+
 # table
 cbind(points.range, round(p.Rec*100, 1), round(p.MSM*100, 1))[c(1, 9, 10, 12, 13),]
 
-# example
+# save for Rshiny app
+save(MSM.cal.fact, h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec,
+     file=paste0('./Results/h0.Rec.MSM.Rdata'), compress=TRUE)
+load(file=paste0('./Results/h0.Rec.MSM.Rdata'))
+
+# Test probabilities
+### Test proportional hazards assumption
+test.prop<-survival::cox.zph(f.mi.full.Rec$fits[[1]])
+test.prop
+plot(test.prop)
+
+# Slope and intercept of recurrence and MSM
+int.Rec
+# check that int is same as this:
+log(20)*f.mi.BS.Rec$coef["Age.SN"]+log(0.1)*f.mi.BS.Rec$coef["Breslow"]+log(0.01)*f.mi.BS.Rec$coef["Rdamcrit"]-f.mi.BS.Rec$center
+
+### Check mean event rates of risk distribution
+# Recurrence
+sum(h.Rec$density*fun.event(lp=lp.points.Rec, h0=h0.Rec))
+# equal to the 5-year survival probability, kaplanmeier op 5 jaar, survfit op 5 jaar
+SF<-survfit(S.Rec~1,data=sel.data)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+mean(fun.event(lp=lp.score.Rec, h0=h0.Rec))
+
+# MSM
+sum(h.Rec$density*fun.event(lp=lp.points.MSM, h0=h0.MSM))
+SF<-survfit(S.MSM~1,data=sel.data)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+mean(fun.event(lp=lp.MSM, h0=h0.MSM))
+
+# Test an example
 patient.nr <- 115 # 395 and 396 = Negative, 397 and 398 = Positive, 30 = Head & neck, 115 has large Breslow
 data.to.be.imputed[patient.nr, c("SNstatus", "Age.SN", "Ulceration", "Loc_CAT", "Breslow", "Rdamcrit")]
 lp.score.Rec.true <- predict(f.mi.BS.Rec)[patient.nr]
@@ -1050,7 +1077,7 @@ lp.score.Rec.try <- predict(f.mi.BS.Rec, newdata=data.frame(SNstatus=data.to.be.
 round((lp.score.Rec.try-int.Rec)/rc.Rec,0)
 
 # manual calculation
-coef.Rec <- coef(f.mi.BS.Rec)
+coef.Rec <- stats::coef(f.mi.BS.Rec)
 lp.manual <- coef.Rec["SNstatus=Positive"]*(as.numeric(data.to.be.imputed[patient.nr,"SNstatus"])-1)+
               coef.Rec["Age.SN"]*log(data.to.be.imputed[patient.nr,"Age.SN"])+
               coef.Rec["Ulceration=Yes"]*(as.numeric(data.to.be.imputed[patient.nr,"Ulceration"])-1)+
@@ -1072,7 +1099,7 @@ fun.event(lp=lp.score.Rec.try, h0=h0.Rec)
 1-exp(-h0.Rec*exp(lp.manual-center.Rec))
 
 # check MSM
-lp.score.MSM.true <- predict(f.mi.BS.MSM)[patient.nr]
+lp.score.MSM.true <- predict(f.mi.BS.MSM, type="lp")[patient.nr]
 lp.score.MSM.true
 lp.MSM.try <- MSM.cal.fact*(lp.manual-center.Rec)
 lp.MSM.try
@@ -1080,7 +1107,100 @@ fun.event(lp=lp.MSM.try, h0=h0.MSM)
 fun.event(lp=lp.MSM.try, h0=h0.MSM)
 1-exp(-h0.MSM*exp(MSM.cal.fact*(lp.manual-center.Rec)))
 
-# save for Rshiny app
-save(MSM.cal.fact, h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec,
-     file=paste0('./Results/h0.Rec.MSM.Rdata'), compress=TRUE)
-load(file=paste0('./Results/h0.Rec.MSM.Rdata'))
+# Test negative
+test.neg <- rms::cph(S.Rec ~ log(Breslow)+Ulceration+Loc_CAT, data=last.imputed.data.set, subset=last.imputed.data.set$SNstatus=="Negative")
+summary(test.neg, Breslow=c(1.1, 3), Loc_CAT="arm")
+coxph(S.Rec ~ Age.SN+log(Breslow)+Rdamcrit+Ulceration, data=last.imputed.data.set, subset=last.imputed.data.set$SNstatus=="Negative")
+summary(f.mi.BS.Rec, Breslow=c(1.1, 3), Loc_CAT="arm")
+
+# Test positive
+test <- rms::cph(S.Rec ~ log(Breslow)+Ulceration+Loc_CAT, data=last.imputed.data.set, subset=last.imputed.data.set$SNstatus=="Positive")
+summary(test, Breslow=c(1.1, 3), Loc_CAT="arm")
+coxph(S.Rec ~ Age.SN+log(Breslow)+Rdamcrit+Ulceration, data=last.imputed.data.set, subset=last.imputed.data.set$SNstatus=="Positive")
+summary(f.mi.BS.Rec, Breslow=c(1.1, 3), Loc_CAT="arm")
+
+# Test with old tool predictions recurrence for negative SN status patients
+rscript.negative <- function(breslow, ulceration, location) {
+  S0 <- 0.85837329
+  lp <- 0.79351989*log(breslow) +
+    0.61912477*I(ulceration == 1) +
+    0.29594843*I(location == 1) +
+    0.42802046*I(location == 2) +
+    0.86053044*I(location == 3) - 0.98860941
+  S <- 100 - 100*S0^exp(lp)
+  return(S)
+}
+old.negativeSN.tool <- rscript.negative(breslow=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"],
+        ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Ulceration"])-1,
+        location=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Loc_CAT"])-1)
+lp.negative <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative",], type="lp")
+new.negativeSN.tool <- 1-exp(-h0.Rec*exp(lp.negative))
+plot(x=fun.event(lp=new.negativeSN.tool, h0=h0.Rec)*100, y=old.negativeSN.tool,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with negative SN status")
+abline(a=0, b=1, col="red")
+
+# Test with old tool predictions recurrence for positive SN status patients
+rscript.positive <- function(age, ulceration, tumor_burden, breslow) {
+  S0 <- 0.51762362
+  lp <- 0.56109945 * log(age) +
+    0.23383770 * log(tumor_burden) +
+    0.35489235 * log(breslow) +
+    0.36562098 * I(ulceration == 1) - 2.709225
+  S <- 100 - 100 * S0^exp(lp)
+  return(S)
+}
+old.positiveSN.tool <- rscript.positive(age=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Age.SN"],
+                               ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Ulceration"])-1,
+                               breslow=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"],
+                               tumor_burden=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Rdamcrit"]))
+lp.positive <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive",], type="lp")
+new.positiveSN.tool <- 1-exp(-h0.Rec*exp(lp.positive))
+plot(x=fun.event(lp=new.positiveSN.tool, h0=h0.Rec)*100, y=old.positiveSN.tool,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with positive SN status")
+abline(a=0, b=1, col="red")
+
+# Histogram for negative SN status patients
+Breslow.trunc.neg <- last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"]
+Breslow.trunc.neg[last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"]<0.1] <- .1
+Breslow.trunc.neg[last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"]>7] <- 7
+lp.score.Rec.negative <- predict(f.mi.BS.Rec,newdata=data.frame(SNstatus=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "SNstatus"],
+                                                       Age.SN=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Age.SN"],
+                                                       Ulceration=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Ulceration"],
+                                                       Loc_CAT=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Loc_CAT"],
+                                                       Breslow=Breslow.trunc.neg,
+                                                       Rdamcrit=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Rdamcrit"]))
+mean(lp.score.Rec.negative)
+# OK to use int.Rec and rc.Rec based on all patients?
+score.Rec.neg <- round((lp.score.Rec.negative-int.Rec)/rc.Rec,0)
+h.Rec.neg <- hist(score.Rec.neg,plot=FALSE,breaks=0:max.breaks,right=FALSE)
+h.plot.neg <- h.Rec.neg
+h.plot.neg$density <- 100*h.Rec.neg$density
+
+# Histogram for positive SN status patients
+Breslow.trunc.pos <- last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"]
+Breslow.trunc.pos[last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"]<0.1] <- .1
+Breslow.trunc.pos[last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"]>7] <- 7
+lp.score.Rec.positive <- predict(f.mi.BS.Rec,newdata=data.frame(SNstatus=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "SNstatus"],
+                                                                Age.SN=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Age.SN"],
+                                                                Ulceration=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Ulceration"],
+                                                                Loc_CAT=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Loc_CAT"],
+                                                                Breslow=Breslow.trunc.pos,
+                                                                Rdamcrit=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Rdamcrit"]))
+mean(lp.score.Rec.positive)
+# OK to use int.Rec and rc.Rec based on all patients?
+score.Rec.pos <- round((lp.score.Rec.positive-int.Rec)/rc.Rec,0)
+h.Rec.pos <- hist(score.Rec.pos,plot=FALSE,breaks=0:max.breaks,right=FALSE)
+h.plot.pos <- h.Rec.pos
+h.plot.pos$density <- 100*h.Rec.pos$density
+
+par(mfrow=c(1, 3))
+plot(h.plot,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,ylim=y.lim.hist,
+     ylab="Risk score distribution (%)", main="All patients",col="white")
+plot(h.plot.neg,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
+     ylab="Risk score distribution (%)",ylim=y.lim.hist,main="Negative SN status",col="white")
+plot(h.plot.pos,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
+     ylab="Risk score distribution (%)",ylim=y.lim.hist,main="Positive SN status",col="white")
