@@ -72,31 +72,27 @@ selected.vars <- c("EXCLUSIE", "DatabaseNR", "Center", "Sex", "Age", "DOB",
 ```
 
 ### Exclude patients
-Exclude when Exclusion = 2: based on duplicates, urogenital melanoma, etc.
-Leave the patients included that have EXCLUSIE = 1 and Dbstatus = 8,
-even though diagnosis and operation date are very close.
+Exclude when Exclusion = 2: based on duplicates, urogenital melanoma, etc. Note:
+Leave the patients included that have EXCLUSIE = 1 and Dbstatus = 8 (Dbstatus=0: 
+negative, Dbstatus=1: positive), even though diagnosis and operation date are 
+very close.
 ```{r, eval=TRUE}
 sel.data <- original.data[original.data$EXCLUSIE!="Exclusion", selected.vars]
 cat("Number of patients excluded:", nrow(original.data)-nrow(sel.data), "\n")
 ```
 Omit patient A0523 - no last follow-up date
 ```{r, eval=TRUE}
+sel.data[which(is.na(sel.data$Last_FU)), "DatabaseNR"]
 sel.data <- sel.data[sel.data$DatabaseNR!="A0523               ",]
 ```
 
 ### Recode
-Set Rdamcrit of negative SN patients equal to 0. 11 patients with positive SN have SN tumour burden of exactly 1
+#### Use age at SN instead of age at diagnosis
 ```{r, eval=TRUE}
-sum(sel.data$Rdamcrit==1&sel.data$SNstatus=="Positive"&!is.na(sel.data$Rdamcrit))
-sel.data$Rdamcrit[sel.data$SNstatus=="Negative"] <- 1 # since log(1) = 0
+sel.data$Age.SN <- floor((sel.data$SNdate-sel.data$DOB)/(24*60*60)/365.25)
 ```
 
-Merge single cells with subcap and set Dewar for negative patients to subcap
-```{r, eval=TRUE}
-sel.data$Dewar[sel.data$Dewar=="single cells"] <- "subcap"
-sel.data$Dewar[sel.data$SNstatus=="Negative"] <- "subcap"
-```
-
+#### Location
 Merge location other with trunk
 ```{r, eval=TRUE}
 sel.data$Loc_CAT[sel.data$Loc_CAT=="other"] <- "trunk"
@@ -107,14 +103,15 @@ Merge LMM other with other
 sel.data$Histology[sel.data$Histology=="LMM"] <- "other"
 ```
 
-Melanoma specific mortality (MSM)
-```{r, eval=TRUE}
-sel.data$MSM<-1*(sel.data$Status=="DOD")
-```
-
-Define multiple fields
+#### Define multiple fields
 ```{r, eval=TRUE}
 sel.data$multiple.fields <- ifelse(!is.na(sel.data$nr_SNs_Field_2)&sel.data$nr_SNs_Field_2>0,1,0)
+```
+
+#### Number of positive and negative nodes
+Check: there are no negative patients that have positive nodes
+```{r, eval=TRUE}
+sum(!is.na(sel.data$Tot_SNs_pos)&sel.data$Tot_SNs_pos>0&sel.data$SNstatus=="Negative")
 ```
 
 Create number of negative nodes removed
@@ -122,11 +119,35 @@ Create number of negative nodes removed
 sel.data$Tot_SNs_neg <- sel.data$Tot_nr_SNs - sel.data$Tot_SNs_pos
 ```
 
-Use age at SN instead of age at diagnosis
+467 positive SN patients have negative nodes
 ```{r, eval=TRUE}
-sel.data$Age.SN <- floor((sel.data$SNdate-sel.data$DOB)/(24*60*60)/365.25)
+sum(!is.na(sel.data$Tot_SNs_neg)&sel.data$Tot_SNs_neg>0&sel.data$SNstatus=="Positive")
 ```
 
+#### SN tumour burden
+11 patients with positive SN have SN tumour burden of exactly 1
+```{r, eval=TRUE}
+sum(sel.data$Rdamcrit==1&sel.data$SNstatus=="Positive"&!is.na(sel.data$Rdamcrit))
+```
+
+Set Rdamcrit of negative SN patients equal to 0
+```{r, eval=TRUE}
+sel.data$Rdamcrit[sel.data$SNstatus=="Negative"] <- 1 # since log(1) = 0
+```
+
+#### Location of metastasis
+Set Dewar for negative patients to subcap
+```{r, eval=TRUE}
+sum(sel.data$SNstatus=="Positive"&sel.data$Dewar=="subcap"&!is.na(sel.data$Dewar))
+sel.data$Dewar[sel.data$SNstatus=="Negative"] <- "subcap"
+```
+
+Merge single cells with subcap 
+```{r, eval=TRUE}
+sel.data$Dewar[sel.data$Dewar=="single cells"] <- "subcap"
+```
+
+#### Recurrence 
 Define time since diagnosis in years (follow-up time)
 ```{r, eval=TRUE}
 sel.data$FU.time <- (sel.data$Last_FU-sel.data$SNdate)/(24*60*60)/365.25
@@ -149,12 +170,18 @@ Set recurrence time equal to follow-up time for those without recurrence
 sel.data$Rec.time[sel.data$Recurrence=="no recurrence"|is.na(sel.data$SNdate)]<-sel.data$FU.time[sel.data$Recurrence=="no recurrence"|is.na(sel.data$SNdate)]
 ```
 
+#### Melanoma specific mortality (MSM)
+```{r, eval=TRUE}
+sel.data$MSM<-1*(sel.data$Status=="DOD")
+```
+
+#### Mitosis
 Set Mitosis to Unknown if missing
 ```{r, eval=TRUE}
 sel.data$Mitosis[is.na(sel.data$Mitosis)] <- "Unknown" # mitosis unknown for 80% of patients
 ```
 
-Replace "Unknown" by NA
+#### Replace "Unknown" by NA
 ```{r, eval=TRUE}
 sel.data$Ulceration[sel.data$Ulceration=="unknown"]<-NA
 sel.data$Loc_CAT[sel.data$Loc_CAT=="unknown"]<-NA
@@ -163,7 +190,7 @@ sel.data$Dewar[sel.data$Dewar=="unknown"] <- NA
 sel.data$Mitosis[sel.data$Mitosis=="Unknown"] <- NA
 ```
 
-Delete unused levels
+#### Delete unused levels
 ```{r, eval=TRUE}
 sel.data <- droplevels(sel.data)
 ```
@@ -271,7 +298,7 @@ utils::write.table(as.data.frame(MSM.table),file='Z:/Project Melanoom/PaperMelan
 MSM.table
 ```
 
-### Restrict survival at 5 years
+# Restrict survival at 5 years
 ```{r, eval=TRUE}
 S.Rec[S.Rec[,1]>5, 1] <- 5 # set recurrence time to 5
 S.Rec[S.Rec[,1]>5, 2] <- 0 # set censoring
@@ -646,13 +673,13 @@ Fit disease specific mortality to the linear predictor of recurrence
 ```{r, eval=TRUE}
 lp.BS<-f.mi.BS.Rec$linear
 f.mi.BS.MSM<-rms::cph(S.MSM~lp.BS,y=TRUE,x=TRUE)
+MSM.cal.fact <- stats::coef(f.mi.BS.MSM)
+MSM.cal.fact
+stats::confint(f.mi.BS.MSM)
 utils::write.table(paste0(sprintf("%.2f", stats::coef(f.mi.BS.MSM)), " [",
             sprintf("%.2f", as.numeric(stats::confint(f.mi.BS.MSM))[1]), "; ",
             sprintf("%.2f", as.numeric(stats::confint(f.mi.BS.MSM))[2]), "]"),
             file='Z:/Project Melanoom/PaperMelanoma/Results/calibration.MSS.txt', row.names=FALSE, col.names=FALSE)
-MSM.cal.fact <- stats::coef(f.mi.BS.MSM)
-stats::coef(f.mi.BS.MSM)
-stats::confint(f.mi.BS.MSM)
 ```
 
 ### Create variables with results
@@ -732,7 +759,6 @@ for (model in c('Rec', 'MSM.refit')){
 
 # Plot calibration of all centers combined and all centers seperate 
 for recurrence and melanoma specific mortality refit 
-write results to Excel
 ```{r, eval=TRUE}
 horizon <- 5
 for (model in list('Rec', 'MSM.refit')){
@@ -992,12 +1018,16 @@ Rdamcrit.class <- c(seq(1, 10, 2)/100, seq(1, 10, 2)/10, seq(1, 10, 2))
 nom.0 <- nomogram(f.mi.BS.Rec,maxscale=10,
                 Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class)
 
-# Baseline hazard
-rc.Rec <- (1/attributes(nom.0)$info$sc)
-int.Rec <- attributes(nom.0)$info$Intercept
+# baseline hazard of recurrence
 f.Rec.basehaz <- basehaz(f.mi.BS.Rec,TRUE)
 h0.Rec <- f.Rec.basehaz$hazard[f.Rec.basehaz$time==max(f.Rec.basehaz$time[f.Rec.basehaz$time<=horizon])]
+
+# lp range Recurrence
+rc.Rec <- (1/attributes(nom.0)$info$sc)
+int.Rec <- attributes(nom.0)$info$Intercept
 lp.range <- int.Rec+rc.Rec*(0:10)*2
+
+# nomogram
 par(mar = rep(0, 4))
 nom <- nomogram(f.mi.BS.Rec, maxscale=10,
               Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class,
@@ -1014,18 +1044,20 @@ nom
 
 # Risk score distribution
 ```{r, eval=TRUE}
+# baseline hazard of MSM
+f.MSM.basehaz <- basehaz(f.mi.BS.MSM,TRUE)
+h0.MSM <- f.MSM.basehaz$hazard[f.MSM.basehaz$time==max(f.MSM.basehaz$time[f.MSM.basehaz$time<=horizon])]
+lp.MSM <- f.mi.BS.MSM$linear
+
+# lp range MSM
 rc.MSM <- f.mi.BS.MSM$coef[1]*rc.Rec
 int.MSM <- f.mi.BS.MSM$coef[1]*int.Rec
-
 max.range <- 16
 points.range <- 0:max.range
 lp.points.Rec <- int.Rec+rc.Rec*points.range
 lp.points.MSM <- int.MSM+rc.MSM*points.range
 
-f.MSM.basehaz <- basehaz(f.mi.BS.MSM,TRUE)
-h0.MSM <- f.MSM.basehaz$hazard[f.MSM.basehaz$time==max(f.MSM.basehaz$time[f.MSM.basehaz$time<=horizon])]
-lp.MSM <- f.mi.BS.MSM$linear
-
+# Recurrence lp scores
 Breslow.trunc <- last.imputed.data.set$Breslow
 Breslow.trunc[last.imputed.data.set$Breslow<0.1] <- .1
 Breslow.trunc[last.imputed.data.set$Breslow>7] <- 7
@@ -1076,7 +1108,6 @@ axis(side = 4)
 mtext(side = 4, line = 3, 'Risk score distribution (%)')
 par(new = TRUE)
 plot(h.plot,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,main=NA,col="white")
-
 par(new = TRUE)
 plot(points.range,p.Rec*100,type="b",lwd=1,xlim=x.lim,ylim=y.lim,pch=15, xlab="Risk score",ylab="Predicted 5-year risk (%)")
 points(points.range,p.MSM*100,type="b",lwd=1,xlim=x.lim,ylim=y.lim,pch=16)
@@ -1100,26 +1131,33 @@ load(file=paste0('Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata'))
 
 # Test if model is correct
 ### Check calibration
+Intercept of recurrence should be the same as when setting covariates to 'zero' values minus the center
 ```{r, eval=TRUE}
-# Slope and intercept of recurrence and MSM
 int.Rec
-# check that int is same as this:
-log(20)*f.mi.BS.Rec$coef["Age.SN"]+log(0.1)*f.mi.BS.Rec$coef["Breslow"]+log(0.01)*f.mi.BS.Rec$coef["Rdamcrit"]-f.mi.BS.Rec$center
+log(20)*f.mi.BS.Rec$coef["Age.SN"]+
+  (log(0.1)-c.Breslow)*f.mi.BS.Rec$coef["Breslow"]+
+  log(0.01)*f.mi.BS.Rec$coef["Rdamcrit"]-
+  f.mi.BS.Rec$center
 ```
 
 ### Check mean event rates of risk distribution
+#### Recurrence
 ```{r, eval=TRUE}
-# Recurrence
 sum(h.Rec$density*fun.event(lp=lp.points.Rec, h0=h0.Rec))
-# equal to the 5-year survival probability, kaplanmeier op 5 jaar, survfit op 5 jaar
+# equal to the 5-year survival probability, e.g. kaplan-meier at 5 years, i.e. survfit at 5 years:
 SF<-survfit(S.Rec~1,data=sel.data)
 100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+# average probability of recurrence
 mean(fun.event(lp=lp.score.Rec, h0=h0.Rec))
+```
 
-# MSM
+#### MSM
+```{r, eval=TRUE}
 sum(h.Rec$density*fun.event(lp=lp.points.MSM, h0=h0.MSM))
+# equal to the 5-year survival probability, e.g. kaplan-meier at 5 years, i.e. survfit at 5 years:
 SF<-survfit(S.MSM~1,data=sel.data)
 100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+# average probability of MSM
 mean(fun.event(lp=lp.MSM, h0=h0.MSM))
 ```
 
@@ -1138,12 +1176,8 @@ lp.score.Rec.try <- predict(f.mi.BS.Rec, newdata=data.frame(SNstatus=data.to.be.
 p.Rec.example <- fun.event(lp=lp.score.Rec.try, h0=h0.Rec)
 p.MSM.example <- fun.event(lp=lp.score.Rec.try, h0=h0.MSM)
 
-# score
-round((lp.score.Rec.try-int.Rec)/rc.Rec,0)
-
 # manual calculation
-coef.Rec <- stats::coef(f.mi.BS.Rec)
-lp.manual <- coef.Rec["SNstatus=Positive"]*(as.numeric(data.to.be.imputed[patient.nr,"SNstatus"])-1)+
+lp.score.Rec.manual <- coef.Rec["SNstatus=Positive"]*(as.numeric(data.to.be.imputed[patient.nr,"SNstatus"])-1)+
               coef.Rec["Age.SN"]*log(data.to.be.imputed[patient.nr,"Age.SN"])+
               coef.Rec["Ulceration=Yes"]*(as.numeric(data.to.be.imputed[patient.nr,"Ulceration"])-1)+
               coef.Rec["Loc_CAT=leg"]*as.numeric(data.to.be.imputed[patient.nr,"Loc_CAT"]=="leg")+
@@ -1152,25 +1186,27 @@ lp.manual <- coef.Rec["SNstatus=Positive"]*(as.numeric(data.to.be.imputed[patien
               coef.Rec["Breslow"]*(log(data.to.be.imputed[patient.nr,"Breslow"])-c.Breslow)+
               coef.Rec["Rdamcrit"]*log(data.to.be.imputed[patient.nr,"Rdamcrit"])+
               coef.Rec["SNstatus=Positive * Breslow"]*(log(data.to.be.imputed[patient.nr,"Breslow"])-c.Breslow)*(as.numeric(data.to.be.imputed[patient.nr,"SNstatus"])-1)
-center.Rec <- f.mi.BS.Rec$center
 
-# lp
+# lp check
 lp.score.Rec.true
 lp.score.Rec.try
-lp.manual-center.Rec
+lp.score.Rec.manual-center.Rec
 
-# probability of recurrence
+# probability of recurrence with fun.event
 fun.event(lp=lp.score.Rec.try, h0=h0.Rec)
-1-exp(-h0.Rec*exp(lp.manual-center.Rec))
+# probability of recurrence manually
+1-exp(-h0.Rec*exp(lp.score.Rec.manual-center.Rec))
 
-# check MSM
+# check calculation of lp of MSM
 lp.score.MSM.true <- predict(f.mi.BS.MSM)[patient.nr]
 lp.score.MSM.true
-lp.MSM.try <- MSM.cal.fact*(lp.manual-center.Rec)
+lp.MSM.try <- MSM.cal.fact*(lp.score.Rec.manual-center.Rec)
 lp.MSM.try
+
+# probability of MSM with fun.event
 fun.event(lp=lp.MSM.try, h0=h0.MSM)
-fun.event(lp=lp.MSM.try, h0=h0.MSM)
-1-exp(-h0.MSM*exp(MSM.cal.fact*(lp.manual-center.Rec)))
+# probability of MSM manually
+1-exp(-h0.MSM*exp(MSM.cal.fact*(lp.score.Rec.manual-center.Rec)))
 ```
 
 ### Test with old tool predictions recurrence for negative SN status patients
@@ -1190,13 +1226,22 @@ old.negativeSN.tool <- rscript.negative(breslow=last.imputed.data.set[last.imput
         location=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Loc_CAT"])-1)
 lp.negative <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative",], type="lp")
 new.negativeSN.tool <- 1-exp(-h0.Rec*exp(lp.negative))
-plot(x=fun.event(lp=new.negativeSN.tool, h0=h0.Rec)*100, y=old.negativeSN.tool,
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/new.old.negatives.png"))
+plot(x=new.negativeSN.tool*100, y=old.negativeSN.tool,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with negative SN status")
+abline(a=0, b=1, col="red")
+grDevices::dev.off()
+```
+
+```{r, eval=TRUE, echo=FALSE}
+plot(x=new.negativeSN.tool*100, y=old.negativeSN.tool,
      xlim=c(0, 100), ylim=c(0, 100),
      xlab="New predictions", ylab="Old predictions",
      main="Predicted recurrence of patients with negative SN status")
 abline(a=0, b=1, col="red")
 ```
-
 
 ### Test with old tool predictions recurrence for positive SN status patients
 ```{r, eval=TRUE}
@@ -1215,7 +1260,17 @@ old.positiveSN.tool <- rscript.positive(age=last.imputed.data.set[last.imputed.d
                                tumor_burden=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Rdamcrit"]))
 lp.positive <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive",], type="lp")
 new.positiveSN.tool <- 1-exp(-h0.Rec*exp(lp.positive))
-plot(x=fun.event(lp=new.positiveSN.tool, h0=h0.Rec)*100, y=old.positiveSN.tool,
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/new.old.positives.png"))
+plot(x=new.positiveSN.tool*100, y=old.positiveSN.tool,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with positive SN status")
+abline(a=0, b=1, col="red")
+grDevices::dev.off()
+```
+
+```{r, eval=TRUE, echo=FALSE}
+plot(x=new.positiveSN.tool*100, y=old.positiveSN.tool,
      xlim=c(0, 100), ylim=c(0, 100),
      xlab="New predictions", ylab="Old predictions",
      main="Predicted recurrence of patients with positive SN status")

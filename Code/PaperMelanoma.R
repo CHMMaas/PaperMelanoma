@@ -45,9 +45,10 @@ cat("Number of patients excluded:", nrow(original.data)-nrow(sel.data), "\n")
 # because diagnosis and operation date are very close but OK
 
 # Omit patient A0523 - no last follow-up date
+sel.data[which(is.na(sel.data$Last_FU)), "DatabaseNR"]
 sel.data <- sel.data[sel.data$DatabaseNR!="A0523               ",]
 
-# TODO: 11 patients with positive SN have SN tumour burden of exactly 1
+# 11 patients with positive SN have SN tumour burden of exactly 1
 sum(sel.data$Rdamcrit==1&sel.data$SNstatus=="Positive"&!is.na(sel.data$Rdamcrit))
 # Set Rdamcrit of negative SN patients equal to 0
 sel.data$Rdamcrit[sel.data$SNstatus=="Negative"] <- 1 # since log(1) = 0
@@ -68,8 +69,13 @@ sel.data$MSM<-1*(sel.data$Status=="DOD")
 # Define multiple fields
 sel.data$multiple.fields <- ifelse(!is.na(sel.data$nr_SNs_Field_2)&sel.data$nr_SNs_Field_2>0,1,0)
 
+# no negative patients have positive nodes
+sum(!is.na(sel.data$Tot_SNs_pos)&sel.data$Tot_SNs_pos>0&sel.data$SNstatus=="Negative")
+
 # Create number of negative nodes removed
 sel.data$Tot_SNs_neg <- sel.data$Tot_nr_SNs - sel.data$Tot_SNs_pos
+# 467 positive SN patients have negative nodes
+sum(!is.na(sel.data$Tot_SNs_neg)&sel.data$Tot_SNs_neg>0&sel.data$SNstatus=="Positive")
 
 # Use age at SN instead of age at diagnosis
 sel.data$Age.SN <- floor((sel.data$SNdate-sel.data$DOB)/(24*60*60)/365.25)
@@ -1038,15 +1044,13 @@ save(MSM.cal.fact, h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec,
 load(file=paste0('./Results/h0.Rec.MSM.Rdata'))
 
 # Test probabilities
-### Test proportional hazards assumption
-test.prop<-survival::cox.zph(f.mi.full.Rec$fits[[1]])
-test.prop
-plot(test.prop)
-
 # Slope and intercept of recurrence and MSM
 int.Rec
 # check that int is same as this:
-log(20)*f.mi.BS.Rec$coef["Age.SN"]+log(0.1)*f.mi.BS.Rec$coef["Breslow"]+log(0.01)*f.mi.BS.Rec$coef["Rdamcrit"]-f.mi.BS.Rec$center
+log(20)*f.mi.BS.Rec$coef["Age.SN"]+
+  (log(0.1)-c.Breslow)*f.mi.BS.Rec$coef["Breslow"]+
+  log(0.01)*f.mi.BS.Rec$coef["Rdamcrit"]-
+  f.mi.BS.Rec$center
 
 ### Check mean event rates of risk distribution
 # Recurrence
@@ -1135,7 +1139,7 @@ old.negativeSN.tool <- rscript.negative(breslow=last.imputed.data.set[last.imput
         location=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Loc_CAT"])-1)
 lp.negative <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative",], type="lp")
 new.negativeSN.tool <- 1-exp(-h0.Rec*exp(lp.negative))
-plot(x=fun.event(lp=new.negativeSN.tool, h0=h0.Rec)*100, y=old.negativeSN.tool,
+plot(x=new.negativeSN.tool*100, y=old.negativeSN.tool,
      xlim=c(0, 100), ylim=c(0, 100),
      xlab="New predictions", ylab="Old predictions",
      main="Predicted recurrence of patients with negative SN status")
@@ -1157,7 +1161,7 @@ old.positiveSN.tool <- rscript.positive(age=last.imputed.data.set[last.imputed.d
                                tumor_burden=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Rdamcrit"]))
 lp.positive <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive",], type="lp")
 new.positiveSN.tool <- 1-exp(-h0.Rec*exp(lp.positive))
-plot(x=fun.event(lp=new.positiveSN.tool, h0=h0.Rec)*100, y=old.positiveSN.tool,
+plot(x=new.positiveSN.tool*100, y=old.positiveSN.tool,
      xlim=c(0, 100), ylim=c(0, 100),
      xlab="New predictions", ylab="Old predictions",
      main="Predicted recurrence of patients with positive SN status")
@@ -1204,3 +1208,8 @@ plot(h.plot.neg,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
      ylab="Risk score distribution (%)",ylim=y.lim.hist,main="Negative SN status",col="white")
 plot(h.plot.pos,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
      ylab="Risk score distribution (%)",ylim=y.lim.hist,main="Positive SN status",col="white")
+
+### Test proportional hazards assumption
+test.prop<-survival::cox.zph(f.mi.full.Rec$fits[[1]])
+test.prop
+plot(test.prop)
