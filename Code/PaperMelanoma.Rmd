@@ -16,6 +16,9 @@ This file includes the code and results for the above mentioned paper.
 # Data preparation
 ### Load packages, functions, and data 
 ```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# for reproducibility
+set.seed(100)
+
 # load libraries
 library(foreign)
 library(mice)
@@ -24,7 +27,6 @@ library(prodlim)
 library(rms)
 library(Hmisc)
 library(png)
-set.seed(100)
 # import function to create table of missing values
 source("Z:/Project Melanoom/PaperMelanoma/Code/table.missing.values.R") 
 # import function to plot calibration
@@ -71,7 +73,7 @@ selected.vars <- c("EXCLUSIE", "DatabaseNR", "Center", "Sex", "Age", "DOB",
                    "Tot_SNs_pos", "Rdamcrit", "Dewar") # additional for positive SN patients
 ```
 
-### Exclude patients
+### Inclusion criteria
 Exclude when Exclusion = 2: based on duplicates, urogenital melanoma, etc. Note:
 Leave the patients included that have EXCLUSIE = 1 and Dbstatus = 8 (Dbstatus=0: 
 negative, Dbstatus=1: positive), even though diagnosis and operation date are 
@@ -158,9 +160,10 @@ Define recurrence time in years
 sel.data$Rec.time<- (sel.data$Date_1st_Rec-sel.data$SNdate)/(24*60*60)/365.25
 ```
 
-Omit patients with Rec date before SN date
+Omit patients with Rec date before SN date (TODO: or impute instead?)
 ```{r, eval=TRUE}
 old.n <- nrow(sel.data)
+sel.data[sel.data$Rec.time<0&!is.na(sel.data$Rec.time), "DatabaseNR"]
 sel.data <- sel.data[!(sel.data$Rec.time<0&!is.na(sel.data$Rec.time)),]
 cat("Number of patients excluded:", old.n-nrow(sel.data), "\n")
 ```
@@ -193,6 +196,7 @@ sel.data$Mitosis[sel.data$Mitosis=="Unknown"] <- NA
 #### Delete unused levels
 ```{r, eval=TRUE}
 sel.data <- droplevels(sel.data)
+save(sel.data,file='Z:/Project Melanoom/PaperMelanoma/Data/sel.data.Rdata', compress=TRUE)
 ```
 
 # Multiple imputation
@@ -204,9 +208,10 @@ variables.to.be.imputed <- c("Center", "SNstatus", "Sex", "Age.SN", "Ulceration"
                              "Recurrence", "dead", "MSM")
 data.to.be.imputed <- sel.data[,variables.to.be.imputed]
 ```
+
 Save distributions of all variables, necessary for Harrell summaries
 ```{r, eval=TRUE}
-dd<-datadist(data.to.be.imputed)
+dd<-rms::datadist(data.to.be.imputed)
 options(datadist='dd')
 options(digits=8)
 ```
@@ -268,42 +273,54 @@ for (center in sort(as.character(unique(sel.data$Center)))){
   tab.FU.time <- rbind(tab.FU.time, c(center, paste(sprintf("%.2f", med.FU), paste0("[", sprintf("%.2f", lower.FU), "; ", sprintf("%.2f", upper.FU), "]"))))
 }
 write.table(as.data.frame(tab.FU.time),file='Z:/Project Melanoom/PaperMelanoma/Results/med.FU.table.txt',
-            row.names=FALSE)
+            row.names=FALSE, sep=",")
 tab.FU.time
 ```
 
 # Recurrence at 5 years
 ```{r, eval=TRUE}
-Rec.table <- c("Total", sum(sel.data$Recurrence=="recurred"), sprintf("%.1f", sum(sel.data$Recurrence=="recurred")/nrow(sel.data)*100))
-Rec.table <- rbind(Rec.table, c("Positive", 
-                                sum(sel.data$Recurrence=="recurred"&sel.data$SNstatus=="Positive"),
-                                sprintf("%.1f", sum(sel.data$Recurrence=="recurred"&sel.data$SNstatus=="Positive")/sum(sel.data$SNstatus=="Positive")*100)))
-Rec.table <- rbind(Rec.table, c("Negative", 
-                                sum(sel.data$Recurrence=="recurred"&sel.data$SNstatus=="Negative"),
-                                sprintf("%.1f", sum(sel.data$Recurrence=="recurred"&sel.data$SNstatus=="Negative")/sum(sel.data$SNstatus=="Negative")*100)))
-utils::write.table(as.data.frame(Rec.table),file='Z:/Project Melanoom/PaperMelanoma/Results/Rec.table.txt',
-                   row.names=FALSE)
-Rec.table
-```
+horizon <- 5
+SF.Rec.all<-survfit(S.Rec~1)
+Rec.all <- 100*(1-SF.Rec.all$surv[SF.Rec.all$time==max(SF.Rec.all$time[SF.Rec.all$time<=horizon])])
 
-# Melanoma Specific Mortality at 5 years
-```{r, eval=TRUE}
-MSM.table <- c("Total", sum(sel.data$MSM==1), sprintf("%.1f", sum(sel.data$MSM==1)/nrow(sel.data)*100))
-MSM.table <- rbind(MSM.table, c("Positive", sum(sel.data$MSM==1&sel.data$SNstatus=="Positive"),
-                                sprintf("%.1f", sum(sel.data$MSM==1&sel.data$SNstatus=="Positive")/sum(sel.data$SNstatus=="Positive")*100)))
-MSM.table <- rbind(MSM.table, c("Negative", sum(sel.data$MSM==1&sel.data$SNstatus=="Negative"),
-                                sprintf("%.1f", sum(sel.data$MSM==1&sel.data$SNstatus=="Negative")/sum(sel.data$SNstatus=="Negative")*100)))
-utils::write.table(as.data.frame(MSM.table),file='Z:/Project Melanoom/PaperMelanoma/Results/MSM.table.txt',
-                   row.names=FALSE)
-MSM.table
+SF.Rec.neg<-survfit(S.Rec[sel.data$SNstatus=="Negative"]~1)
+Rec.neg <- 100*(1-SF.Rec.neg$surv[SF.Rec.neg$time==max(SF.Rec.neg$time[SF.Rec.neg$time<=horizon])])
+
+SF.Rec.pos<-survfit(S.Rec[sel.data$SNstatus=="Positive"]~1)
+Rec.pos <- 100*(1-SF.Rec.pos$surv[SF.Rec.pos$time==max(SF.Rec.pos$time[SF.Rec.pos$time<=horizon])])
+
+SF.MSM.all<-survfit(S.MSM~1)
+MSM.all <- 100*(1-SF.MSM.all$surv[SF.MSM.all$time==max(SF.MSM.all$time[SF.MSM.all$time<=horizon])])
+
+SF.MSM.neg<-survfit(S.MSM[sel.data$SNstatus=="Negative"]~1)
+MSM.neg <- 100*(1-SF.MSM.neg$surv[SF.MSM.neg$time==max(SF.MSM.neg$time[SF.MSM.neg$time<=horizon])])
+
+SF.MSM.pos<-survfit(S.MSM[sel.data$SNstatus=="Positive"]~1)
+MSM.pos <- 100*(1-SF.MSM.pos$surv[SF.MSM.pos$time==max(SF.MSM.pos$time[SF.MSM.pos$time<=horizon])])
+
+Rec.MSM.table <- data.frame(n=c(nrow(sel.data), 
+                                sum(sel.data$SNstatus=="Negative"), 
+                                sum(sel.data$SNstatus=="Positive")),
+                            perc=c(100, 
+                                   sprintf("%.1f", sum(sel.data$SNstatus=="Negative")/nrow(sel.data)*100),
+                                   sprintf("%.1f", sum(sel.data$SNstatus=="Positive")/nrow(sel.data)*100)),
+                            Rec=sprintf("%.1f", c(Rec.all, Rec.neg, Rec.pos)), 
+                            MSM=sprintf("%.1f", c(MSM.all, MSM.neg, MSM.pos)))
+row.names(Rec.MSM.table) <- c("All", "Negative", "Positive")
+utils::write.table(as.data.frame(Rec.MSM.table),file='Z:/Project Melanoom/PaperMelanoma/Results/Rec.MSM.table.txt',
+                   row.names=TRUE, sep=",")
+Rec.MSM.table
 ```
 
 # Restrict survival at 5 years
 ```{r, eval=TRUE}
-S.Rec[S.Rec[,1]>5, 1] <- 5 # set recurrence time to 5
-S.Rec[S.Rec[,1]>5, 2] <- 0 # set censoring
-S.MSM[S.MSM[,1]>5, 1] <- 5 # set follow-up time to 5
-S.MSM[S.MSM[,1]>5, 2] <- 0 # set censoring
+S.Rec.5 <- S.Rec
+S.Rec.5[S.Rec[,1]>5, 1] <- 5 # set recurrence time to 5
+S.Rec.5[S.Rec[,1]>5, 2] <- 0 # set censoring
+
+S.MSM.5 <- S.MSM
+S.MSM.5[S.MSM[,1]>5, 1] <- 5 # set follow-up time to 5
+S.MSM.5[S.MSM[,1]>5, 2] <- 0 # set censoring
 ```
 
 # Obtain C-index of AJCC7 and AJCC8
@@ -406,17 +423,17 @@ for (i in 1:m){
   AJCC.7 <- cbind(AJCC.7, AJCC.7.i)
 
   # compute C-index
-  rc <- Hmisc::rcorr.cens(-AJCC.7.i, S.Rec) # add a minus to revert class order: from worst to best
+  rc <- Hmisc::rcorr.cens(-AJCC.7.i, S.Rec.5) # add a minus to revert class order: from worst to best
   cindex.AJCC.7[i]<-rc["C Index"]
   cindex.AJCC.7.se[i]<-rc["S.D."]/2
 
   # compute C-index for only positive sentinel node patients
-  rc.pos <- Hmisc::rcorr.cens(-AJCC.7.i[imputation.i$SNstatus=="Positive"], S.Rec[imputation.i$SNstatus=="Positive",])
+  rc.pos <- Hmisc::rcorr.cens(-AJCC.7.i[imputation.i$SNstatus=="Positive"], S.Rec.5[imputation.i$SNstatus=="Positive",])
   cindex.AJCC.7.pos[i]<-rc.pos["C Index"]
   cindex.AJCC.7.se.pos[i]<-rc.pos["S.D."]/2
 
   # compute C-index for only negative sentinel node patients
-  rc.neg <- Hmisc::rcorr.cens(-AJCC.7.i[imputation.i$SNstatus=="Negative"], S.Rec[imputation.i$SNstatus=="Negative",])
+  rc.neg <- Hmisc::rcorr.cens(-AJCC.7.i[imputation.i$SNstatus=="Negative"], S.Rec.5[imputation.i$SNstatus=="Negative",])
   cindex.AJCC.7.neg[i]<-rc.neg["C Index"]
   cindex.AJCC.7.se.neg[i]<-rc.neg["S.D."]/2
 }
@@ -435,7 +452,8 @@ utils::write.table(rbind(c("All patients:", sprintf('%.2f', cindex.mi.AJCC.7$est
             c("Negative SN patients:", sprintf('%.2f', cindex.mi.AJCC.7.neg$est),
                   paste0("[", sprintf('%.2f', cindex.mi.AJCC.7.neg$est+qnorm(.025)*cindex.mi.AJCC.7.neg$se),
                          "; ", sprintf('%.2f', cindex.mi.AJCC.7.neg$est+qnorm(.975)*cindex.mi.AJCC.7.neg$se), "]"))),
-            file='Z:/Project Melanoom/PaperMelanoma/Results/AJCC.7.Cindex.txt', row.names=FALSE, col.names=FALSE)
+            file='Z:/Project Melanoom/PaperMelanoma/Results/AJCC.7.Cindex.txt', 
+            row.names=FALSE, col.names=FALSE, sep=",")
 
 #####
 ##### COMPARE MODEL WITH AJCC.8 CLASIFCATION
@@ -528,17 +546,17 @@ for (i in 1:m){
   AJCC.8 <- cbind(AJCC.8, AJCC.8.i)
 
   # compute C-index
-  rc <- Hmisc::rcorr.cens(-AJCC.8.i, S.Rec) # add a minus to revert class order: from worst to best
+  rc <- Hmisc::rcorr.cens(-AJCC.8.i, S.Rec.5) # add a minus to revert class order: from worst to best
   cindex.AJCC.8[i]<-rc["C Index"]
   cindex.AJCC.8.se[i]<-rc["S.D."]/2
 
   # compute C-index for only positive sentinel node patients
-  rc.pos <- Hmisc::rcorr.cens(-AJCC.8.i[imputation.i$SNstatus=="Positive"], S.Rec[imputation.i$SNstatus=="Positive",])
+  rc.pos <- Hmisc::rcorr.cens(-AJCC.8.i[imputation.i$SNstatus=="Positive"], S.Rec.5[imputation.i$SNstatus=="Positive",])
   cindex.AJCC.8.pos[i]<-rc.pos["C Index"]
   cindex.AJCC.8.se.pos[i]<-rc.pos["S.D."]/2
 
   # compute C-index for only negative sentinel node patients
-  rc.neg <- Hmisc::rcorr.cens(-AJCC.8.i[imputation.i$SNstatus=="Negative"], S.Rec[imputation.i$SNstatus=="Negative",])
+  rc.neg <- Hmisc::rcorr.cens(-AJCC.8.i[imputation.i$SNstatus=="Negative"], S.Rec.5[imputation.i$SNstatus=="Negative",])
   cindex.AJCC.8.neg[i]<-rc.neg["C Index"]
   cindex.AJCC.8.se.neg[i]<-rc.neg["S.D."]/2
 }
@@ -557,7 +575,8 @@ utils::write.table(rbind(c("All patients:", sprintf('%.2f', cindex.mi.AJCC.8$est
                   c("Negative SN patients", sprintf('%.2f', cindex.mi.AJCC.8.neg$est),
                         paste0("[", sprintf('%.2f', cindex.mi.AJCC.8.neg$est+qnorm(.025)*cindex.mi.AJCC.8.neg$se),
                                "; ", sprintf('%.2f', cindex.mi.AJCC.8.neg$est+qnorm(.975)*cindex.mi.AJCC.8.neg$se), "]"))),
-            file='Z:/Project Melanoom/PaperMelanoma/Results/AJCC.8.Cindex.txt', row.names=FALSE, col.names=FALSE)
+            file='Z:/Project Melanoom/PaperMelanoma/Results/AJCC.8.Cindex.txt', 
+            row.names=FALSE, col.names=FALSE, sep=",")
 
 # table of number of AJCC.7 and AJCC.8
 table.AJCC.7 <- c()
@@ -570,16 +589,140 @@ table.AJCC.7.8 <- cbind(as.numeric(names(table(AJCC.8[,1]))),
                         c(round(rowMeans(table.AJCC.7), 0), 0),
                         round(rowMeans(table.AJCC.8), 0))
 utils::write.table(table.AJCC.7.8,
-            file='Z:/Project Melanoom/PaperMelanoma/Results/table.AJCC.7.and.8.txt', row.names=FALSE, col.names=FALSE)
+            file='Z:/Project Melanoom/PaperMelanoma/Results/table.AJCC.7.and.8.txt', 
+            row.names=FALSE, col.names=FALSE, sep=",")
 table.AJCC.7.8
+```
+
+# Test non-lineairities
+### Test if Age should be modelled non-linearly
+```{r, eval=TRUE}
+form.linear.full.Rec <- S.Rec.5 ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
+form.nonlinear.age.full.Rec <- S.Rec.5 ~
+  SNstatus +
+  Sex +
+  log(Age.SN) +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:log(Age.SN) +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
+linear.full.Rec <- Hmisc::fit.mult.impute(form.linear.full.Rec, cph, xtrans=imputed.data,
+                                 data=data.to.be.imputed,n.impute=m, pr=FALSE,
+                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+nonlinear.age.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.age.full.Rec, cph, xtrans=imputed.data,
+                                 data=data.to.be.imputed,n.impute=m, pr=FALSE,
+                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+# distribution of Age
+hist(last.imputed.data.set$Age.SN)
+# linear model
+linear.full.Rec$loglik[2]
+# using log(Age) gives slightly better log likelihood
+nonlinear.age.full.Rec$loglik[2]
+```
+
+### Test if Breslow should be modelled non-linearly
+```{r, eval=TRUE}
+form.nonlinear.Breslow.full.Rec <- S.Rec.5 ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  log(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:log(Breslow) +
+  SNstatus:multiple.fields
+nonlinear.Breslow.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Breslow.full.Rec, cph, xtrans=imputed.data,
+                                 data=data.to.be.imputed,n.impute=m, pr=FALSE,
+                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+# distribution of Breslow
+hist(last.imputed.data.set$Breslow)
+# linear model
+linear.full.Rec$loglik[2]
+# using log(Breslow) gives better log likelihood
+nonlinear.Breslow.full.Rec$loglik[2]
+```
+
+### Test if Rdamcrit should be modelled non-linearly
+```{r, eval=TRUE}
+form.nonlinear.Rdamcrit.full.Rec <- S.Rec.5 ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  log(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
+nonlinear.Rdamcrit.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Rdamcrit.full.Rec, cph, xtrans=imputed.data,
+                                 data=data.to.be.imputed,n.impute=m, pr=FALSE,
+                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+# distribution of Rdamcrit
+hist(last.imputed.data.set$Rdamcrit)
+# linear model
+linear.full.Rec$loglik[2]
+# using log(Rdamcrit) gives better log likelihood
+nonlinear.Rdamcrit.full.Rec$loglik[2]
 ```
 
 # Full model for recurrence
 ```{r, eval=TRUE}
-form.full.Rec <- S.Rec ~
+form.full.Rec.5 <- S.Rec.5 ~
   SNstatus +
   Sex +
-  log(Age.SN) +
+  Age.SN +
   Ulceration +
   Loc_CAT +
   Histology +
@@ -590,43 +733,44 @@ form.full.Rec <- S.Rec ~
   log(Rdamcrit) +
   Dewar +
   SNstatus:Sex +
-  SNstatus:log(Age.SN) +
+  SNstatus:Age.SN +
   SNstatus:Ulceration +
   SNstatus:Loc_CAT +
   SNstatus:Histology +
   SNstatus:log(Breslow) +
   SNstatus:multiple.fields
-f.mi.full.Rec <- Hmisc::fit.mult.impute(form.full.Rec, cph, xtrans=imputed.data,
+f.mi.full.Rec.5 <- Hmisc::fit.mult.impute(form.full.Rec.5, cph, xtrans=imputed.data,
                                  data=data.to.be.imputed,n.impute=m, pr=FALSE,
                                  fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
-f.mi.full.Rec
-stats::anova(f.mi.full.Rec)
-summary(f.mi.full.Rec)
+# stats::anova(f.mi.full.Rec.5)
+summary(f.mi.full.Rec.5, Tot_SNs_pos=c(0, 1))
 ```
 
 # Final model for recurrence selected by backward selection with p = 0.01
 ```{r, eval=TRUE}
 c.Breslow <- mean(log(last.imputed.data.set$Breslow))
-form.BS.Rec <- S.Rec ~
+form.BS.Rec.5 <- S.Rec.5 ~
   SNstatus +
-  log(Age.SN) +
+  Age.SN +
   Ulceration +
   Loc_CAT +
   I(log(Breslow)-c.Breslow) +
   log(Rdamcrit) +
   SNstatus:I(log(Breslow)-c.Breslow)
-f.mi.BS.Rec <- Hmisc::fit.mult.impute(form.BS.Rec,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
+f.mi.BS.Rec.5 <- Hmisc::fit.mult.impute(form.BS.Rec.5,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
                            pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
-# round(stats::anova(f.mi.BS.Rec)[order(stats::anova(f.mi.BS.Rec)[, 'P']),], 3)
-stats::anova(f.mi.BS.Rec)
+summary(f.mi.BS.Rec.5, Breslow=exp(c.Breslow))
+coef(f.mi.BS.Rec.5)
+# round(stats::anova(f.mi.BS.Rec.5)[order(stats::anova(f.mi.BS.Rec.5)[, 'P']),], 3)
+stats::anova(f.mi.BS.Rec.5)
 ```
 
 # Refitted full model for melanoma specific mortality
 ```{r, eval=TRUE}
-form.full.MSM.refit <- S.MSM ~
+form.full.MSM.5.refit <- S.MSM.5 ~
   SNstatus +
   Sex +
-  log(Age.SN) +
+  Age.SN +
   Ulceration +
   Loc_CAT +
   Histology +
@@ -637,122 +781,213 @@ form.full.MSM.refit <- S.MSM ~
   log(Rdamcrit) +
   Dewar +
   SNstatus:Sex +
-  SNstatus:log(Age.SN) +
+  SNstatus:Age.SN +
   SNstatus:Ulceration +
   SNstatus:Loc_CAT +
   SNstatus:Histology +
   SNstatus:log(Breslow) +
   SNstatus:multiple.fields
-f.mi.full.MSM.refit <- Hmisc::fit.mult.impute(form.full.MSM.refit,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
+f.mi.full.MSM.5.refit <- Hmisc::fit.mult.impute(form.full.MSM.5.refit,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
                                  pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
-f.mi.full.MSM.refit
-summary(f.mi.full.MSM.refit)
-stats::anova(f.mi.full.MSM.refit)
+f.mi.full.MSM.5.refit
+summary(f.mi.full.MSM.5.refit, Tot_SNs_pos=c(0, 1))
+stats::anova(f.mi.full.MSM.5.refit)
 ```
 
 # Refitted final model for melanoma specific mortality
 ```{r, eval=TRUE}
-form.BS.MSM.refit <- S.MSM ~
+form.BS.MSM.5.refit <- S.MSM.5 ~
   SNstatus +
-  log(Age.SN) +
+  Age.SN +
   Ulceration +
   Loc_CAT +
   I(log(Breslow)-c.Breslow) +
   log(Rdamcrit) +
   SNstatus:I(log(Breslow)-c.Breslow)
-f.mi.BS.MSM.refit <- Hmisc::fit.mult.impute(form.BS.MSM.refit,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
+f.mi.BS.MSM.5.refit <- Hmisc::fit.mult.impute(form.BS.MSM.5.refit,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
                                   pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
-# round(anova(f.mi.BS.MSM.refit)[order(anova(f.mi.BS.MSM.refit)[, 'P']),], 3)
-f.mi.BS.MSM.refit
-summary(f.mi.BS.MSM.refit)
-stats::anova(f.mi.BS.MSM.refit)
+# round(anova(f.mi.BS.MSM.5.refit)[order(anova(f.mi.BS.MSM.5.refit)[, 'P']),], 3)
+f.mi.BS.MSM.5.refit
+summary(f.mi.BS.MSM.5.refit, Breslow=exp(c.Breslow))
+stats::anova(f.mi.BS.MSM.5.refit)
 ```
 
 # Calibrated final model for melanoma specific mortality
 Fit disease specific mortality to the linear predictor of recurrence
 ```{r, eval=TRUE}
-lp.BS<-f.mi.BS.Rec$linear
-f.mi.BS.MSM<-rms::cph(S.MSM~lp.BS,y=TRUE,x=TRUE)
-MSM.cal.fact <- stats::coef(f.mi.BS.MSM)
+lp.BS<-f.mi.BS.Rec.5$linear
+f.mi.BS.MSM.5<-rms::cph(S.MSM.5~lp.BS,y=TRUE,x=TRUE)
+MSM.cal.fact <- stats::coef(f.mi.BS.MSM.5)
 MSM.cal.fact
-stats::confint(f.mi.BS.MSM)
-utils::write.table(paste0(sprintf("%.2f", stats::coef(f.mi.BS.MSM)), " [",
-            sprintf("%.2f", as.numeric(stats::confint(f.mi.BS.MSM))[1]), "; ",
-            sprintf("%.2f", as.numeric(stats::confint(f.mi.BS.MSM))[2]), "]"),
-            file='Z:/Project Melanoom/PaperMelanoma/Results/calibration.MSS.txt', row.names=FALSE, col.names=FALSE)
+stats::confint(f.mi.BS.MSM.5)
+utils::write.table(paste0(sprintf("%.2f", stats::coef(f.mi.BS.MSM.5)), " [",
+            sprintf("%.2f", as.numeric(stats::confint(f.mi.BS.MSM.5))[1]), "; ",
+            sprintf("%.2f", as.numeric(stats::confint(f.mi.BS.MSM.5))[2]), "]"),
+            file='Z:/Project Melanoom/PaperMelanoma/Results/calibration.MSS.txt', 
+            row.names=FALSE, col.names=FALSE, sep=",")
 ```
 
 ### Create variables with results
 ##### Full model
 ```{r, eval=TRUE}
-for (model in c('Rec', 'MSM.refit')){
+for (model in c('Rec.5', 'MSM.5.refit')){
+  # load model
   f.mi.full <- eval(parse(text=paste0('f.mi.full.', model)))
 
-  CI.lower.neg <- exp(stats::confint(f.mi.full)[,1])
-  CI.upper.neg <- exp(stats::confint(f.mi.full)[,2])
-  CI.neg <- paste0("[", sprintf("%.2f", CI.lower.neg), "; ", sprintf("%.2f", CI.upper.neg), "]")
-  CI.lower.pos <- c(CI.lower.neg[2:12]*CI.lower.neg[20:30], CI.lower.neg[14:19])
-  CI.upper.pos <- c(CI.upper.neg[2:12]*CI.upper.neg[20:30], CI.upper.neg[14:19])
-  CI.pos <- paste0("[", sprintf("%.2f", CI.lower.pos), "; ", sprintf("%.2f", CI.upper.pos), "]")
-
-  anova.full <- stats::anova(f.mi.full)[,1]
-
-  full.table <- cbind(c(NA, sprintf("%.2f", exp(f.mi.full$coefficients[2:13])), rep(NA, 5)), # COEF NEG
-                      c(NA, CI.neg[2:13], rep(NA, 5)), # CI NEG
-                      sprintf("%.2f", c(exp(f.mi.full$coefficients[1]), # COEF POS
-                        exp(f.mi.full$coefficients[2:12])*exp(f.mi.full$coefficients[20:30]),
-                        exp(f.mi.full$coefficients[14]), exp(f.mi.full$coefficients[15:19]))),
-                      c(CI.neg[1], CI.pos), # CI POS
-                      c(sprintf("%.1f", anova.full[c(1, 3, 5, 7, 9)]), rep(NA, 2), # CHI2 NEG
-                            sprintf("%.1f", anova.full[11]), rep(NA, 2),
-                            sprintf("%.1f", anova.full[c(13, 15, 17, 19, 20)]), rep(NA, 3)),
-                      c(sprintf("%.1f", anova.full[c(2, 21, 22, 23, 24)]), rep(NA, 2), # CHI2 POS
-                            sprintf("%.1f", anova.full[25]), rep(NA, 2),
-                            sprintf("%.1f", anova.full[c(26:27, 18)]), rep(NA, 5)))
-
-  ncols <- 6
+  # Coefficients with CI
+  # Negative results
+  neg.results <- summary(f.mi.full, SNstatus="Negative", Loc_CAT="arm")
+  neg.table <- rbind(rep(NA, 3), # SN status
+                   exp(neg.results[c("Sex - male:female",
+                        "Age.SN",
+                        "Ulceration - Yes:No",
+                        "Loc_CAT - leg:arm",
+                        "Loc_CAT - trunk:arm",
+                        "Loc_CAT - head & neck:arm",
+                        "Histology - NM:SSM",
+                        "Histology - ALM:SSM",
+                        "Histology - other:SSM",
+                        "Breslow",
+                        "multiple.fields",
+                        "Tot_SNs_neg"), c("Effect", "Lower 0.95", "Upper 0.95")]), 
+                   matrix(NA, nrow=6, ncol=3)) # Tot_SNs_pos, Rdamcrit, Combined, Parenchymal, Multifocal, Extensive
+  # add CI
+  neg.table <- cbind(sprintf("%.2f", neg.table[, 1]),
+                     paste0("[", sprintf("%.2f", neg.table[, 2]), "; ", sprintf("%.2f", neg.table[, 3]), "]"))
+  
+  # Positive results
+  pos.results <- summary(f.mi.full, SNstatus="Positive", Loc_CAT="arm", Tot_SNs_pos=c(0, 1))
+  pos.table <- rbind(exp(neg.results["SNstatus - Positive:Negative", c("Effect", "Lower 0.95", "Upper 0.95")]),
+                     exp(pos.results[c("Sex - male:female",
+                        "Age.SN",
+                        "Ulceration - Yes:No",
+                        "Loc_CAT - leg:arm",
+                        "Loc_CAT - trunk:arm",
+                        "Loc_CAT - head & neck:arm",
+                        "Histology - NM:SSM",
+                        "Histology - ALM:SSM",
+                        "Histology - other:SSM",
+                        "Breslow",
+                        "multiple.fields",
+                        "Tot_SNs_neg",
+                        "Tot_SNs_pos",
+                        "Rdamcrit",
+                        "Dewar - combined:subcap",
+                        "Dewar - parenchymal:subcap",
+                        "Dewar - multifocal:subcap",
+                        "Dewar - extensive:subcap"), c("Effect", "Lower 0.95", "Upper 0.95")]))
+  # add CI
+  pos.table <- cbind(sprintf("%.2f", pos.table[, 1]), 
+                     paste0("[", sprintf("%.2f", pos.table[, 2]), "; ", sprintf("%.2f", pos.table[, 3]), "]"))
+  
+  # combine postive with negative
+  full.table <- cbind(neg.table, pos.table)
+  
+  # add reference rows
   final.table <- rbind(full.table[1:4,],
-                       rep(NA, ncols), # location
-                       c("(ref)", NA, "(ref)", rep(NA, 3)), # ref arm
-                       full.table[5:7,], # other locations
-                       rep(NA, ncols), # histology
-                       c("(ref)", NA, "(ref)", rep(NA, 3)), # ref SMM
-                       full.table[8:14,],
-                       rep(NA, ncols), # Dewar
-                       c(rep(NA, 2), "(ref)", rep(NA, 3)), # ref subcap
-                       full.table[15:18,]) # other Dewar
+                       rep(NA, 4),     # location
+                       c("(ref)", NA, "(ref)", NA), # ref arm
+                       full.table[5:7,],   # other locations
+                       rep(NA, 4),     # histology
+                       c("(ref)", NA, "(ref)", NA), # ref SMM
+                       full.table[8:15,],
+                       rep(NA, 4),     # Dewar
+                       c(rep(NA, 2), "(ref)", NA), # ref subcap
+                       full.table[16:nrow(full.table),]) # other Dewar
+  
+  # add Chi-square statistics
+  anova.out <- anova(f.mi.full)[, "Chi-Square"]
+  anova.main <- c(anova.out[c("SNstatus  (Factor+Higher Order Factors)",
+                        "Sex  (Factor+Higher Order Factors)",
+                        "Age.SN  (Factor+Higher Order Factors)",
+                        "Ulceration  (Factor+Higher Order Factors)",
+                        "Loc_CAT  (Factor+Higher Order Factors)")],
+                  rep(NA, 4),
+                  anova.out["Histology  (Factor+Higher Order Factors)"],
+                  rep(NA, 4),
+                  anova.out[c("Breslow  (Factor+Higher Order Factors)",
+                        "multiple.fields  (Factor+Higher Order Factors)",
+                        "Tot_SNs_neg",
+                        "Tot_SNs_pos",
+                        "Rdamcrit",
+                        "Dewar")],
+                  rep(NA, 5))
+  anova.int <- c(anova.out[c("TOTAL INTERACTION",
+                       "SNstatus * Sex  (Factor+Higher Order Factors)",
+                       "SNstatus * Age.SN  (Factor+Higher Order Factors)",
+                       "SNstatus * Ulceration  (Factor+Higher Order Factors)",
+                       "SNstatus * Loc_CAT  (Factor+Higher Order Factors)")],
+                 rep(NA, 4),
+                 anova.out["SNstatus * Histology  (Factor+Higher Order Factors)"],
+                 rep(NA, 4),
+                 anova.out[c("SNstatus * Breslow  (Factor+Higher Order Factors)",
+                       "SNstatus * multiple.fields  (Factor+Higher Order Factors)")],
+                 rep(NA, 9))
+  final.table <- cbind(final.table, sprintf("%.0f", anova.main), sprintf("%.0f", anova.int))
 
-  colnames(final.table) <- c("HR.neg", "CI.neg", "HR.pos", "CI.pos", "Chi2.neg", "Chi2.pos")
+  colnames(final.table) <- c("HR.neg", "CI.neg", "HR.pos", "CI.pos", "Main", "Int")
   assign(paste0('final.full.table.', model), as.data.frame(final.table))
 }
 ```
 
 ##### Final model
 ```{r, eval=TRUE}
-for (model in c('Rec', 'MSM.refit')){
+for (model in c('Rec.5', 'MSM.5.refit')){
   f.mi.BS <- eval(parse(text=paste0('f.mi.BS.', model)))
 
-  CI.lower.neg <- exp(confint(f.mi.BS)[,1])
-  CI.upper.neg <- exp(confint(f.mi.BS)[,2])
-  CI.neg <- paste0("[", sprintf("%.2f", CI.lower.neg), "; ", sprintf("%.2f", CI.upper.neg), "]")
+  # Coefficients with CI
+  # Negative results
+  neg.results.BS <- summary(f.mi.BS, SNstatus="Negative", Breslow=exp(c.Breslow), Loc_CAT="arm")
+  neg.table.BS <- rbind(rep(NA, 3), # SN status
+                   exp(neg.results.BS[c("Age.SN",
+                        "Ulceration - Yes:No",
+                        "Loc_CAT - leg:arm",
+                        "Loc_CAT - trunk:arm",
+                        "Loc_CAT - head & neck:arm",
+                        "Breslow"), c("Effect", "Lower 0.95", "Upper 0.95")]), 
+                   rep(NA, 3)) # Rdamcrit
+  # add CI
+  neg.table.BS <- cbind(sprintf("%.2f", neg.table.BS[, 1]), 
+                        paste0("[", sprintf("%.2f", neg.table.BS[, 2]), "; ", sprintf("%.2f", neg.table.BS[, 3]), "]"))
+  
+  # Positive results
+  pos.results.BS <- summary(f.mi.BS, SNstatus="Positive", Breslow=exp(c.Breslow), Loc_CAT="arm")
+  pos.table.BS <- rbind(exp(neg.results.BS["SNstatus - Positive:Negative", c("Effect", "Lower 0.95", "Upper 0.95")]),
+                     exp(pos.results.BS[c("Age.SN",
+                        "Ulceration - Yes:No",
+                        "Loc_CAT - leg:arm",
+                        "Loc_CAT - trunk:arm",
+                        "Loc_CAT - head & neck:arm",
+                        "Breslow",
+                        "Rdamcrit"), c("Effect", "Lower 0.95", "Upper 0.95")]))
+  # add CI
+  pos.table.BS <- cbind(sprintf("%.2f", pos.table.BS[, 1]), 
+                        paste0("[", sprintf("%.2f", pos.table.BS[, 2]), "; ", sprintf("%.2f", pos.table.BS[, 3]), "]"))
+  
+  # combine postive with negative
+  BS.table <- cbind(neg.table.BS, pos.table.BS)
 
-  anova.BS <- anova(f.mi.BS)[,1]
-
-  CI.pos <- paste0("[", sprintf("%.2f", exp(confint(f.mi.BS)[7,1])*exp(confint(f.mi.BS)[9,1])),
-                   "; ", sprintf("%.2f", exp(confint(f.mi.BS)[7,2])*exp(confint(f.mi.BS)[9,2])), "]")
-
-  BS.table <- cbind(c(NA, sprintf("%.2f", exp(f.mi.BS$coefficients[2:7])), NA), # COEF NEG
-                    c(NA, CI.neg[2:7], NA), # CI NEG
-                    sprintf("%.2f", exp(f.mi.BS$coefficients[1:8])*c(rep(1, 6), exp(f.mi.BS$coefficients[9]), 1)), #COEF POS
-                    c(CI.neg[1:6], CI.pos, CI.neg[8]), # CI POS
-                    c(NA, sprintf("%.1f", anova.BS[3:5]), rep(NA, 2), sprintf("%.1f", anova.BS[c(6, 8)])), # CHI2 NEG
-                    c(sprintf("%.1f", anova.BS[1]), rep(NA, 5), # CHI2 POS
-                      sprintf("%.1f", anova.BS[9]), NA))
-
-  BS.table <- rbind(BS.table[1:3,], rep(NA, 6), c("(ref)", NA, "(ref)", rep(NA, 3)), BS.table[4:8,])
-
-  colnames(BS.table) <- c("HR.neg", "CI.neg", "HR.pos", "CI.pos", "Chi2.neg", "Chi2.pos")
-
+  # add reference rows
+  BS.table <- rbind(BS.table[1:3,], 
+                    rep(NA, 4), 
+                    c("(ref)", NA, "(ref)", NA), 
+                    BS.table[4:nrow(BS.table),])
+  
+  # add Chi-square statistics
+  anova.out <- anova(f.mi.BS)[, "Chi-Square"]
+  anova.main <- c(anova.out[c("SNstatus  (Factor+Higher Order Factors)",
+                        "Age.SN",
+                        "Ulceration",
+                        "Loc_CAT")],
+                  rep(NA, 4),
+                  anova.out[c("Breslow  (Factor+Higher Order Factors)",
+                        "Rdamcrit")])
+  anova.int <- c(rep(NA, 8),
+                 anova.out["SNstatus * Breslow  (Factor+Higher Order Factors)"],
+                 NA)
+  BS.table <- cbind(BS.table, sprintf("%.0f", anova.main), sprintf("%.0f", anova.int))
+  
+  colnames(BS.table) <- c("HR.neg", "CI.neg", "HR.pos", "CI.pos", "Main", "Int")
   assign(paste0('final.BS.table.', model), as.data.frame(BS.table))
 }
 ```
@@ -760,18 +995,17 @@ for (model in c('Rec', 'MSM.refit')){
 # Plot calibration of all centers combined and all centers seperate 
 for recurrence and melanoma specific mortality refit 
 ```{r, eval=TRUE}
-horizon <- 5
-for (model in list('Rec', 'MSM.refit')){
-  if (model == "Rec"){
+for (model in list('Rec.5', 'MSM.5.refit')){
+  if (model == 'Rec.5'){
     # plot predict
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Rec.png"))
-    plot.predict <- plot(Predict(f.mi.full.Rec))
+    plot.predict <- plot(Predict(f.mi.full.Rec.5))
     show(plot.predict)
     grDevices::dev.off()
 
     # plot predict Breslow
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Breslow.Rec.png"))
-    plot.Breslow <- plot(Predict(f.mi.full.Rec, Breslow=0:20, SNstatus), ~ Breslow, groups="SNstatus",
+    plot.Breslow <- plot(Predict(f.mi.full.Rec.5, Breslow=0:20, SNstatus), ~ Breslow, groups="SNstatus",
                          adj.subtitle=FALSE, lwd=2, labels=FALSE,
                          par.settings=list(superpose.line=list(lty=c(1, 2), col=c("red", "blue"))),
                          key=list(cex=.8,corner = c(0.1, .9),lines=list(col=c("red","blue"), lty=c(1,2), lwd=2),text=list(c("Negative","Positive"))))
@@ -782,11 +1016,11 @@ for (model in list('Rec', 'MSM.refit')){
   # discrimination full and backward selected model
   for (type in c("full", "BS")){
     f.mi <- eval(parse(text=paste0('f.mi.', type, '.', model)))
-    if (model=="Rec"){
-      S <- S.Rec
+    if (model=='Rec.5'){
+      S <- S.Rec.5
     }
     else if (model=="MSM.refit"){
-      S <- S.MSM
+      S <- S.MSM.5
     }
     p <- matrix(NA, nrow(sel.data), m)
     for (i in 1:m){
@@ -823,83 +1057,92 @@ for (model in list('Rec', 'MSM.refit')){
 
 # MSM recalibration
 for (type in c("full", "BS")){
-  f.mi <- eval(parse(text=paste0('f.mi.', type, '.Rec')))
+  f.mi <- eval(parse(text=paste0('f.mi.', type, '.Rec.5')))
   cindex.MSM.refit <- rep(0, m)
   cindex.se.MSM.refit <- rep(0, m)
   for (i in 1:m){
-    rc <- Hmisc::rcorr.cens(-predict(f.mi,newdata=mice::complete(imputed.data,i), type="lp"), S.MSM)
+    rc <- Hmisc::rcorr.cens(-predict(f.mi,newdata=mice::complete(imputed.data,i), type="lp"), S.MSM.5)
     cindex.MSM.refit[i]<-rc["C Index"]
     cindex.se.MSM.refit[i]<-rc["S.D."]/2
   }
   cindex.mi.MSM.refit<-Rubin.combine(cindex.MSM.refit,cindex.se.MSM.refit)
 
-  final.full.table <- eval(parse(text=paste0('final.', type, '.table.Rec')))
+  final.full.table <- eval(parse(text=paste0('final.', type, '.table.Rec.5')))
   final.full.table["C-index MSM", "HR.neg"] <- sprintf('%.2f', cindex.mi.MSM.refit$est)
   final.full.table["C-index MSM", "CI.neg"] <- paste0("[", sprintf('%.2f', cindex.mi.MSM.refit$est+qnorm(.025)*cindex.mi.MSM.refit$se),
                                                  "; ", sprintf('%.2f', cindex.mi.MSM.refit$est+qnorm(.975)*cindex.mi.MSM.refit$se), "]")
 
-  assign(paste0('final.', type, '.table.Rec'), final.full.table)
+  assign(paste0('final.', type, '.table.Rec.5'), final.full.table)
 }
 
 # replace NA by blank
-final.full.table.Rec[is.na(final.full.table.Rec)] <- ""
-final.full.table.MSM.refit[is.na(final.full.table.MSM.refit)] <- ""
-final.BS.table.Rec[is.na(final.BS.table.Rec)] <- ""
-final.BS.table.MSM.refit[is.na(final.BS.table.MSM.refit)] <- ""
+for (df in c("final.full.table.Rec.5", "final.full.table.MSM.5.refit", "final.BS.table.Rec.5", "final.BS.table.MSM.5.refit")){
+  final.df <- eval(parse(text=df))
+  final.df[final.df=="[NA; NA]"] <- NA
+  final.df[final.df=="NA"] <- NA
+  final.df[is.na(final.df)] <- ""
+  assign(df, final.df)
+}
 
 # set rownames
-final.full.table.Rec <- as.data.frame(final.full.table.Rec)
-row.names(final.full.table.Rec) <- c("Positive SN status", "Male",
-                                    "Age", "Ulceration", "Location",
+final.full.table.Rec.5 <- as.data.frame(final.full.table.Rec.5)
+row.names(final.full.table.Rec.5) <- c("Positive SN status", "Male",
+                                    "Age iqr", "Ulceration", "Location",
                                     "Arm", "Leg", "Trunk", "Head and neck",
                                     "Histology", "SSM", "NM", "ALM", "Other",
-                                    "Breslow", "Multiple fields", 
-                                    "Total number of nodes",
-                                    "SN tumour burden", 
+                                    "Breslow iqr", "Multiple fields", 
+                                    "Total number of negative nodes",
+                                    "Total number of positive nodes",
+                                    "SN tumour burden iqr", 
                                     "Location metastasis in lymph node",
                                     "Subcap", "Combined", "Parenchymal",
                                     "Multifocal", "Extensive",
-                                    rownames(final.full.table.Rec)[25:26])
-final.full.table.MSM.refit <- as.data.frame(final.full.table.MSM.refit)
-row.names(final.full.table.MSM.refit) <- c("Positive SN status", "Male",
+                                    rownames(final.full.table.Rec.5)[(nrow(final.full.table.Rec.5)-1):nrow(final.full.table.Rec.5)])
+final.full.table.MSM.5.refit <- as.data.frame(final.full.table.MSM.5.refit)
+row.names(final.full.table.MSM.5.refit) <- c("Positive SN status", "Male",
                                           "Age", "Ulceration", "Location",
                                           "Arm", "Leg", "Trunk", "Head and neck",
                                           "Histology", "SSM", "NM", "ALM", "Other",
                                           "Breslow", "Multiple fields", 
-                                          "Total number of nodes",
+                                          "Total number of negative nodes",
+                                          "Total number of positive nodes",
                                           "SN tumour burden", 
                                           "Location metastasis in lymph node",
                                           "Subcap", "Combined", "Parenchymal",
                                           "Multifocal", "Extensive",
-                                          row.names(final.full.table.Rec)[25])
-final.BS.table.Rec <- as.data.frame(final.BS.table.Rec)
-row.names(final.BS.table.Rec) <- c("Positive SN status", "Age", "Ulceration",
+                                          row.names(final.full.table.MSM.5.refit)[nrow(final.full.table.MSM.5.refit)])
+final.BS.table.Rec.5 <- as.data.frame(final.BS.table.Rec.5)
+row.names(final.BS.table.Rec.5) <- c("Positive SN status", "Age", "Ulceration",
                                    "Location", "Arm", "Leg", "Trunk", 
                                    "Head and neck",
                                    "Breslow", "SN tumour burden", 
-                                   row.names(final.BS.table.Rec)[11:12])
-final.BS.table.MSM.refit <- as.data.frame(final.BS.table.MSM.refit)
-row.names(final.BS.table.MSM.refit) <- c("Positive SN status", "Age", "Ulceration",
+                                   row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-1):nrow(final.BS.table.Rec.5)])
+final.BS.table.MSM.5.refit <- as.data.frame(final.BS.table.MSM.5.refit)
+row.names(final.BS.table.MSM.5.refit) <- c("Positive SN status", "Age", "Ulceration",
                                    "Location", "Arm", "Leg", "Trunk", 
                                    "Head and neck",
                                    "Breslow", "SN tumour burden", 
-                                   row.names(final.BS.table.MSM.refit)[11])
+                                   row.names(final.BS.table.MSM.5.refit)[nrow(final.BS.table.MSM.5.refit)])
 
 # save tables
-write.table(final.full.table.Rec,
-            file='Z:/Project Melanoom/PaperMelanoma/Results/final.full.table.Rec.txt', sep=",")
-write.table(final.full.table.MSM.refit,
-            file='Z:/Project Melanoom/PaperMelanoma/Results/final.full.table.MSM.refit.txt', sep=",")
-write.table(final.BS.table.Rec,
-            file='Z:/Project Melanoom/PaperMelanoma/Results/final.BS.table.Rec.txt', sep=",")
-write.table(final.BS.table.MSM.refit,
-            file='Z:/Project Melanoom/PaperMelanoma/Results/final.BS.table.MSM.refit.txt', sep=",")
+write.table(final.full.table.Rec.5,
+            file='Z:/Project Melanoom/PaperMelanoma/Results/final.full.table.Rec.txt', 
+            sep=",")
+write.table(final.full.table.MSM.5.refit,
+            file='Z:/Project Melanoom/PaperMelanoma/Results/final.full.table.MSM.refit.txt', 
+            sep=",")
+write.table(final.BS.table.Rec.5,
+            file='Z:/Project Melanoom/PaperMelanoma/Results/final.BS.table.Rec.txt', 
+            sep=",")
+write.table(final.BS.table.MSM.5.refit,
+            file='Z:/Project Melanoom/PaperMelanoma/Results/final.BS.table.MSM.refit.txt', 
+            sep=",")
 
 # show tables
-final.full.table.Rec
-final.full.table.MSM.refit
-final.BS.table.Rec
-final.BS.table.MSM.refit
+final.full.table.Rec.5
+final.full.table.MSM.5.refit
+final.BS.table.Rec.5
+final.BS.table.MSM.5.refit
 ```
 
 # Cross-validation recurrence 5-years
@@ -907,30 +1150,30 @@ final.BS.table.MSM.refit
 Centers <- sort(as.character(unique(sel.data$Center)))
 Centers.anonimized <- c("A", "B", "C", "D")
 cuts <- 5
-for (model in c('Rec', 'MSM')){
-  if (model == 'Rec'){
-    S.model <- S.Rec
+for (model in c('Rec.5', 'MSM.5')){
+  if (model == 'Rec.5'){
+    S.model <- S.Rec.5
   }
-  if (model == 'MSM'){
-    S.model <- S.MSM
+  if (model == 'MSM.5'){
+    S.model <- S.MSM.5
   }
 
   for (type in c('full', 'BS')){
     for (j in 1:4){
       S.j<-S.model[data.to.be.imputed$Center==Centers[j],]
       S.notj<-S.model[data.to.be.imputed$Center!=Centers[j],]
-      S.Rec.notj<-S.Rec[data.to.be.imputed$Center!=Centers[j],]
+      S.Rec.5.notj<-S.Rec.5[data.to.be.imputed$Center!=Centers[j],]
 
-      form.model<-eval(parse(text=paste0('form.', type, '.Rec')))
-      form.notj<-update(form.model, S.Rec.notj  ~ . )
+      form.model<-eval(parse(text=paste0('form.', type, '.Rec.5')))
+      form.notj<-update(form.model, S.Rec.5.notj  ~ . )
       f.mi.Rec.notj<-Hmisc::fit.mult.impute(form.notj,cph,xtrans=imputed.data,data=data.to.be.imputed,
                                  n.impute=m,pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE,
                                  sub=data.to.be.imputed$Center!=Centers[j])
 
-      if (model=="Rec"){
+      if (model=='Rec.5'){
         f.basehaz.notj<-survival::basehaz(f.mi.Rec.notj,TRUE)
         h0.notj<-f.basehaz.notj$hazard[f.basehaz.notj$time==max(f.basehaz.notj$time[f.basehaz.notj$time<=horizon])]
-      } else if (model=="MSM"){
+      } else if (model=='MSM.5'){
         lp.notj<-f.mi.Rec.notj$linear
         f.MSM.notj<-rms::cph(S.notj~lp.notj,y=TRUE,x=TRUE)
 
@@ -952,7 +1195,7 @@ for (model in c('Rec', 'MSM')){
         for (i in 1:m){
           lp.i<-predict(f.mi.Rec.notj,newdata=mice::complete(imputed.data,i)[data.to.be.imputed$Center==Centers[j],], type="lp")
 
-          if (model=="MSM"){
+          if (model=='MSM.5'){
             lp.i<-predict(f.MSM.notj,newdata=lp.i)
           }
 
@@ -961,10 +1204,10 @@ for (model in c('Rec', 'MSM')){
           }
 
           # baseline hazard
-          if (model=="Rec"){
+          if (model=='Rec.5'){
             f.basehaz<-basehaz(f.mi.Rec.notj,TRUE)
           }
-          else if (model=="MSM"){
+          else if (model=='MSM.5'){
             f.basehaz<-basehaz(f.MSM.notj,TRUE)
           }
           h0.i <- f.basehaz$hazard[f.basehaz$time==max(f.basehaz$time[f.basehaz$time<=horizon])]
@@ -992,7 +1235,7 @@ for (model in c('Rec', 'MSM')){
 
 # combine calibration plots into one
 for (select.value in c("All", "Positive", "Negative")){
-  for (y in c("Rec", "MSM")){
+  for (y in c('Rec.5', 'MSM.5')){
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/", y, ".", select.value, ".png"), width=16, height=16, units="cm", res=300)
     par(mar=rep(0, 4))
     layout(matrix(1:4, ncol=2, byrow=TRUE))
@@ -1015,11 +1258,11 @@ Breslow.class <- c(seq(0.1, 0.9, 0.2), 1:7)
 Rdamcrit.class <- c(seq(1, 10, 2)/100, seq(1, 10, 2)/10, seq(1, 10, 2))
 
 # initial nomogram
-nom.0 <- nomogram(f.mi.BS.Rec,maxscale=10,
+nom.0 <- nomogram(f.mi.BS.Rec.5,maxscale=10,
                 Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class)
 
 # baseline hazard of recurrence
-f.Rec.basehaz <- basehaz(f.mi.BS.Rec,TRUE)
+f.Rec.basehaz <- basehaz(f.mi.BS.Rec.5,TRUE)
 h0.Rec <- f.Rec.basehaz$hazard[f.Rec.basehaz$time==max(f.Rec.basehaz$time[f.Rec.basehaz$time<=horizon])]
 
 # lp range Recurrence
@@ -1028,8 +1271,7 @@ int.Rec <- attributes(nom.0)$info$Intercept
 lp.range <- int.Rec+rc.Rec*(0:10)*2
 
 # nomogram
-par(mar = rep(0, 4))
-nom <- nomogram(f.mi.BS.Rec, maxscale=10,
+nom <- nomogram(f.mi.BS.Rec.5, maxscale=10,
               Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class,
               lp=TRUE, fun.at=fun.event(lp=lp.range, h0=h0.Rec))
 attributes(nom)$names[attributes(nom)$names=="Age.SN"]<-"Age"
@@ -1037,7 +1279,10 @@ attributes(nom)$names[attributes(nom)$names=="Loc_CAT"]<-"Location"
 attributes(nom)$names[attributes(nom)$names=="Rdamcrit"]<-"Tumor burden"
 attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Positive)"]<-"Breslow + positive SN"
 attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Negative)"]<-"Breslow + negative SN"
-plot(nom, total.sep.page=TRUE, col.grid=gray(c(0.8, 0.95)))
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Nomogram.png"))
+par(mar = rep(0, 4))
+plot(nom, total.sep.page=FALSE, col.grid=gray(c(0.8, 0.95)))
+grDevices::dev.off()
 nom.0
 nom
 ```
@@ -1045,23 +1290,23 @@ nom
 # Risk score distribution
 ```{r, eval=TRUE}
 # baseline hazard of MSM
-f.MSM.basehaz <- basehaz(f.mi.BS.MSM,TRUE)
+f.MSM.basehaz <- basehaz(f.mi.BS.MSM.5,TRUE)
 h0.MSM <- f.MSM.basehaz$hazard[f.MSM.basehaz$time==max(f.MSM.basehaz$time[f.MSM.basehaz$time<=horizon])]
-lp.MSM <- f.mi.BS.MSM$linear
+lp.MSM <- f.mi.BS.MSM.5$linear
 
 # lp range MSM
-rc.MSM <- f.mi.BS.MSM$coef[1]*rc.Rec
-int.MSM <- f.mi.BS.MSM$coef[1]*int.Rec
+rc.MSM <- f.mi.BS.MSM.5$coef[1]*rc.Rec
+int.MSM <- f.mi.BS.MSM.5$coef[1]*int.Rec
 max.range <- 16
 points.range <- 0:max.range
-lp.points.Rec <- int.Rec+rc.Rec*points.range
-lp.points.MSM <- int.MSM+rc.MSM*points.range
+lp.points.Rec.5 <- int.Rec+rc.Rec*points.range
+lp.points.MSM.5 <- int.MSM+rc.MSM*points.range
 
 # Recurrence lp scores
 Breslow.trunc <- last.imputed.data.set$Breslow
 Breslow.trunc[last.imputed.data.set$Breslow<0.1] <- .1
 Breslow.trunc[last.imputed.data.set$Breslow>7] <- 7
-lp.score.Rec <- predict(f.mi.BS.Rec,newdata=data.frame(SNstatus=last.imputed.data.set$SNstatus,
+lp.score.Rec <- predict(f.mi.BS.Rec.5,newdata=data.frame(SNstatus=last.imputed.data.set$SNstatus,
                                                 Age.SN=last.imputed.data.set$Age.SN,
                                                 Ulceration=last.imputed.data.set$Ulceration,
                                                 Loc_CAT=last.imputed.data.set$Loc_CAT,
@@ -1080,8 +1325,8 @@ data.frame(table(score.Rec)/length(score.Rec))
 ```{r, eval=TRUE, message=FALSE}
 h.plot <- h.Rec
 h.plot$density <- 100*h.Rec$density
-p.Rec <- fun.event(lp=lp.points.Rec, h0=h0.Rec)
-p.MSM <- fun.event(lp=lp.points.MSM, h0=h0.MSM)
+p.Rec <- fun.event(lp=lp.points.Rec.5, h0=h0.Rec)
+p.MSM <- fun.event(lp=lp.points.MSM.5, h0=h0.MSM)
 x.lim <- c(0, max.range+1)
 y.lim <- c(0, 100)
 y.lim.hist <- c(0, 25)
@@ -1122,8 +1367,8 @@ par(mar = c(5,5,2,5))
 cbind(points.range, round(p.Rec*100, 1), round(p.MSM*100, 1))[c(1, 9, 10, 12, 13),]
 
 # save for Rshiny app
-coef.Rec <- stats::coef(f.mi.BS.Rec)
-center.Rec <- f.mi.BS.Rec$center
+coef.Rec <- stats::coef(f.mi.BS.Rec.5)
+center.Rec <- f.mi.BS.Rec.5$center
 save(h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec,
      file=paste0('Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata'), compress=TRUE)
 load(file=paste0('Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata'))
@@ -1134,18 +1379,18 @@ load(file=paste0('Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata'))
 Intercept of recurrence should be the same as when setting covariates to 'zero' values minus the center
 ```{r, eval=TRUE}
 int.Rec
-log(20)*f.mi.BS.Rec$coef["Age.SN"]+
-  (log(0.1)-c.Breslow)*f.mi.BS.Rec$coef["Breslow"]+
-  log(0.01)*f.mi.BS.Rec$coef["Rdamcrit"]-
-  f.mi.BS.Rec$center
+20*f.mi.BS.Rec.5$coef["Age.SN"]+
+  (log(0.1)-c.Breslow)*f.mi.BS.Rec.5$coef["Breslow"]+
+  log(0.01)*f.mi.BS.Rec.5$coef["Rdamcrit"]-
+  f.mi.BS.Rec.5$center
 ```
 
 ### Check mean event rates of risk distribution
 #### Recurrence
 ```{r, eval=TRUE}
-sum(h.Rec$density*fun.event(lp=lp.points.Rec, h0=h0.Rec))
+sum(h.Rec$density*fun.event(lp=lp.points.Rec.5, h0=h0.Rec))
 # equal to the 5-year survival probability, e.g. kaplan-meier at 5 years, i.e. survfit at 5 years:
-SF<-survfit(S.Rec~1,data=sel.data)
+SF<-survfit(S.Rec.5~1,data=sel.data)
 100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
 # average probability of recurrence
 mean(fun.event(lp=lp.score.Rec, h0=h0.Rec))
@@ -1153,20 +1398,150 @@ mean(fun.event(lp=lp.score.Rec, h0=h0.Rec))
 
 #### MSM
 ```{r, eval=TRUE}
-sum(h.Rec$density*fun.event(lp=lp.points.MSM, h0=h0.MSM))
+sum(h.Rec$density*fun.event(lp=lp.points.MSM.5, h0=h0.MSM))
 # equal to the 5-year survival probability, e.g. kaplan-meier at 5 years, i.e. survfit at 5 years:
-SF<-survfit(S.MSM~1,data=sel.data)
+SF<-survfit(S.MSM.5~1,data=sel.data)
 100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
 # average probability of MSM
 mean(fun.event(lp=lp.MSM, h0=h0.MSM))
 ```
 
-### Example to check probabilities with app
+# Check if predictions of new and old model align for negative SN patients
+## New model
+```{r, eval=TRUE}
+lp.negative <- predict(f.mi.BS.Rec.5,
+                       newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative",],
+                       type="lp")
+new.negativeSN.tool <- 1-exp(-h0.Rec*exp(lp.negative))
+```
+
+## Old model with new data
+```{r, eval=TRUE}
+rscript.negative <- function(breslow, ulceration, location) {
+  S0 <- 0.85837329
+  lp <- 0.79351989*log(breslow) +
+    0.61912477*I(ulceration == 1) +
+    0.29594843*I(location == 1) +
+    0.42802046*I(location == 2) +
+    0.86053044*I(location == 3) - 0.98860941
+  S <- 100 - 100*S0^exp(lp)
+  return(S)
+}
+old.negativeSN.tool <- rscript.negative(breslow=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"],
+        ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Ulceration"])-1,
+        location=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Loc_CAT"])-1)
+```
+
+## Compare
+```{r, eval=TRUE}
+plot(x=new.negativeSN.tool*100, y=old.negativeSN.tool,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with negative SN status")
+abline(a=0, b=1, col="red")
+```
+
+## Refitted old model new data
+```{r, eval=TRUE}
+refitted.old.negative <- rms::cph(S.Rec.5 ~ log(Breslow)+Ulceration+Loc_CAT,
+                     data=last.imputed.data.set,
+                     y=TRUE, x=TRUE,
+                     subset=last.imputed.data.set$SNstatus=="Negative")
+refitted.old.negative
+f.Rec.basehaz.neg <- basehaz(refitted.old.negative,TRUE)
+h0.neg <- f.Rec.basehaz.neg$hazard[f.Rec.basehaz.neg$time==max(f.Rec.basehaz.neg$time[f.Rec.basehaz.neg$time<=horizon])]
+refit.old.negativeSN.tool <- fun.event(predict(refitted.old.negative),  h0.neg)
+```
+
+## Compare
+```{r, eval=TRUE}
+plot(x=new.negativeSN.tool*100, y=refit.old.negativeSN.tool*100,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with negative SN status")
+abline(a=0, b=1, col="red")
+```
+
+## Check mean recurrence probabilities
+```{r, eval=TRUE}
+SF<-survfit(S.Rec.5[last.imputed.data.set$SNstatus=="Negative"]~1)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+mean(new.negativeSN.tool)
+mean(refit.old.negativeSN.tool)
+mean(old.negativeSN.tool)
+```
+
+# Check if predictions of new and old model align for positive SN patients
+## New model
+```{r, eval=TRUE}
+lp.positive <- predict(f.mi.BS.Rec.5,
+                       newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive",],
+                       type="lp")
+new.positiveSN.tool <- 1-exp(-h0.Rec*exp(lp.positive))
+```
+
+## Old model with new data
+```{r, eval=TRUE}
+rscript.positive <- function(age, ulceration, tumor_burden, breslow) {
+  S0 <- 0.51762362
+  lp <- 0.56109945 * log(age) +
+    0.23383770 * log(tumor_burden) +
+    0.35489235 * log(breslow) +
+    0.36562098 * I(ulceration == 1) - 2.709225
+  S <- 100 - 100 * S0^exp(lp)
+  return(S)
+}
+old.positiveSN.tool <- rscript.positive(age=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Age.SN"],
+                                        ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Ulceration"])-1,
+                                        breslow=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"],
+                                        tumor_burden=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Rdamcrit"]))
+```
+
+## Compare
+```{r, eval=TRUE}
+plot(x=new.positiveSN.tool*100, y=old.positiveSN.tool,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with positive SN status")
+abline(a=0, b=1, col="red")
+```
+
+## Refitted old model new data
+```{r, eval=TRUE}
+refitted.old.positive <- rms::cph(S.Rec.5 ~ log(Breslow)+Ulceration+Loc_CAT, 
+                      data=last.imputed.data.set,
+                      y=TRUE, x=TRUE,
+                      subset=last.imputed.data.set$SNstatus=="Positive")
+refitted.old.positive
+f.Rec.basehaz.pos <- basehaz(refitted.old.positive,TRUE)
+h0.pos <- f.Rec.basehaz.pos$hazard[f.Rec.basehaz.pos$time==max(f.Rec.basehaz.pos$time[f.Rec.basehaz.pos$time<=horizon])]
+refit.old.positiveSN.tool <- fun.event(predict(refitted.old.positive),  h0.pos)
+```
+
+## Compare
+```{r, eval=TRUE}
+plot(x=new.positiveSN.tool*100, y=refit.old.positiveSN.tool*100,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with positive SN status")
+abline(a=0, b=1, col="red")
+```
+
+## Check mean recurrence probabilities
+```{r, eval=TRUE}
+SF<-survfit(S.Rec.5[last.imputed.data.set$SNstatus=="Positive"]~1)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+mean(new.positiveSN.tool)
+mean(refit.old.positiveSN.tool)
+mean(old.positiveSN.tool)
+```
+
+#### Example to check probabilities with app
 ```{r, eval=TRUE}
 patient.nr <- 115 # 395 and 396 = Negative, 397 and 398 = Positive, 30 = Head & neck, 115 has large Breslow
 data.to.be.imputed[patient.nr, c("SNstatus", "Age.SN", "Ulceration", "Loc_CAT", "Breslow", "Rdamcrit")]
-lp.score.Rec.true <- predict(f.mi.BS.Rec)[patient.nr]
-lp.score.Rec.try <- predict(f.mi.BS.Rec, newdata=data.frame(SNstatus=data.to.be.imputed[patient.nr,"SNstatus"],
+lp.score.Rec.true <- predict(f.mi.BS.Rec.5)[patient.nr]
+lp.score.Rec.try <- predict(f.mi.BS.Rec.5, newdata=data.frame(SNstatus=data.to.be.imputed[patient.nr,"SNstatus"],
                                                             Age.SN=data.to.be.imputed[patient.nr,"Age.SN"],
                                                             Ulceration=data.to.be.imputed[patient.nr,"Ulceration"],
                                                             Loc_CAT=data.to.be.imputed[patient.nr,"Loc_CAT"],
@@ -1178,7 +1553,7 @@ p.MSM.example <- fun.event(lp=lp.score.Rec.try, h0=h0.MSM)
 
 # manual calculation
 lp.score.Rec.manual <- coef.Rec["SNstatus=Positive"]*(as.numeric(data.to.be.imputed[patient.nr,"SNstatus"])-1)+
-              coef.Rec["Age.SN"]*log(data.to.be.imputed[patient.nr,"Age.SN"])+
+              coef.Rec["Age.SN"]*data.to.be.imputed[patient.nr,"Age.SN"]+
               coef.Rec["Ulceration=Yes"]*(as.numeric(data.to.be.imputed[patient.nr,"Ulceration"])-1)+
               coef.Rec["Loc_CAT=leg"]*as.numeric(data.to.be.imputed[patient.nr,"Loc_CAT"]=="leg")+
               coef.Rec["Loc_CAT=trunk"]*as.numeric(data.to.be.imputed[patient.nr,"Loc_CAT"]=="trunk")+
@@ -1198,7 +1573,7 @@ fun.event(lp=lp.score.Rec.try, h0=h0.Rec)
 1-exp(-h0.Rec*exp(lp.score.Rec.manual-center.Rec))
 
 # check calculation of lp of MSM
-lp.score.MSM.true <- predict(f.mi.BS.MSM)[patient.nr]
+lp.score.MSM.true <- predict(f.mi.BS.MSM.5)[patient.nr]
 lp.score.MSM.true
 lp.MSM.try <- MSM.cal.fact*(lp.score.Rec.manual-center.Rec)
 lp.MSM.try
@@ -1209,80 +1584,12 @@ fun.event(lp=lp.MSM.try, h0=h0.MSM)
 1-exp(-h0.MSM*exp(MSM.cal.fact*(lp.score.Rec.manual-center.Rec)))
 ```
 
-### Test with old tool predictions recurrence for negative SN status patients
-```{r, eval=TRUE}
-rscript.negative <- function(breslow, ulceration, location) {
-  S0 <- 0.85837329
-  lp <- 0.79351989*log(breslow) +
-    0.61912477*I(ulceration == 1) +
-    0.29594843*I(location == 1) +
-    0.42802046*I(location == 2) +
-    0.86053044*I(location == 3) - 0.98860941
-  S <- 100 - 100*S0^exp(lp)
-  return(S)
-}
-old.negativeSN.tool <- rscript.negative(breslow=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"],
-        ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Ulceration"])-1,
-        location=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Loc_CAT"])-1)
-lp.negative <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative",], type="lp")
-new.negativeSN.tool <- 1-exp(-h0.Rec*exp(lp.negative))
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/new.old.negatives.png"))
-plot(x=new.negativeSN.tool*100, y=old.negativeSN.tool,
-     xlim=c(0, 100), ylim=c(0, 100),
-     xlab="New predictions", ylab="Old predictions",
-     main="Predicted recurrence of patients with negative SN status")
-abline(a=0, b=1, col="red")
-grDevices::dev.off()
-```
-
-```{r, eval=TRUE, echo=FALSE}
-plot(x=new.negativeSN.tool*100, y=old.negativeSN.tool,
-     xlim=c(0, 100), ylim=c(0, 100),
-     xlab="New predictions", ylab="Old predictions",
-     main="Predicted recurrence of patients with negative SN status")
-abline(a=0, b=1, col="red")
-```
-
-### Test with old tool predictions recurrence for positive SN status patients
-```{r, eval=TRUE}
-rscript.positive <- function(age, ulceration, tumor_burden, breslow) {
-  S0 <- 0.51762362
-  lp <- 0.56109945 * log(age) +
-    0.23383770 * log(tumor_burden) +
-    0.35489235 * log(breslow) +
-    0.36562098 * I(ulceration == 1) - 2.709225
-  S <- 100 - 100 * S0^exp(lp)
-  return(S)
-}
-old.positiveSN.tool <- rscript.positive(age=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Age.SN"],
-                               ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Ulceration"])-1,
-                               breslow=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"],
-                               tumor_burden=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Rdamcrit"]))
-lp.positive <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive",], type="lp")
-new.positiveSN.tool <- 1-exp(-h0.Rec*exp(lp.positive))
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/new.old.positives.png"))
-plot(x=new.positiveSN.tool*100, y=old.positiveSN.tool,
-     xlim=c(0, 100), ylim=c(0, 100),
-     xlab="New predictions", ylab="Old predictions",
-     main="Predicted recurrence of patients with positive SN status")
-abline(a=0, b=1, col="red")
-grDevices::dev.off()
-```
-
-```{r, eval=TRUE, echo=FALSE}
-plot(x=new.positiveSN.tool*100, y=old.positiveSN.tool,
-     xlim=c(0, 100), ylim=c(0, 100),
-     xlab="New predictions", ylab="Old predictions",
-     main="Predicted recurrence of patients with positive SN status")
-abline(a=0, b=1, col="red")
-```
-
 ### Histogram for negative SN status patients
 ```{r, eval=TRUE}
 Breslow.trunc.neg <- last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"]
 Breslow.trunc.neg[last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"]<0.1] <- .1
 Breslow.trunc.neg[last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"]>7] <- 7
-lp.score.Rec.negative <- predict(f.mi.BS.Rec,newdata=data.frame(SNstatus=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "SNstatus"],
+lp.score.Rec.negative <- predict(f.mi.BS.Rec.5,newdata=data.frame(SNstatus=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "SNstatus"],
                                                        Age.SN=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Age.SN"],
                                                        Ulceration=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Ulceration"],
                                                        Loc_CAT=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Loc_CAT"],
@@ -1301,7 +1608,7 @@ h.plot.neg$density <- 100*h.Rec.neg$density
 Breslow.trunc.pos <- last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"]
 Breslow.trunc.pos[last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"]<0.1] <- .1
 Breslow.trunc.pos[last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"]>7] <- 7
-lp.score.Rec.positive <- predict(f.mi.BS.Rec,newdata=data.frame(SNstatus=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "SNstatus"],
+lp.score.Rec.positive <- predict(f.mi.BS.Rec.5,newdata=data.frame(SNstatus=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "SNstatus"],
                                                                 Age.SN=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Age.SN"],
                                                                 Ulceration=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Ulceration"],
                                                                 Loc_CAT=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Loc_CAT"],
@@ -1325,7 +1632,7 @@ plot(h.plot.pos,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
 
 ### Test proportional hazards assumption
 ```{r, eval=TRUE}
-test.prop<-survival::cox.zph(f.mi.full.Rec$fits[[1]])
+test.prop<-survival::cox.zph(f.mi.full.Rec.5$fits[[1]])
 test.prop
 plot(test.prop)
 ```

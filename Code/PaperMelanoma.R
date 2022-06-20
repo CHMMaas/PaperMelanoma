@@ -18,6 +18,34 @@ library(Hmisc)
 library(png)
 set.seed(100)
 
+#####
+##### HELPER FUNCTIONS FOR CALIBRATION
+#####
+km <- function(sel, S.km, horizon){
+  S.km.sel <- S.km[sel,]
+  sf <- survfit(S.km.sel~1)
+  year1 <- max(sf$time[sf$time<=horizon])
+  1-sf$surv[sf$time==year1]
+}
+km.lower <- function(sel, S.km, horizon){
+  S.km.sel <- S.km[sel,]
+  sf <- survfit(S.km.sel~1)
+  year1 <- max(sf$time[sf$time<=horizon])
+  1-sf$lower[sf$time==year1]
+}
+km.upper <- function(sel, S.km, horizon){
+  S.km.sel <- S.km[sel,]
+  sf <- survfit(S.km.sel~1)
+  year1 <- max(sf$time[sf$time<=horizon])
+  1-sf$upper[sf$time==year1]
+}
+fun.event <- function(lp, h0)
+{
+  h <- h0*exp(lp)
+  p <- 1-exp(-h)
+  return(p)
+}
+
 source("./Code/table.missing.values.R") # import function to create table of missing values
 source("./Code/val_surv_mi_v3.R")
 
@@ -43,6 +71,10 @@ sel.data <- original.data[original.data$EXCLUSIE!="Exclusion", selected.vars] # 
 cat("Number of patients excluded:", nrow(original.data)-nrow(sel.data), "\n")
 # Leave the patients included that have EXCLUSIE = 1 and Dbstatus = 8,
 # because diagnosis and operation date are very close but OK
+
+# CHECK with previous data
+cat("Number of negative patients excluded:",
+    sum(original.data$SNstatus=="Negative")-sum(sel.data$SNstatus=="Negative"), "\n")
 
 # Omit patient A0523 - no last follow-up date
 sel.data[which(is.na(sel.data$Last_FU)), "DatabaseNR"]
@@ -202,10 +234,15 @@ MSM.table
 #####
 ##### RESTRICT SURVIVAL
 #####
-S.Rec[S.Rec[,1]>5, 1] <- 5 # set recurrence time to 5
-S.Rec[S.Rec[,1]>5, 2] <- 0 # set censoring
-S.MSM[S.MSM[,1]>5, 1] <- 5 # set follow-up time to 5
-S.MSM[S.MSM[,1]>5, 2] <- 0 # set censoring
+S.Rec.5 <- S.Rec
+S.Rec.5[S.Rec[,1]>5, 1] <- 5 # set recurrence time to 5
+S.Rec.5[S.Rec[,1]>5, 2] <- 0 # set censoring
+S.Rec <- S.Rec.5
+
+S.MSM.5 <- S.MSM
+S.MSM.5[S.MSM[,1]>5, 1] <- 5 # set follow-up time to 5
+S.MSM.5[S.MSM[,1]>5, 2] <- 0 # set censoring
+S.MSM <- S.MSM.5
 
 #####
 ##### COMPARE MODEL WITH AJCC.7 CLASIFCATION
@@ -674,34 +711,6 @@ for (model in c('Rec', 'MSM.refit')){
 }
 
 #####
-##### HELPER FUNCTIONS FOR CALIBRATION
-#####
-km <- function(sel, S.km, horizon){
-  S.km.sel <- S.km[sel,]
-  sf <- survfit(S.km.sel~1)
-  year1 <- max(sf$time[sf$time<=horizon])
-  1-sf$surv[sf$time==year1]
-}
-km.lower <- function(sel, S.km, horizon){
-  S.km.sel <- S.km[sel,]
-  sf <- survfit(S.km.sel~1)
-  year1 <- max(sf$time[sf$time<=horizon])
-  1-sf$lower[sf$time==year1]
-}
-km.upper <- function(sel, S.km, horizon){
-  S.km.sel <- S.km[sel,]
-  sf <- survfit(S.km.sel~1)
-  year1 <- max(sf$time[sf$time<=horizon])
-  1-sf$upper[sf$time==year1]
-}
-fun.event <- function(lp, h0)
-{
-  h <- h0*exp(lp)
-  p <- 1-exp(-h)
-  return(p)
-}
-
-#####
 ##### PLOT PREDICT AND CALIBRATION ALL CENTERS FOR RECURRENCE AND MSM REFIT
 #####
 horizon <- 5
@@ -1039,6 +1048,8 @@ par(mar = c(5,5,2,5))
 cbind(points.range, round(p.Rec*100, 1), round(p.MSM*100, 1))[c(1, 9, 10, 12, 13),]
 
 # save for Rshiny app
+coef.Rec <- stats::coef(f.mi.BS.Rec)
+center.Rec <- f.mi.BS.Rec$center
 save(MSM.cal.fact, h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec,
      file=paste0('./Results/h0.Rec.MSM.Rdata'), compress=TRUE)
 load(file=paste0('./Results/h0.Rec.MSM.Rdata'))
@@ -1081,7 +1092,6 @@ lp.score.Rec.try <- predict(f.mi.BS.Rec, newdata=data.frame(SNstatus=data.to.be.
 round((lp.score.Rec.try-int.Rec)/rc.Rec,0)
 
 # manual calculation
-coef.Rec <- stats::coef(f.mi.BS.Rec)
 lp.manual <- coef.Rec["SNstatus=Positive"]*(as.numeric(data.to.be.imputed[patient.nr,"SNstatus"])-1)+
               coef.Rec["Age.SN"]*log(data.to.be.imputed[patient.nr,"Age.SN"])+
               coef.Rec["Ulceration=Yes"]*(as.numeric(data.to.be.imputed[patient.nr,"Ulceration"])-1)+
@@ -1091,7 +1101,6 @@ lp.manual <- coef.Rec["SNstatus=Positive"]*(as.numeric(data.to.be.imputed[patien
               coef.Rec["Breslow"]*(log(data.to.be.imputed[patient.nr,"Breslow"])-c.Breslow)+
               coef.Rec["Rdamcrit"]*log(data.to.be.imputed[patient.nr,"Rdamcrit"])+
               coef.Rec["SNstatus=Positive * Breslow"]*(log(data.to.be.imputed[patient.nr,"Breslow"])-c.Breslow)*(as.numeric(data.to.be.imputed[patient.nr,"SNstatus"])-1)
-center.Rec <- f.mi.BS.Rec$center
 
 # lp
 lp.score.Rec.true
@@ -1111,19 +1120,16 @@ fun.event(lp=lp.MSM.try, h0=h0.MSM)
 fun.event(lp=lp.MSM.try, h0=h0.MSM)
 1-exp(-h0.MSM*exp(MSM.cal.fact*(lp.manual-center.Rec)))
 
-# Test negative
-test.neg <- rms::cph(S.Rec ~ log(Breslow)+Ulceration+Loc_CAT, data=last.imputed.data.set, subset=last.imputed.data.set$SNstatus=="Negative")
-summary(test.neg, Breslow=c(1.1, 3), Loc_CAT="arm")
-coxph(S.Rec ~ Age.SN+log(Breslow)+Rdamcrit+Ulceration, data=last.imputed.data.set, subset=last.imputed.data.set$SNstatus=="Negative")
-summary(f.mi.BS.Rec, Breslow=c(1.1, 3), Loc_CAT="arm")
+####
+#### Compare new and old model for negative SN patients
+####
+#### Recurrence predictions of negative SN patients with new model
+lp.negative <- predict(f.mi.BS.Rec,
+                       newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative",],
+                       type="lp")
+new.negativeSN.tool <- 1-exp(-h0.Rec*exp(lp.negative))
 
-# Test positive
-test <- rms::cph(S.Rec ~ log(Breslow)+Ulceration+Loc_CAT, data=last.imputed.data.set, subset=last.imputed.data.set$SNstatus=="Positive")
-summary(test, Breslow=c(1.1, 3), Loc_CAT="arm")
-coxph(S.Rec ~ Age.SN+log(Breslow)+Rdamcrit+Ulceration, data=last.imputed.data.set, subset=last.imputed.data.set$SNstatus=="Positive")
-summary(f.mi.BS.Rec, Breslow=c(1.1, 3), Loc_CAT="arm")
-
-# Test with old tool predictions recurrence for negative SN status patients
+#### Recurrence predictions of negative SN patients with old model with new data
 rscript.negative <- function(breslow, ulceration, location) {
   S0 <- 0.85837329
   lp <- 0.79351989*log(breslow) +
@@ -1135,17 +1141,50 @@ rscript.negative <- function(breslow, ulceration, location) {
   return(S)
 }
 old.negativeSN.tool <- rscript.negative(breslow=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"],
-        ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Ulceration"])-1,
-        location=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Loc_CAT"])-1)
-lp.negative <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative",], type="lp")
-new.negativeSN.tool <- 1-exp(-h0.Rec*exp(lp.negative))
+                                        ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Ulceration"])-1,
+                                        location=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Loc_CAT"])-1)
+
+#### Compare new and old model for negative SN patients with new data
 plot(x=new.negativeSN.tool*100, y=old.negativeSN.tool,
      xlim=c(0, 100), ylim=c(0, 100),
      xlab="New predictions", ylab="Old predictions",
      main="Predicted recurrence of patients with negative SN status")
 abline(a=0, b=1, col="red")
 
-# Test with old tool predictions recurrence for positive SN status patients
+#### Recurrence predictions of negative SN patients with *refitted* old model new data
+test.neg <- rms::cph(S.Rec ~ log(Breslow)+Ulceration+Loc_CAT,
+                     data=last.imputed.data.set,
+                     y=TRUE, x=TRUE,
+                     subset=last.imputed.data.set$SNstatus=="Negative")
+test.neg
+f.Rec.basehaz.neg <- basehaz(test.neg,TRUE)
+h0.neg <- f.Rec.basehaz.neg$hazard[f.Rec.basehaz.neg$time==max(f.Rec.basehaz.neg$time[f.Rec.basehaz.neg$time<=horizon])]
+refit.old.negativeSN.tool <- fun.event(predict(test.neg),  h0.neg)
+
+#### Compare new and refitted old model for negative SN patients with new data
+plot(x=new.negativeSN.tool*100, y=refit.old.negativeSN.tool*100,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with negative SN status")
+abline(a=0, b=1, col="red")
+
+### Check mean recurrence probability among negative patients
+SF<-survfit(S.Rec[last.imputed.data.set$SNstatus=="Negative"]~1)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+mean(new.negativeSN.tool)
+mean(old.negativeSN.tool)
+mean(refit.old.negativeSN.tool)
+
+####
+#### Compare new and old model for positive SN patients
+####
+#### Recurrence predictions of positive SN patients with new model
+lp.positive <- predict(f.mi.BS.Rec,
+                       newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive",],
+                       type="lp")
+new.positiveSN.tool <- 1-exp(-h0.Rec*exp(lp.positive))
+
+#### Recurrence predictions of positive SN patients with old model with new data
 rscript.positive <- function(age, ulceration, tumor_burden, breslow) {
   S0 <- 0.51762362
   lp <- 0.56109945 * log(age) +
@@ -1156,16 +1195,38 @@ rscript.positive <- function(age, ulceration, tumor_burden, breslow) {
   return(S)
 }
 old.positiveSN.tool <- rscript.positive(age=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Age.SN"],
-                               ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Ulceration"])-1,
-                               breslow=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"],
-                               tumor_burden=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Rdamcrit"]))
-lp.positive <- predict(f.mi.BS.Rec, newdata=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive",], type="lp")
-new.positiveSN.tool <- 1-exp(-h0.Rec*exp(lp.positive))
+                                        ulceration=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Ulceration"])-1,
+                                        breslow=last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Breslow"],
+                                        tumor_burden=as.numeric(last.imputed.data.set[last.imputed.data.set$SNstatus=="Positive", "Rdamcrit"]))
+
+#### Compare new and old model for positive SN patients with new data
 plot(x=new.positiveSN.tool*100, y=old.positiveSN.tool,
      xlim=c(0, 100), ylim=c(0, 100),
      xlab="New predictions", ylab="Old predictions",
      main="Predicted recurrence of patients with positive SN status")
 abline(a=0, b=1, col="red")
+
+#### Recurrence predictions of positive SN patients with *refitted* old model new data
+test.pos <- rms::cph(S.Rec ~ log(Breslow)+Ulceration+Loc_CAT, data=last.imputed.data.set,
+                     subset=last.imputed.data.set$SNstatus=="Positive")
+test.pos
+f.Rec.basehaz.pos <- basehaz(test.pos,TRUE)
+h0.pos <- f.Rec.basehaz.pos$hazard[f.Rec.basehaz.pos$time==max(f.Rec.basehaz.pos$time[f.Rec.basehaz.pos$time<=horizon])]
+refit.old.positiveSN.tool <- fun.event(predict(test.pos),  h0.pos)
+
+#### Compare new and refitted old model for positive SN patients with new data
+plot(x=new.positiveSN.tool*100, y=refit.old.positiveSN.tool*100,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with positive SN status")
+abline(a=0, b=1, col="red")
+
+### Check mean recurrence probability among positive patients
+SF<-survfit(S.Rec[last.imputed.data.set$SNstatus=="Positive"]~1)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+mean(new.positiveSN.tool)
+mean(old.positiveSN.tool)
+mean(refit.old.positiveSN.tool)
 
 # Histogram for negative SN status patients
 Breslow.trunc.neg <- last.imputed.data.set[last.imputed.data.set$SNstatus=="Negative", "Breslow"]
@@ -1208,6 +1269,8 @@ plot(h.plot.neg,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
      ylab="Risk score distribution (%)",ylim=y.lim.hist,main="Negative SN status",col="white")
 plot(h.plot.pos,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
      ylab="Risk score distribution (%)",ylim=y.lim.hist,main="Positive SN status",col="white")
+# reset margins
+par(mfrow = c(1,1))
 
 ### Test proportional hazards assumption
 test.prop<-survival::cox.zph(f.mi.full.Rec$fits[[1]])
