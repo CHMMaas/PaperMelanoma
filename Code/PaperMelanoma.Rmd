@@ -1279,10 +1279,8 @@ attributes(nom)$names[attributes(nom)$names=="Loc_CAT"]<-"Location"
 attributes(nom)$names[attributes(nom)$names=="Rdamcrit"]<-"Tumor burden"
 attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Positive)"]<-"Breslow + positive SN"
 attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Negative)"]<-"Breslow + negative SN"
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Nomogram.png"))
 par(mar = rep(0, 4))
-plot(nom, total.sep.page=FALSE, col.grid=gray(c(0.8, 0.95)))
-grDevices::dev.off()
+plot(nom, total.sep.page=TRUE, col.grid=gray(c(0.8, 0.95)))
 nom.0
 nom
 ```
