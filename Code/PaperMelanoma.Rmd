@@ -175,6 +175,8 @@ sel.data$Rec.time[sel.data$Recurrence=="no recurrence"|is.na(sel.data$SNdate)]<-
 
 #### Melanoma specific mortality (MSM)
 ```{r, eval=TRUE}
+# 504 patients died due to melanoma, 102 patients died from other causes
+table(sel.data$Status, sel.data$dead)
 sel.data$MSM<-1*(sel.data$Status=="DOD")
 ```
 
@@ -620,7 +622,7 @@ form.linear.full.Rec <- S.Rec.5 ~
 form.nonlinear.age.full.Rec <- S.Rec.5 ~
   SNstatus +
   Sex +
-  log(Age.SN) +
+  rcs(Age.SN) +
   Ulceration +
   Loc_CAT +
   Histology +
@@ -631,7 +633,7 @@ form.nonlinear.age.full.Rec <- S.Rec.5 ~
   Rdamcrit +
   Dewar +
   SNstatus:Sex +
-  SNstatus:log(Age.SN) +
+  SNstatus:rcs(Age.SN) +
   SNstatus:Ulceration +
   SNstatus:Loc_CAT +
   SNstatus:Histology +
@@ -660,7 +662,7 @@ form.nonlinear.Breslow.full.Rec <- S.Rec.5 ~
   Ulceration +
   Loc_CAT +
   Histology +
-  log(Breslow) +
+  rcs(Breslow) +
   multiple.fields +
   Tot_SNs_neg +
   Tot_SNs_pos +
@@ -671,7 +673,7 @@ form.nonlinear.Breslow.full.Rec <- S.Rec.5 ~
   SNstatus:Ulceration +
   SNstatus:Loc_CAT +
   SNstatus:Histology +
-  SNstatus:log(Breslow) +
+  SNstatus:rcs(Breslow) +
   SNstatus:multiple.fields
 nonlinear.Breslow.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Breslow.full.Rec, cph, xtrans=imputed.data,
                                  data=data.to.be.imputed,n.impute=m, pr=FALSE,
@@ -682,6 +684,8 @@ hist(last.imputed.data.set$Breslow)
 linear.full.Rec$loglik[2]
 # using log(Breslow) gives better log likelihood
 nonlinear.Breslow.full.Rec$loglik[2]
+# test
+anova(nonlinear.Breslow.full.Rec)
 ```
 
 ### Test if Rdamcrit should be modelled non-linearly
@@ -697,7 +701,7 @@ form.nonlinear.Rdamcrit.full.Rec <- S.Rec.5 ~
   multiple.fields +
   Tot_SNs_neg +
   Tot_SNs_pos +
-  log(Rdamcrit) +
+  rcs(Rdamcrit) +
   Dewar +
   SNstatus:Sex +
   SNstatus:Age.SN +
@@ -742,7 +746,7 @@ form.full.Rec.5 <- S.Rec.5 ~
 f.mi.full.Rec.5 <- Hmisc::fit.mult.impute(form.full.Rec.5, cph, xtrans=imputed.data,
                                  data=data.to.be.imputed,n.impute=m, pr=FALSE,
                                  fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
-# stats::anova(f.mi.full.Rec.5)
+stats::anova(f.mi.full.Rec.5)
 summary(f.mi.full.Rec.5, Tot_SNs_pos=c(0, 1))
 ```
 
@@ -759,9 +763,10 @@ form.BS.Rec.5 <- S.Rec.5 ~
   SNstatus:I(log(Breslow)-c.Breslow)
 f.mi.BS.Rec.5 <- Hmisc::fit.mult.impute(form.BS.Rec.5,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
                            pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
+# backward selection
+# round(stats::anova(f.mi.BS.Rec.5)[order(stats::anova(f.mi.BS.Rec.5)[, 'P']),], 3)
 summary(f.mi.BS.Rec.5, Breslow=exp(c.Breslow))
 coef(f.mi.BS.Rec.5)
-# round(stats::anova(f.mi.BS.Rec.5)[order(stats::anova(f.mi.BS.Rec.5)[, 'P']),], 3)
 stats::anova(f.mi.BS.Rec.5)
 ```
 
@@ -789,7 +794,6 @@ form.full.MSM.5.refit <- S.MSM.5 ~
   SNstatus:multiple.fields
 f.mi.full.MSM.5.refit <- Hmisc::fit.mult.impute(form.full.MSM.5.refit,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
                                  pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
-f.mi.full.MSM.5.refit
 summary(f.mi.full.MSM.5.refit, Tot_SNs_pos=c(0, 1))
 stats::anova(f.mi.full.MSM.5.refit)
 ```
@@ -806,8 +810,6 @@ form.BS.MSM.5.refit <- S.MSM.5 ~
   SNstatus:I(log(Breslow)-c.Breslow)
 f.mi.BS.MSM.5.refit <- Hmisc::fit.mult.impute(form.BS.MSM.5.refit,cph,xtrans=imputed.data,data=data.to.be.imputed,n.impute=m,
                                   pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
-# round(anova(f.mi.BS.MSM.5.refit)[order(anova(f.mi.BS.MSM.5.refit)[, 'P']),], 3)
-f.mi.BS.MSM.5.refit
 summary(f.mi.BS.MSM.5.refit, Breslow=exp(c.Breslow))
 stats::anova(f.mi.BS.MSM.5.refit)
 ```
@@ -815,8 +817,8 @@ stats::anova(f.mi.BS.MSM.5.refit)
 # Calibrated final model for melanoma specific mortality
 Fit disease specific mortality to the linear predictor of recurrence
 ```{r, eval=TRUE}
-lp.BS<-f.mi.BS.Rec.5$linear
-f.mi.BS.MSM.5<-rms::cph(S.MSM.5~lp.BS,y=TRUE,x=TRUE)
+lp.BS <- f.mi.BS.Rec.5$linear
+f.mi.BS.MSM.5 <- rms::cph(S.MSM.5~lp.BS,y=TRUE,x=TRUE)
 MSM.cal.fact <- stats::coef(f.mi.BS.MSM.5)
 MSM.cal.fact
 stats::confint(f.mi.BS.MSM.5)
@@ -1145,6 +1147,37 @@ final.BS.table.Rec.5
 final.BS.table.MSM.5.refit
 ```
 
+# C-index stratified by SN status
+```{r, eval=TRUE}
+for (outcome in c("Rec.5", "MSM.5.refit")){
+  for (arm in c("Positive", "Negative")){
+    f.mi.stratified <- eval(parse(text=paste0('f.mi.BS.', outcome)))
+    if (outcome=="Rec.5"){
+      S.5 <- S.Rec.5
+    } else if (outcome=="MSM.5.refit"){
+      S.5 <- S.MSM.5
+    }
+    S.5.subset <- S.5[last.imputed.data.set$SNstatus==arm,]
+    
+    cindex.stratified <- rep(0, m)
+    cindex.se.stratified <- rep(0, m)
+    for (i in 1:m){
+      subset.imputed.data <- as.data.frame(mice::complete(imputed.data,i)[last.imputed.data.set$SNstatus==arm,])
+      rc <- Hmisc::rcorr.cens(-predict(f.mi.stratified,newdata=subset.imputed.data, type="lp"), S.5.subset)
+      cindex.stratified[i]<-rc["C Index"]
+      cindex.se.stratified[i]<-rc["S.D."]/2
+    }
+    cindex.mi.stratified<-Rubin.combine(cindex.stratified,cindex.se.stratified)
+    
+    print(c(outcome, arm, sprintf('%.2f', cindex.mi.stratified$est),
+    paste0("[", sprintf('%.2f', cindex.mi.stratified$est+qnorm(.025)*cindex.mi.stratified$se), 
+           "; ", sprintf('%.2f', cindex.mi.stratified$est+qnorm(.975)*cindex.mi.stratified$se), "]")))
+  }
+}
+
+```
+
+
 # Cross-validation recurrence 5-years
 ```{r, eval=TRUE}
 Centers <- sort(as.character(unique(sel.data$Center)))
@@ -1367,7 +1400,7 @@ cbind(points.range, round(p.Rec*100, 1), round(p.MSM*100, 1))[c(1, 9, 10, 12, 13
 # save for Rshiny app
 coef.Rec <- stats::coef(f.mi.BS.Rec.5)
 center.Rec <- f.mi.BS.Rec.5$center
-save(h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec,
+save(h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec, MSM.cal.fact,
      file=paste0('Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata'), compress=TRUE)
 load(file=paste0('Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata'))
 ```
@@ -1537,7 +1570,9 @@ mean(old.positiveSN.tool)
 #### Example to check probabilities with app
 ```{r, eval=TRUE}
 patient.nr <- 115 # 395 and 396 = Negative, 397 and 398 = Positive, 30 = Head & neck, 115 has large Breslow
-data.to.be.imputed[patient.nr, c("SNstatus", "Age.SN", "Ulceration", "Loc_CAT", "Breslow", "Rdamcrit")]
+print(data.to.be.imputed[patient.nr, c("SNstatus", "Age.SN", "Ulceration", "Loc_CAT", "Breslow", "Rdamcrit")])
+
+# calculate linear predictor
 lp.score.Rec.true <- predict(f.mi.BS.Rec.5)[patient.nr]
 lp.score.Rec.try <- predict(f.mi.BS.Rec.5, newdata=data.frame(SNstatus=data.to.be.imputed[patient.nr,"SNstatus"],
                                                             Age.SN=data.to.be.imputed[patient.nr,"Age.SN"],

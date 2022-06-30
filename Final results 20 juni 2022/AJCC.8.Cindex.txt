@@ -1,0 +1,3 @@
+"All patients:","0.74","[0.72; 0.75]"
+"Positive SN patients:","0.62","[0.59; 0.64]"
+"Negative SN patients","0.71","[0.69; 0.74]"

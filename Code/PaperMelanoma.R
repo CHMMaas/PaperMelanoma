@@ -54,9 +54,12 @@ source("./Code/val_surv_mi_v3.R")
 #####
 original.data <- foreign::read.spss(file="./Data/Dataset Predictiemodel Stassen.sav",
                                     to.data.frame=TRUE, origin="01-01-1970")
+cat("No SN status:", sum(original.data$SNstatus=="No SN"))
+cat("Duplicates:", sum(original.data$COMMENTS=="double patient!                                                                                                                                                                                         "))
+unique(original.data[original.data$EXCLUSIE=="Exclusion", "COMMENTS"])
 
 # Select necessary variables
-selected.vars <- c("EXCLUSIE", "DatabaseNR", "Center", "Sex", "Age", "DOB",
+selected.vars <- c("EXCLUSIE", "COMMENTS", "DatabaseNR", "Center", "Sex", "Age", "DOB",
                    "Ulceration", "Loc_CAT",            # OLD data set: Loc_CAT2
                    "Histology", "Breslow", "Tot_nr_SNs",
                    "nr_SNs_Field_1", "nr_SNs_Field_2", "nr_SNs_Field_3",
