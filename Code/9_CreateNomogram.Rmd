@@ -1,0 +1,68 @@
+---
+title: "Create Nomogram"
+author: "Carolien C.H.M. Maas"
+date: "14-11-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Create Nomogram
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(rms)
+library(survival)
+source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
+```
+
+# Nomogram
+```{r, eval=TRUE}
+load('Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData')
+# Limits of Age, Breslow, Rdamcrit
+Age.class <- seq(20, 80, 20)
+Breslow.class <- c(seq(0.1, 0.9, 0.2), 1:7)
+Rdamcrit.class <- c(seq(1, 10, 2)/100, seq(1, 10, 2)/10, seq(1, 10, 2))
+
+# initial nomogram
+nom.0 <- rms::nomogram(f.mi.BS.Rec.5,maxscale=10,
+                  Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class)
+
+# baseline hazard of recurrence
+f.Rec.basehaz <- survival::basehaz(f.mi.BS.Rec.5,TRUE)
+h0.Rec <- f.Rec.basehaz$hazard[f.Rec.basehaz$time==max(f.Rec.basehaz$time[f.Rec.basehaz$time<=horizon])]
+
+# lp range Recurrence
+rc.Rec <- (1/attributes(nom.0)$info$sc)
+int.Rec <- attributes(nom.0)$info$Intercept
+lp.range <- int.Rec+rc.Rec*(0:10)*2
+
+# nomogram
+nom <- rms::nomogram(f.mi.BS.Rec.5, maxscale=10,
+                Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class,
+                lp=TRUE, fun.at=fun.event(lp=lp.range, h0=h0.Rec))
+attributes(nom)$names[attributes(nom)$names=="Age.SN"]<-"Age"
+attributes(nom)$names[attributes(nom)$names=="Loc_CAT"]<-"Location"
+attributes(nom)$names[attributes(nom)$names=="Rdamcrit"]<-"Tumor burden"
+attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Positive)"]<-"Breslow + positive SN"
+attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Negative)"]<-"Breslow + negative SN"
+par(mar = rep(0, 4))
+plot(nom, total.sep.page=TRUE, col.grid=gray(c(0.8, 0.95)))
+nom.0
+nom
+
+save(list=c("dd.training", "training.data.to.be.imputed", "m", "imputed.training.data", "last.imputed.training.data.set", "horizon", "S.Rec.5.training", "S.MSM.5.training",
+            "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", "f.mi.BS.MSM.5.refit", "f.mi.BS.MSM.5", "MSM.cal.fact", "c.Breslow", 
+            "form.full.Rec.5", "form.BS.Rec.5", "form.full.MSM.5.refit", "form.BS.MSM.5.refit", 
+            "rc.Rec", "int.Rec", "h0.Rec"),
+     file='Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata', compress=TRUE)
+```

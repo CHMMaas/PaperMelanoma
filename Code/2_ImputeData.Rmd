@@ -1,0 +1,57 @@
+---
+title: "Impute missing values of training and validation data using multiple imputation"
+author: "Carolien C.H.M. Maas"
+date: "14-11-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Multiple imputation
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(mice)
+```
+
+Function to perform multiple imputation for training or validation data
+```{r, eval=TRUE}
+impute.missing.values <- function(type=NULL, m=1, new.imputation=FALSE){
+  # load data
+  load(paste0('Z:/Project Melanoom/PaperMelanoma/Data/', type, '/', type, '.data.Rdata'))
+  
+  if (new.imputation){
+    # impute data
+    data.to.be.imputed <- eval(parse(text=paste0(type, '.data.to.be.imputed')))
+    imputed.data <- mice::mice(data.to.be.imputed, m=m, maxit=5, print=FALSE, seed=500)
+    assign(paste0('imputed.', type, '.data'), imputed.data)
+    save(list=c(paste0('imputed.', type, '.data')),
+         file=paste0('Z:/Project Melanoom/PaperMelanoma/Data/', type, '/imputed.', type, '.data.Rdata'), compress=TRUE)
+  }
+  load(paste0('Z:/Project Melanoom/PaperMelanoma/Data/', type, '/imputed.', type, '.data.Rdata'))
+  save(list=c(paste0('dd.', type), paste0(type, '.data.to.be.imputed'), 'm', paste0('imputed.', type, '.data')),
+       file=paste0('Z:/Project Melanoom/PaperMelanoma/Data/', type, '/', type, '.data.Rdata'), compress=TRUE)
+}
+```
+
+Perform multiple imputation
+```{r, eval=TRUE}
+# erase memory
+m <- 5
+new.imputation <- FALSE
+impute.missing.values(type='training', m=m, new.imputation=new.imputation)
+impute.missing.values(type='validation', m=m, new.imputation=new.imputation)
+
+# training data gives warning messages for Mitosis
+# validation data gives multicolinearity of logRectime and recurrence
+# print(imputed.data$loggedEvents)
+```

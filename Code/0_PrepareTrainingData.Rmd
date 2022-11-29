@@ -1,0 +1,202 @@
+---
+title: "Prepare Training Data"
+author: "Carolien C.H.M. Maas"
+date: "14-11-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Training data preparation
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(foreign)
+library(rms)
+source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
+
+# load data file
+original.train.data <- foreign::read.spss(file="Z:/Project Melanoom/PaperMelanoma/Data/training/Dataset Predictiemodel.sav",
+                                    to.data.frame=TRUE, origin="01-01-1970")
+
+# Select necessary variables
+selected.vars <- c("EXCLUSIE", "DatabaseNR", "Center", "Sex", "Age", "DOB",
+                   "Ulceration", "Loc_CAT",            # OLD data set: Loc_CAT2
+                   "Histology", "Breslow", "Tot_nr_SNs",
+                   "nr_SNs_Field_1", "nr_SNs_Field_2", "nr_SNs_Field_3",
+                   "Mitosis",                          # needed for AJCC.7.i
+                   "SNdate", "Recurrence", "Date_1st_Rec", "Last_FU",
+                   "dead", "Status",
+                   "SNstatus",                         # distinguish between positive and negative SN patients
+                   "Tot_SNs_pos", "Rdamcrit", "Dewar") # additional for positive SN patients
+```
+
+### Inclusion criteria
+Exclude when Exclusion = 2: based on duplicates, urogenital melanoma, etc. Note:
+Leave the patients included that have EXCLUSIE = 1 and Dbstatus = 8 (Dbstatus=0: 
+negative, Dbstatus=1: positive), even though diagnosis and operation date are 
+very close.
+```{r, eval=TRUE}
+sel.train.data <- original.train.data[original.train.data$EXCLUSIE!="Exclusion", selected.vars]
+cat("Number of patients excluded:", nrow(original.train.data)-nrow(sel.train.data), "\n")
+```
+Omit one patient that has no last follow-up date
+```{r, eval=TRUE, echo=FALSE}
+sel.train.data <- sel.train.data[!is.na(sel.train.data$Last_FU),]
+```
+
+### Recode
+#### Use age at SN instead of age at diagnosis
+```{r, eval=TRUE}
+sel.train.data$Age.SN <- floor((sel.train.data$SNdate-sel.train.data$DOB)/(24*60*60)/365.25)
+```
+
+#### Location
+Merge location other with trunk
+```{r, eval=TRUE}
+sel.train.data$Loc_CAT[sel.train.data$Loc_CAT=="other"] <- "trunk"
+```
+
+Merge LMM other with other
+```{r, eval=TRUE}
+sel.train.data$Histology[sel.train.data$Histology=="LMM"] <- "other"
+```
+
+#### Define multiple fields
+```{r, eval=TRUE}
+sel.train.data$multiple.fields <- ifelse(!is.na(sel.train.data$nr_SNs_Field_2)&sel.train.data$nr_SNs_Field_2>0,1,0)
+```
+
+#### Number of positive and negative nodes
+Check: there are no negative patients that have positive nodes
+```{r, eval=TRUE}
+sum(!is.na(sel.train.data$Tot_SNs_pos)&sel.train.data$Tot_SNs_pos>0&sel.train.data$SNstatus=="Negative")
+```
+
+Create number of negative nodes removed
+```{r, eval=TRUE}
+sel.train.data$Tot_SNs_neg <- sel.train.data$Tot_nr_SNs - sel.train.data$Tot_SNs_pos
+```
+
+467 positive SN patients have negative nodes
+```{r, eval=TRUE}
+sum(!is.na(sel.train.data$Tot_SNs_neg)&sel.train.data$Tot_SNs_neg>0&sel.train.data$SNstatus=="Positive")
+```
+
+#### SN tumour burden
+11 patients with positive SN have SN tumour burden of exactly 1
+```{r, eval=TRUE}
+sum(sel.train.data$Rdamcrit==1&sel.train.data$SNstatus=="Positive"&!is.na(sel.train.data$Rdamcrit))
+```
+
+Set Rdamcrit of negative SN patients equal to 0
+```{r, eval=TRUE}
+sel.train.data$Rdamcrit[sel.train.data$SNstatus=="Negative"] <- 1 # since log(1) = 0
+```
+
+#### Location of metastasis
+Set Dewar for negative patients to subcap
+```{r, eval=TRUE}
+sum(sel.train.data$SNstatus=="Positive"&sel.train.data$Dewar=="subcap"&!is.na(sel.train.data$Dewar))
+sel.train.data$Dewar[sel.train.data$SNstatus=="Negative"] <- "subcap"
+```
+
+Merge single cells with subcap 
+```{r, eval=TRUE}
+sel.train.data$Dewar[sel.train.data$Dewar=="single cells"] <- "subcap"
+```
+
+#### Recurrence 
+Define time since diagnosis in years (follow-up time)
+```{r, eval=TRUE}
+sel.train.data$FU.time <- (sel.train.data$Last_FU-sel.train.data$SNdate)/(24*60*60)/365.25
+```
+
+Define recurrence time in years
+```{r, eval=TRUE}
+sel.train.data$Rec.time <- (sel.train.data$Date_1st_Rec-sel.train.data$SNdate)/(24*60*60)/365.25
+```
+
+Omit five patients with Rec date before SN date
+```{r, eval=TRUE}
+old.n <- nrow(sel.train.data)
+sel.train.data <- sel.train.data[!(sel.train.data$Rec.time<0&!is.na(sel.train.data$Rec.time)),]
+cat("Number of patients excluded:", old.n-nrow(sel.train.data), "\n")
+```
+
+Set recurrence time equal to follow-up time for those without recurrence
+```{r, eval=TRUE}
+sel.train.data$Rec.time[sel.train.data$Recurrence=="no recurrence"|is.na(sel.train.data$SNdate)]<-sel.train.data$FU.time[sel.train.data$Recurrence=="no recurrence"|is.na(sel.train.data$SNdate)]
+table(sel.train.data$Status, sel.train.data$Recurrence)
+```
+
+Impute recurrence time for 45 patients with missing Rec.time but Recurrence=="recurred"
+```{r, eval=TRUE}
+cat('Number of patients dead with recurrence without Date_1st_Rec:', sum(is.na(sel.train.data$Date_1st_Rec)&sel.train.data$Recurrence=="recurred"&sel.train.data$dead=="Yes"), '\n')
+cat('Number of patients alive with recurrence without Date_1st_Rec:', sum(is.na(sel.train.data$Date_1st_Rec)&sel.train.data$Recurrence=="recurred"&sel.train.data$dead=="No"))
+```
+
+#### Melanoma specific mortality (MSM)
+```{r, eval=TRUE}
+# 504 patients died due to melanoma, 102 patients died from other causes
+table(sel.train.data$Status, sel.train.data$dead)
+sel.train.data$MSM<-1*(sel.train.data$Status=="DOD")
+```
+
+#### Mitosis
+Set Mitosis to Unknown if missing
+```{r, eval=TRUE}
+sel.train.data$Mitosis[is.na(sel.train.data$Mitosis)] <- "Unknown" # mitosis unknown for 80% of patients
+```
+
+#### Replace "Unknown" by NA
+```{r, eval=TRUE}
+sel.train.data$Ulceration[sel.train.data$Ulceration=="unknown"]<-NA
+sel.train.data$Loc_CAT[sel.train.data$Loc_CAT=="unknown"]<-NA
+sel.train.data$Histology[sel.train.data$Histology=="unknown"]<-NA
+sel.train.data$Dewar[sel.train.data$Dewar=="unknown"] <- NA
+sel.train.data$Mitosis[sel.train.data$Mitosis=="Unknown"] <- NA
+```
+
+#### Delete unused levels
+```{r, eval=TRUE}
+sel.train.data <- droplevels(sel.train.data)
+
+# set levels for multiple.fields
+sel.train.data$multiple.fields <- factor(sel.train.data$multiple.fields, labels=c("Other", "Multiple SN fields"))
+sel.train.data$MSM <- factor(sel.train.data$MSM, labels=c("Other", "Death by melanoma"))
+```
+
+# Multiple imputation
+```{r, eval=TRUE}
+variables.to.be.imputed <- c("Center", "SNstatus", "Sex", "Age.SN", "Ulceration",
+                             "Loc_CAT", "Histology", "Breslow", "multiple.fields",
+                             "Tot_SNs_neg", "Tot_SNs_pos", "Rdamcrit", "Dewar",
+                             "Mitosis",
+                             "Recurrence", "dead", "MSM")
+training.data.to.be.imputed <- sel.train.data[, variables.to.be.imputed]
+```
+
+Save distributions of all variables, necessary for Harrell summaries
+```{r, eval=TRUE}
+dd.training<-rms::datadist(training.data.to.be.imputed)
+options(datadist='dd.training')
+options(digits=8)
+```
+
+Relation between outcome and covariates
+```{r, eval=TRUE}
+training.data.to.be.imputed$logRec.time <- log(sel.train.data$Rec.time+1/365.25)
+training.data.to.be.imputed$logFU.time <- log(sel.train.data$FU.time+1/365.25)
+missings.table(training.data.to.be.imputed)
+save(list=c("dd.training", "training.data.to.be.imputed"),file='Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata', compress=TRUE)
+```

@@ -1,0 +1,68 @@
+---
+title: "Create histogram with risk scores"
+author: "Carolien C.H.M. Maas"
+date: "14-11-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Create calibration plots
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(mice)
+library(survival)         # needed to use
+# remotes::install_github("CHMMaas/PredictionTools")
+library(PredictionTools)  # to plot calibration
+# import helper functions
+source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
+```
+
+# Validation
+# Compute predictions for each multiple imputation and make calibration plots with metrics
+```{r, eval=TRUE}
+# laod data
+load('Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData')
+options(datadist='dd.training')
+options(digits=8)
+load('Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData')
+# load model
+load('Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata')
+p.Rec.val <- matrix(NA, nrow(validation.data.to.be.imputed), m)
+p.MSM.val <- matrix(NA, nrow(validation.data.to.be.imputed), m)
+for (i in 1:m){
+  # Linear predictor
+  lp.val.i <- predict(f.mi.BS.Rec.5,
+                      newdata=mice::complete(imputed.validation.data, i),
+                      type="lp")
+
+  # Recurrence
+  p.Rec.val[, i] <- 1-exp(-h0.Rec*exp(lp.val.i))
+
+  # MSM
+  p.MSM.val[, i] <- 1-exp(-h0.MSM*exp(MSM.cal.fact*lp.val.i))
+}
+
+# calibration curve for recurrence, TODO: based on dd.training?
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/val.Rec.png"))
+PredictionTools::val.surv.mi(p.Rec.val,S.Rec.5.validation,g=5,main="Calibration plot of recurrence for all patients",
+                             time=NULL,lim=c(0,1),dist=TRUE)
+grDevices::dev.off()
+
+# calibration curve for MSM
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/val.MSM.png"))
+PredictionTools::val.surv.mi(p.MSM.val,S.MSM.5.validation,g=5,main="Calibration plot of MSM for all patients",
+                             time=NULL,lim=c(0,1),dist=TRUE)
+grDevices::dev.off()
+
+```

@@ -1,0 +1,293 @@
+---
+title: "Create histogram with risk scores"
+author: "Carolien C.H.M. Maas"
+date: "14-11-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Create calibration plots
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(rms)
+library(survival)
+source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
+```
+
+# Test if model is correct
+### Check calibration
+Intercept of recurrence should be the same as when setting covariates to 'zero' values minus the center
+```{r, eval=TRUE}
+load('Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData')
+
+int.Rec
+20*f.mi.BS.Rec.5$coef["Age.SN"]+
+  (log(0.1)-c.Breslow)*f.mi.BS.Rec.5$coef["Breslow"]+
+  log(0.01)*f.mi.BS.Rec.5$coef["Rdamcrit"]-
+  f.mi.BS.Rec.5$center
+```
+
+### Check mean event rates of risk distribution
+#### Recurrence
+```{r, eval=TRUE}
+sum(h.Rec$density*fun.event(lp=lp.points.Rec.5, h0=h0.Rec))
+# equal to the 5-year survival probability, e.g. kaplan-meier at 5 years, i.e. survfit at 5 years:
+SF<-survival::survfit(S.Rec.5.training~1,data=training.data.to.be.imputed)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+# average probability of recurrence
+mean(fun.event(lp=lp.score.Rec, h0=h0.Rec))
+```
+
+#### MSM
+```{r, eval=TRUE}
+sum(h.Rec$density*fun.event(lp=lp.points.MSM.5, h0=h0.MSM))
+# equal to the 5-year survival probability, e.g. kaplan-meier at 5 years, i.e. survfit at 5 years:
+SF<-survfit(S.MSM.5.training~1,data=training.data.to.be.imputed)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+# average probability of MSM
+mean(fun.event(lp=lp.MSM, h0=h0.MSM))
+```
+
+# Check if predictions of new and old model align for negative SN patients
+## New model
+```{r, eval=TRUE}
+lp.negative <- predict(f.mi.BS.Rec.5,
+                       newdata=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative",],
+                       type="lp")
+new.negativeSN.tool <- 1-exp(-h0.Rec*exp(lp.negative))
+```
+
+## Old model with new data
+```{r, eval=TRUE}
+rscript.negative <- function(breslow, ulceration, location) {
+  S0 <- 0.85837329
+  lp <- 0.79351989*log(breslow) +
+    0.61912477*I(ulceration == 1) +
+    0.29594843*I(location == 1) +
+    0.42802046*I(location == 2) +
+    0.86053044*I(location == 3) - 0.98860941
+  S <- 100 - 100*S0^exp(lp)
+  return(S)
+}
+old.negativeSN.tool <- rscript.negative(breslow=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Breslow"],
+                                        ulceration=as.numeric(last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Ulceration"])-1,
+                                        location=as.numeric(last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Loc_CAT"])-1)
+```
+
+## Compare
+```{r, eval=TRUE}
+plot(x=new.negativeSN.tool*100, y=old.negativeSN.tool,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with negative SN status")
+abline(a=0, b=1, col="red")
+```
+
+## Refitted old model new data
+```{r, eval=TRUE}
+refitted.old.negative <- rms::cph(S.Rec.5.training ~ log(Breslow)+Ulceration+Loc_CAT,
+                                  data=last.imputed.training.data.set,
+                                  y=TRUE, x=TRUE,
+                                  subset=last.imputed.training.data.set$SNstatus=="Negative")
+refitted.old.negative
+f.Rec.basehaz.neg <- basehaz(refitted.old.negative,TRUE)
+h0.neg <- f.Rec.basehaz.neg$hazard[f.Rec.basehaz.neg$time==max(f.Rec.basehaz.neg$time[f.Rec.basehaz.neg$time<=horizon])]
+refit.old.negativeSN.tool <- fun.event(predict(refitted.old.negative),  h0.neg)
+```
+
+## Compare
+```{r, eval=TRUE}
+plot(x=new.negativeSN.tool*100, y=refit.old.negativeSN.tool*100,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with negative SN status")
+abline(a=0, b=1, col="red")
+```
+
+## Check mean recurrence probabilities
+```{r, eval=TRUE}
+SF<-survfit(S.Rec.5.training[last.imputed.training.data.set$SNstatus=="Negative"]~1)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+mean(new.negativeSN.tool)
+mean(refit.old.negativeSN.tool)
+mean(old.negativeSN.tool)
+```
+
+# Check if predictions of new and old model align for positive SN patients
+## New model
+```{r, eval=TRUE}
+lp.positive <- predict(f.mi.BS.Rec.5,
+                       newdata=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive",],
+                       type="lp")
+new.positiveSN.tool <- 1-exp(-h0.Rec*exp(lp.positive))
+```
+
+## Old model with new data
+```{r, eval=TRUE}
+rscript.positive <- function(age, ulceration, tumor_burden, breslow) {
+  S0 <- 0.51762362
+  lp <- 0.56109945 * log(age) +
+    0.23383770 * log(tumor_burden) +
+    0.35489235 * log(breslow) +
+    0.36562098 * I(ulceration == 1) - 2.709225
+  S <- 100 - 100 * S0^exp(lp)
+  return(S)
+}
+old.positiveSN.tool <- rscript.positive(age=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Age.SN"],
+                                        ulceration=as.numeric(last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Ulceration"])-1,
+                                        breslow=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Breslow"],
+                                        tumor_burden=as.numeric(last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Rdamcrit"]))
+```
+
+## Compare
+```{r, eval=TRUE}
+plot(x=new.positiveSN.tool*100, y=old.positiveSN.tool,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with positive SN status")
+abline(a=0, b=1, col="red")
+```
+
+## Refitted old model new data
+```{r, eval=TRUE}
+refitted.old.positive <- rms::cph(S.Rec.5.training ~ log(Breslow)+Ulceration+Loc_CAT,
+                                  data=last.imputed.training.data.set,
+                                  y=TRUE, x=TRUE,
+                                  subset=last.imputed.training.data.set$SNstatus=="Positive")
+refitted.old.positive
+f.Rec.basehaz.pos <- basehaz(refitted.old.positive,TRUE)
+h0.pos <- f.Rec.basehaz.pos$hazard[f.Rec.basehaz.pos$time==max(f.Rec.basehaz.pos$time[f.Rec.basehaz.pos$time<=horizon])]
+refit.old.positiveSN.tool <- fun.event(predict(refitted.old.positive),  h0.pos)
+```
+
+## Compare
+```{r, eval=TRUE}
+plot(x=new.positiveSN.tool*100, y=refit.old.positiveSN.tool*100,
+     xlim=c(0, 100), ylim=c(0, 100),
+     xlab="New predictions", ylab="Old predictions",
+     main="Predicted recurrence of patients with positive SN status")
+abline(a=0, b=1, col="red")
+```
+
+## Check mean recurrence probabilities
+```{r, eval=TRUE}
+SF<-survfit(S.Rec.5.training[last.imputed.training.data.set$SNstatus=="Positive"]~1)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+mean(new.positiveSN.tool)
+mean(refit.old.positiveSN.tool)
+mean(old.positiveSN.tool)
+```
+
+#### Example to check probabilities with app
+```{r, eval=TRUE}
+patient.nr <- 115 # 395 and 396 = Negative, 397 and 398 = Positive, 30 = Head & neck, 115 has large Breslow
+print(training.data.to.be.imputed[patient.nr, c("SNstatus", "Age.SN", "Ulceration", "Loc_CAT", "Breslow", "Rdamcrit")])
+
+# calculate linear predictor
+lp.score.Rec.true <- predict(f.mi.BS.Rec.5)[patient.nr]
+lp.score.Rec.try <- predict(f.mi.BS.Rec.5, newdata=data.frame(SNstatus=training.data.to.be.imputed[patient.nr,"SNstatus"],
+                                                              Age.SN=training.data.to.be.imputed[patient.nr,"Age.SN"],
+                                                              Ulceration=training.data.to.be.imputed[patient.nr,"Ulceration"],
+                                                              Loc_CAT=training.data.to.be.imputed[patient.nr,"Loc_CAT"],
+                                                              Breslow=training.data.to.be.imputed[patient.nr,"Breslow"],
+                                                              Rdamcrit=training.data.to.be.imputed[patient.nr,"Rdamcrit"]),
+                            type="lp")
+p.Rec.example <- fun.event(lp=lp.score.Rec.try, h0=h0.Rec)
+p.MSM.example <- fun.event(lp=lp.score.Rec.try, h0=h0.MSM)
+
+# manual calculation
+lp.score.Rec.manual <- coef.Rec["SNstatus=Positive"]*(as.numeric(training.data.to.be.imputed[patient.nr,"SNstatus"])-1)+
+  coef.Rec["Age.SN"]*training.data.to.be.imputed[patient.nr,"Age.SN"]+
+  coef.Rec["Ulceration=Yes"]*(as.numeric(training.data.to.be.imputed[patient.nr,"Ulceration"])-1)+
+  coef.Rec["Loc_CAT=leg"]*as.numeric(training.data.to.be.imputed[patient.nr,"Loc_CAT"]=="leg")+
+  coef.Rec["Loc_CAT=trunk"]*as.numeric(training.data.to.be.imputed[patient.nr,"Loc_CAT"]=="trunk")+
+  coef.Rec["Loc_CAT=head & neck"]*as.numeric(training.data.to.be.imputed[patient.nr,"Loc_CAT"]=="head & neck")+
+  coef.Rec["Breslow"]*(log(training.data.to.be.imputed[patient.nr,"Breslow"])-c.Breslow)+
+  coef.Rec["Rdamcrit"]*log(training.data.to.be.imputed[patient.nr,"Rdamcrit"])+
+  coef.Rec["SNstatus=Positive * Breslow"]*(log(training.data.to.be.imputed[patient.nr,"Breslow"])-c.Breslow)*(as.numeric(training.data.to.be.imputed[patient.nr,"SNstatus"])-1)
+
+# lp check
+lp.score.Rec.true
+lp.score.Rec.try
+lp.score.Rec.manual-center.Rec
+
+# probability of recurrence with fun.event
+fun.event(lp=lp.score.Rec.try, h0=h0.Rec)
+# probability of recurrence manually
+1-exp(-h0.Rec*exp(lp.score.Rec.manual-center.Rec))
+
+# check calculation of lp of MSM
+lp.score.MSM.true <- predict(f.mi.BS.MSM.5)[patient.nr]
+lp.score.MSM.true
+lp.MSM.try <- MSM.cal.fact*(lp.score.Rec.manual-center.Rec)
+lp.MSM.try
+
+# probability of MSM with fun.event
+fun.event(lp=lp.MSM.try, h0=h0.MSM)
+# probability of MSM manually
+1-exp(-h0.MSM*exp(MSM.cal.fact*(lp.score.Rec.manual-center.Rec)))
+```
+
+### Histogram for negative SN status patients
+```{r, eval=TRUE}
+Breslow.trunc.neg <- last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Breslow"]
+Breslow.trunc.neg[last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Breslow"]<0.1] <- .1
+Breslow.trunc.neg[last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Breslow"]>7] <- 7
+lp.score.Rec.negative <- predict(f.mi.BS.Rec.5,newdata=data.frame(SNstatus=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "SNstatus"],
+                                                                  Age.SN=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Age.SN"],
+                                                                  Ulceration=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Ulceration"],
+                                                                  Loc_CAT=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Loc_CAT"],
+                                                                  Breslow=Breslow.trunc.neg,
+                                                                  Rdamcrit=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Negative", "Rdamcrit"]))
+mean(lp.score.Rec.negative)
+# OK to use int.Rec and rc.Rec based on all patients?
+score.Rec.neg <- round((lp.score.Rec.negative-int.Rec)/rc.Rec,0)
+h.Rec.neg <- hist(score.Rec.neg,plot=FALSE,breaks=0:max.breaks,right=FALSE)
+h.plot.neg <- h.Rec.neg
+h.plot.neg$density <- 100*h.Rec.neg$density
+```
+
+### Histogram for positive SN status patients
+```{r, eval=TRUE}
+Breslow.trunc.pos <- last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Breslow"]
+Breslow.trunc.pos[last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Breslow"]<0.1] <- .1
+Breslow.trunc.pos[last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Breslow"]>7] <- 7
+lp.score.Rec.positive <- predict(f.mi.BS.Rec.5,newdata=data.frame(SNstatus=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "SNstatus"],
+                                                                  Age.SN=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Age.SN"],
+                                                                  Ulceration=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Ulceration"],
+                                                                  Loc_CAT=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Loc_CAT"],
+                                                                  Breslow=Breslow.trunc.pos,
+                                                                  Rdamcrit=last.imputed.training.data.set[last.imputed.training.data.set$SNstatus=="Positive", "Rdamcrit"]))
+mean(lp.score.Rec.positive)
+# OK to use int.Rec and rc.Rec based on all patients?
+score.Rec.pos <- round((lp.score.Rec.positive-int.Rec)/rc.Rec,0)
+h.Rec.pos <- hist(score.Rec.pos,plot=FALSE,breaks=0:max.breaks,right=FALSE)
+h.plot.pos <- h.Rec.pos
+h.plot.pos$density <- 100*h.Rec.pos$density
+
+par(mfrow=c(1, 3))
+plot(h.plot,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,ylim=y.lim.hist,
+     ylab="Risk score distribution (%)", main="All patients",col="white")
+plot(h.plot.neg,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
+     ylab="Risk score distribution (%)",ylim=y.lim.hist,main="Negative SN status",col="white")
+plot(h.plot.pos,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
+     ylab="Risk score distribution (%)",ylim=y.lim.hist,main="Positive SN status",col="white")
+```
+
+### Test proportional hazards assumption
+```{r, eval=TRUE}
+test.prop<-survival::cox.zph(f.mi.full.Rec.5$fits[[1]])
+test.prop
+plot(test.prop)
+```

@@ -1,0 +1,163 @@
+---
+title: "Test non-linearity"
+author: "Carolien C.H.M. Maas"
+date: "14-11-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Test non-linearity
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(foreign)
+library(mice)
+library(survminer)
+library(prodlim)
+library(rms)
+library(Hmisc)
+library(png)
+# remotes::install_github("CHMMaas/PredictionTools")
+library(PredictionTools)  # to plot calibration
+# import helper functions
+source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
+```
+
+# Test non-lineairities
+### Test if Age should be modelled non-linearly
+```{r, eval=TRUE}
+load('Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData')
+options(datadist='dd.training')
+options(digits=8)
+
+form.linear.full.Rec <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
+form.nonlinear.age.full.Rec <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  rcs(Age.SN) +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:rcs(Age.SN) +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
+linear.full.Rec <- Hmisc::fit.mult.impute(form.linear.full.Rec, cph, xtrans=imputed.training.data,
+                                          data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                          fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+nonlinear.age.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.age.full.Rec, cph, xtrans=imputed.training.data,
+                                                 data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+# distribution of Age
+hist(last.imputed.training.data.set$Age.SN)
+# linear model
+linear.full.Rec$loglik[2]
+# using log(Age) gives slightly better log likelihood
+nonlinear.age.full.Rec$loglik[2]
+```
+
+### Test if Breslow should be modelled non-linearly
+```{r, eval=TRUE}
+form.nonlinear.Breslow.full.Rec <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  rcs(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:rcs(Breslow) +
+  SNstatus:multiple.fields
+nonlinear.Breslow.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Breslow.full.Rec, cph, xtrans=imputed.training.data,
+                                                     data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                                     fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+# distribution of Breslow
+hist(last.imputed.training.data.set$Breslow)
+# linear model
+linear.full.Rec$loglik[2]
+# using log(Breslow) gives better log likelihood
+nonlinear.Breslow.full.Rec$loglik[2]
+# test
+anova(nonlinear.Breslow.full.Rec)
+```
+
+### Test if Rdamcrit should be modelled non-linearly
+```{r, eval=TRUE}
+form.nonlinear.Rdamcrit.full.Rec <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  rcs(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
+nonlinear.Rdamcrit.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Rdamcrit.full.Rec, cph, xtrans=imputed.training.data,
+                                                      data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                                      fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+# distribution of Rdamcrit
+hist(last.imputed.training.data.set$Rdamcrit)
+# linear model
+linear.full.Rec$loglik[2]
+# using log(Rdamcrit) gives better log likelihood
+nonlinear.Rdamcrit.full.Rec$loglik[2]
+```

@@ -11,17 +11,26 @@ cat('\014')
 library(arsenal)
 library(knitr)
 
-load('Z:/Project Melanoom/Code/PaperMelanoma/Data/descr.data.Rdata')
-data.to.be.imputed$MSM <- factor(data.to.be.imputed$MSM, labels=c("Other", "Death by melanoma"))
-data.to.be.imputed$multiple.fields <- factor(data.to.be.imputed$multiple.fields, labels=c("Other", "Multiple SN fields"))
-descr.table <- arsenal::tableby(Center ~ SNstatus+Sex
-                                +Age.SN+includeNA(Ulceration)
-                                +includeNA(Loc_CAT)+includeNA(Histology)
-                                +Breslow+multiple.fields
-                                +Tot_SNs_neg+Tot_SNs_pos
-                                +Rdamcrit+includeNA(Dewar)+includeNA(Mitosis)
-                                +Recurrence+dead
-                                +MSM+logRec.time+logFU.time, data=data.to.be.imputed, 
+load('Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata')
+load('Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata')
+descr.table <- arsenal::tableby(Center ~ SNstatus
+                                +Sex
+                                +Age.SN
+                                +arsenal::includeNA(Ulceration)
+                                +arsenal::includeNA(Loc_CAT)
+                                +arsenal::includeNA(Histology)
+                                +Breslow
+                                +multiple.fields
+                                +Tot_SNs_neg
+                                +Tot_SNs_pos
+                                +Rdamcrit
+                                +arsenal::includeNA(Dewar)
+                                +arsenal::includeNA(Mitosis)
+                                +Recurrence
+                                +dead
+                                +MSM
+                                +logRec.time
+                                +logFU.time, data=rbind(training.data.to.be.imputed, validation.data.to.be.imputed), 
                                 total.pos="before",
                                 digits = 1,
                                 test = F,

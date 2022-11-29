@@ -1,0 +1,162 @@
+---
+title: "Multiple imputation"
+author: "Carolien C.H.M. Maas"
+date: "14-11-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Describe data
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(mice)
+library(survival)
+library(survminer)
+library(stats)
+library(prodlim)
+library(utils)
+source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
+```
+
+```{r, eval=TRUE}
+prepare.data <- function(type){
+  # Load imputed data set 
+  load(paste0('Z:/Project Melanoom/PaperMelanoma/Data/', type, '/', type, '.data.RData'))
+  imputed.data <- eval(parse(text=paste0("imputed.", type, ".data")))
+  last.imputed.data.set <- mice::complete(imputed.data, m)
+  
+  assign(paste0('S.Rec.', type), survival::Surv(exp(last.imputed.data.set$logRec.time), last.imputed.data.set$Recurrence=="recurred"))
+  assign(paste0('S.MSM.', type), survival::Surv(exp(last.imputed.data.set$logFU.time), last.imputed.data.set$MSM=="Death by melanoma"))
+  
+  assign(paste0("imputed.", type, ".data"), imputed.data)
+  assign(paste0("last.imputed.", type, ".data.set"), last.imputed.data.set)
+  
+  save(list=c(paste0("dd.", type), "m", 
+              paste0(type, ".data.to.be.imputed"), 
+              paste0("imputed.", type, ".data"), 
+              paste0("last.imputed.", type, ".data.set"), 
+              paste0("S.Rec.", type), 
+              paste0("S.MSM.", type)),
+       file=paste0('Z:/Project Melanoom/PaperMelanoma/Data/', type, '/', type, '.data.Rdata'), compress=TRUE)
+}
+prepare.data(type='training')
+prepare.data(type='validation')
+```
+
+### Kaplan-Meier plots
+```{r, eval=TRUE}
+load(paste0('Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData'))
+survminer::ggsurvplot(survival::survfit(S.Rec.training ~ Center, data=last.imputed.training.data.set), conf.int=TRUE, risk.table=TRUE)
+survminer::ggsurvplot(survival::survfit(S.MSM.training ~ Center, data=last.imputed.training.data.set), conf.int=TRUE, risk.table=TRUE)
+load(paste0('Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData'))
+survminer::ggsurvplot(survival::survfit(S.Rec.validation ~ Center, data=last.imputed.validation.data.set), conf.int=TRUE, risk.table=TRUE)
+survminer::ggsurvplot(survival::survfit(S.MSM.validation ~ Center, data=last.imputed.validation.data.set), conf.int=TRUE, risk.table=TRUE)
+```
+
+# Median follow-up time
+```{r, eval=TRUE}
+median.FU.time <- function(data=NA){
+  median.FU.time.total <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM=="Death by melanoma")~1, data=data[data$Center!="Australia",], reverse=TRUE))
+  tab.FU.time <- c("Total Development", paste(sprintf("%.2f", median.FU.time.total$quantiles.survival[3, "quantile"]),
+                   paste0("[", sprintf("%.2f", median.FU.time.total$quantiles.survival[3, "lower"]), "; ",
+                          sprintf("%.2f", median.FU.time.total$quantiles.survival[3, "upper"]), "]")))
+  median.FU.time <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM=="Death by melanoma")~Center, data=data, reverse=TRUE))
+  for (center in c("Amsterdam", "Berlin", "Rotterdam", "Warsaw", "Australia")){
+    med.FU.table <- eval(parse(text=paste0("median.FU.time$`Center=", center, "`")))
+    med.FU <- med.FU.table[3,"quantile"]
+    lower.FU <- med.FU.table[3,"lower"]
+    upper.FU <- med.FU.table[3,"upper"]
+    tab.FU.time <- rbind(tab.FU.time, c(center, paste(sprintf("%.2f", med.FU), paste0("[", sprintf("%.2f", lower.FU), "; ", sprintf("%.2f", upper.FU), "]"))))
+  }
+  write.table(as.data.frame(tab.FU.time),
+              file=paste0('Z:/Project Melanoom/PaperMelanoma/Results/med.FU.table.txt'),
+              row.names=FALSE, sep=",")
+  return(tab.FU.time)
+}
+median.FU.time(data=rbind(training.data.to.be.imputed[, c("logFU.time", "MSM", "Center")], 
+                          validation.data.to.be.imputed[, c("logFU.time", "MSM", "Center")]))
+```
+
+# Recurrence at 5 years
+```{r, eval=TRUE}
+Rec.MSM.table <- function(horizon=5, type=NULL, data.to.be.imputed=NULL){
+  # all patients, Recurrence
+  S.Rec <- eval(parse(text=paste0('S.Rec.', type)))
+  SF.Rec.all<-survfit(S.Rec~1, data=data.to.be.imputed)
+  Rec.all <- 100*(1-SF.Rec.all$surv[SF.Rec.all$time==max(SF.Rec.all$time[SF.Rec.all$time<=horizon])])
+  
+  # only negative patients, Recurrence
+  SF.Rec.neg<-survfit(S.Rec[data.to.be.imputed$SNstatus=="Negative"]~1, data=data.to.be.imputed)
+  Rec.neg <- 100*(1-SF.Rec.neg$surv[SF.Rec.neg$time==max(SF.Rec.neg$time[SF.Rec.neg$time<=horizon])])
+  
+  # only positive patients, Recurrence
+  SF.Rec.pos<-survfit(S.Rec[data.to.be.imputed$SNstatus=="Positive"]~1, data=data.to.be.imputed)
+  Rec.pos <- 100*(1-SF.Rec.pos$surv[SF.Rec.pos$time==max(SF.Rec.pos$time[SF.Rec.pos$time<=horizon])])
+  
+  # all patients, MSM
+  S.MSM <- eval(parse(text=paste0('S.MSM.', type)))
+  SF.MSM.all<-survfit(S.MSM~1, data=data.to.be.imputed)
+  MSM.all <- 100*(1-SF.MSM.all$surv[SF.MSM.all$time==max(SF.MSM.all$time[SF.MSM.all$time<=horizon])])
+  
+  # negative patients, MSM
+  SF.MSM.neg<-survfit(S.MSM[data.to.be.imputed$SNstatus=="Negative"]~1, data=data.to.be.imputed)
+  MSM.neg <- 100*(1-SF.MSM.neg$surv[SF.MSM.neg$time==max(SF.MSM.neg$time[SF.MSM.neg$time<=horizon])])
+  
+  # positive patients, MSM
+  SF.MSM.pos<-survfit(S.MSM[data.to.be.imputed$SNstatus=="Positive"]~1, data=data.to.be.imputed)
+  MSM.pos <- 100*(1-SF.MSM.pos$surv[SF.MSM.pos$time==max(SF.MSM.pos$time[SF.MSM.pos$time<=horizon])])
+  
+  # merge in one table
+  Rec.MSM.table <- data.frame(n=c(nrow(data.to.be.imputed),
+                                  sum(data.to.be.imputed$SNstatus=="Negative"),
+                                  sum(data.to.be.imputed$SNstatus=="Positive")),
+                              perc=c(100,
+                                     sprintf("%.1f", sum(data.to.be.imputed$SNstatus=="Negative")/nrow(data.to.be.imputed)*100),
+                                     sprintf("%.1f", sum(data.to.be.imputed$SNstatus=="Positive")/nrow(data.to.be.imputed)*100)),
+                              Rec=sprintf("%.1f", c(Rec.all, Rec.neg, Rec.pos)),
+                              MSM=sprintf("%.1f", c(MSM.all, MSM.neg, MSM.pos)))
+  row.names(Rec.MSM.table) <- c("All", "Negative", "Positive")
+  utils::write.table(as.data.frame(Rec.MSM.table),file=paste0('Z:/Project Melanoom/PaperMelanoma/Results/Rec.MSM.table.', type, '.txt'),
+                     row.names=TRUE, sep=",")
+  return(Rec.MSM.table)
+}
+
+horizon <- 5
+Rec.MSM.table(horizon=horizon, type='training', data.to.be.imputed=training.data.to.be.imputed)
+Rec.MSM.table(horizon=horizon, type='validation', data.to.be.imputed=validation.data.to.be.imputed)
+```
+
+# Restrict survival at 5 years
+```{r, eval=TRUE}
+for (type in c('training',  'validation')){
+  load(paste0('Z:/Project Melanoom/PaperMelanoma/Data/', type, '/', type, '.data.Rdata'))
+  for (outcome in c('Rec', 'MSM')){
+    S <- eval(parse(text=paste0('S.', outcome, '.', type)))
+    S.5 <- S
+    S.5[S[,1]>5, 1] <- 5 # set time to 5
+    S.5[S[,1]>5, 2] <- 0 # set censoring
+    
+    assign(paste0('S.', outcome, '.5.', type), S.5)
+  }
+  save(list=c(paste0("dd.", type), "m", "horizon", 
+              paste0(type, ".data.to.be.imputed"),
+              paste0("imputed.", type, ".data"), 
+              paste0("last.imputed.", type, ".data.set"),
+              paste0("S.Rec.", type), 
+              paste0("S.MSM.", type),
+              paste0("S.Rec.5.", type), 
+              paste0("S.MSM.5.", type)),
+     file=paste0('Z:/Project Melanoom/PaperMelanoma/Data/', type, '/', type, '.data.Rdata'), compress=TRUE)
+}
+```
