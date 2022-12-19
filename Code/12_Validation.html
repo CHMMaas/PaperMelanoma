@@ -360,7 +360,7 @@ pre code {
 
 <h1 class="title toc-ignore">Create histogram with risk scores</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">December 2022</h4>
+<h4 class="date">January 2023</h4>
 
 </div>
 
@@ -424,17 +424,20 @@ for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
     data &lt;- eval(parse(text=paste0(data.type, &quot;.data.to.be.imputed&quot;)))
     
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.All.png&quot;))
+    par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p, S,
                                  g=5,main=&quot;All patients&quot;, time=NULL,lim=c(0,1),dist=TRUE)
     grDevices::dev.off()
     
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Positive.png&quot;))
+    par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus==&quot;Positive&quot;,],
                                  S[data$SNstatus==&quot;Positive&quot;,],
                                  g=5,main=&quot;Patients with positive SN&quot;, time=NULL,lim=c(0,1),dist=TRUE)
     grDevices::dev.off()
     
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Negative.png&quot;))
+    par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus==&quot;Negative&quot;,],
                                  S[data$SNstatus==&quot;Negative&quot;,],
                                  g=5,main=&quot;Patients with negative SN&quot;, time=NULL,lim=c(0,1),dist=TRUE)
@@ -451,7 +454,7 @@ for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
     }
     grDevices::dev.off()
     
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/&quot;, data.type, &quot;.&quot;, outcome, &quot;.png&quot;), width=32, height=48, units=&quot;cm&quot;, res=600)
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/&quot;, data.type, &quot;.&quot;, outcome, &quot;.png&quot;), width=32, height=45, units=&quot;cm&quot;, res=600)
     par(mar=rep(0, 4))
     layout(matrix(1:2, ncol=1, nrow=2, byrow=TRUE), heights=c(2, 1), widths=c(2, 2))
     for (select.value in c(&quot;All&quot;, &quot;Neg.Pos&quot;)){

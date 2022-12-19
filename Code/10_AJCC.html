@@ -508,12 +508,12 @@ library(compareC)         # compare AJCC to model</code></pre>
   AJCC.7.table &lt;- rbind(c(&quot;All patients:&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7$est),
                 paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7$est+qnorm(.025)*cindex.mi.AJCC.7$se),
                         &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7$est+qnorm(.975)*cindex.mi.AJCC.7$se), &quot;]&quot;)),
-              c(&quot;Positive SN patients:&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.pos$est),
-                    paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.pos$est+qnorm(.025)*cindex.mi.AJCC.7.pos$se),
-                           &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.pos$est+qnorm(.975)*cindex.mi.AJCC.7.pos$se), &quot;]&quot;)),
               c(&quot;Negative SN patients:&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.neg$est),
                     paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.neg$est+qnorm(.025)*cindex.mi.AJCC.7.neg$se),
-                           &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.neg$est+qnorm(.975)*cindex.mi.AJCC.7.neg$se), &quot;]&quot;)))
+                           &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.neg$est+qnorm(.975)*cindex.mi.AJCC.7.neg$se), &quot;]&quot;)),
+              c(&quot;Positive SN patients:&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.pos$est),
+                    paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.pos$est+qnorm(.025)*cindex.mi.AJCC.7.pos$se),
+                           &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.7.pos$est+qnorm(.975)*cindex.mi.AJCC.7.pos$se), &quot;]&quot;)))
   
   ####
   #### AJCC8
@@ -629,12 +629,12 @@ library(compareC)         # compare AJCC to model</code></pre>
   AJCC.8.table &lt;- rbind(c(&quot;All patients:&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8$est),
                           paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8$est+qnorm(.025)*cindex.mi.AJCC.8$se),
                                  &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8$est+qnorm(.975)*cindex.mi.AJCC.8$se), &quot;]&quot;)),
-                    c(&quot;Positive SN patients:&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.pos$est),
-                          paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.pos$est+qnorm(.025)*cindex.mi.AJCC.8.pos$se),
-                                 &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.pos$est+qnorm(.975)*cindex.mi.AJCC.8.pos$se), &quot;]&quot;)),
                     c(&quot;Negative SN patients&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.neg$est),
                           paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.neg$est+qnorm(.025)*cindex.mi.AJCC.8.neg$se),
-                                 &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.neg$est+qnorm(.975)*cindex.mi.AJCC.8.neg$se), &quot;]&quot;)))
+                                 &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.neg$est+qnorm(.975)*cindex.mi.AJCC.8.neg$se), &quot;]&quot;)),
+                    c(&quot;Positive SN patients:&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.pos$est),
+                          paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.pos$est+qnorm(.025)*cindex.mi.AJCC.8.pos$se),
+                                 &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.AJCC.8.pos$est+qnorm(.975)*cindex.mi.AJCC.8.pos$se), &quot;]&quot;)))
   
   # table of number of AJCC.7 and AJCC.8
   table.AJCC.7 &lt;- c()
@@ -648,20 +648,16 @@ library(compareC)         # compare AJCC to model</code></pre>
   # print(sort(unique(AJCC.8[,1])))
   
   if (type==&quot;training&quot;){
-    table.AJCC.7.8 &lt;- cbind(c(&quot;1.1&quot;, &quot;1.2&quot;, &quot;2.1&quot;, &quot;2.2&quot;, &quot;2.3&quot;, &quot;3.1&quot;, &quot;3.2&quot;, &quot;3.3&quot;, &quot;3.4&quot;),
+    AJCC.7.8.count &lt;- cbind(c(&quot;1.1&quot;, &quot;1.2&quot;, &quot;2.1&quot;, &quot;2.2&quot;, &quot;2.3&quot;, &quot;3.1&quot;, &quot;3.2&quot;, &quot;3.3&quot;, &quot;3.4&quot;),
                           c(round(rowMeans(table.AJCC.7), 0), 0),
                           round(rowMeans(table.AJCC.8)))
   } else if (type==&quot;validation&quot;){
-    table.AJCC.7.8 &lt;- cbind(c(&quot;1.1&quot;, &quot;1.2&quot;, &quot;2.1&quot;, &quot;2.2&quot;, &quot;2.3&quot;, &quot;3.1&quot;, &quot;3.2&quot;, &quot;3.3&quot;, &quot;3.4&quot;),
+    AJCC.7.8.count &lt;- cbind(c(&quot;1.1&quot;, &quot;1.2&quot;, &quot;2.1&quot;, &quot;2.2&quot;, &quot;2.3&quot;, &quot;3.1&quot;, &quot;3.2&quot;, &quot;3.3&quot;, &quot;3.4&quot;),
                           c(round(rowMeans(table.AJCC.7), 0), 0),
                           c(0, round(rowMeans(table.AJCC.8), 0)))
   }
-  utils::write.table(table.AJCC.7.8,
-              file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/table.AJCC.7.and.8.&quot;, type, &quot;.txt&quot;),
-              row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)
-  
   return(list(AJCC.7=AJCC.7, AJCC.7.table=AJCC.7.table,
-              AJCC.8=AJCC.8, AJCC.8.table=AJCC.8.table))
+              AJCC.8=AJCC.8, AJCC.8.table=AJCC.8.table, AJCC.7.8.count=AJCC.7.8.count))
 }
 load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
 train.AJCC &lt;- calculate.AJCC.7.8(imputed.data=imputed.training.data, S.Rec.5=S.Rec.5.training, type=&quot;training&quot;)
@@ -722,43 +718,48 @@ compare.AJCC.model &lt;- rbind(c(&quot;All patients:&quot;,
                 sprintf(&quot;%.2f&quot;, diff.All.8$est),
                 paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, diff.All.8$est+qnorm(.025)*diff.All.8$se),
                         &quot;; &quot;, sprintf(&quot;%.2f&quot;, diff.All.8$est+qnorm(.975)*diff.All.8$se), &quot;]&quot;)),
-              c(&quot;Positive SN patients:&quot;, 
-                sprintf(&quot;%.2f&quot;, diff.Positive.7$est),
-                paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, diff.Positive.7$est+qnorm(.025)*diff.Positive.7$se),
-                       &quot;; &quot;, sprintf(&quot;%.2f&quot;, diff.Positive.7$est+qnorm(.975)*diff.Positive.7$se), &quot;]&quot;),
-                sprintf(&quot;%.2f&quot;, diff.Positive.8$est),
-                paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, diff.Positive.8$est+qnorm(.025)*diff.Positive.8$se),
-                       &quot;; &quot;, sprintf(&quot;%.2f&quot;, diff.Positive.8$est+qnorm(.975)*diff.Positive.8$se), &quot;]&quot;)),
               c(&quot;Negative SN patients:&quot;, 
                 sprintf(&quot;%.2f&quot;, diff.Negative.7$est),
                 paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, diff.Negative.7$est+qnorm(.025)*diff.Negative.7$se),
                        &quot;; &quot;, sprintf(&quot;%.2f&quot;, diff.Negative.7$est+qnorm(.975)*diff.Negative.7$se), &quot;]&quot;),
                 sprintf(&quot;%.2f&quot;, diff.Negative.8$est),
                 paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, diff.Negative.8$est+qnorm(.025)*diff.Negative.8$se),
-                       &quot;; &quot;, sprintf(&quot;%.2f&quot;, diff.Negative.8$est+qnorm(.975)*diff.Negative.8$se), &quot;]&quot;)))
+                       &quot;; &quot;, sprintf(&quot;%.2f&quot;, diff.Negative.8$est+qnorm(.975)*diff.Negative.8$se), &quot;]&quot;)),
+              c(&quot;Positive SN patients:&quot;, 
+                sprintf(&quot;%.2f&quot;, diff.Positive.7$est),
+                paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, diff.Positive.7$est+qnorm(.025)*diff.Positive.7$se),
+                       &quot;; &quot;, sprintf(&quot;%.2f&quot;, diff.Positive.7$est+qnorm(.975)*diff.Positive.7$se), &quot;]&quot;),
+                sprintf(&quot;%.2f&quot;, diff.Positive.8$est),
+                paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, diff.Positive.8$est+qnorm(.025)*diff.Positive.8$se),
+                       &quot;; &quot;, sprintf(&quot;%.2f&quot;, diff.Positive.8$est+qnorm(.975)*diff.Positive.8$se), &quot;]&quot;)))
 
 CIndex.val &lt;- rbind(c(&quot;All patients:&quot;,
                 sprintf(&quot;%.2f&quot;, model.All$est),
                 paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, model.All$est+qnorm(.025)*model.All$se), 
                       &quot;; &quot;, sprintf(&quot;%.2f&quot;, model.All$est+qnorm(.975)*model.All$se), &quot;]&quot;)),
-                c(&quot;Positve SN patients:&quot;,
-                sprintf(&quot;%.2f&quot;, model.Positive$est), 
-                paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, model.Positive$est+qnorm(.025)*model.Positive$se), 
-                      &quot;; &quot;, sprintf(&quot;%.2f&quot;, model.Positive$est+qnorm(.975)*model.Positive$se), &quot;]&quot;)),
                 c(&quot;Negative SN patients:&quot;,
                 sprintf(&quot;%.2f&quot;, model.Negative$est), 
                 paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, model.Negative$est+qnorm(.025)*model.Negative$se), 
-                      &quot;; &quot;, sprintf(&quot;%.2f&quot;, model.Negative$est+qnorm(.975)*model.Negative$se), &quot;]&quot;)))</code></pre>
+                      &quot;; &quot;, sprintf(&quot;%.2f&quot;, model.Negative$est+qnorm(.975)*model.Negative$se), &quot;]&quot;)),
+                c(&quot;Positve SN patients:&quot;,
+                sprintf(&quot;%.2f&quot;, model.Positive$est), 
+                paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, model.Positive$est+qnorm(.025)*model.Positive$se), 
+                      &quot;; &quot;, sprintf(&quot;%.2f&quot;, model.Positive$est+qnorm(.975)*model.Positive$se), &quot;]&quot;)))</code></pre>
 </div>
 <div id="write-to-excel" class="section level1">
 <h1>Write to Excel</h1>
-<pre class="r"><code>utils::write.table(cbind(train.AJCC$AJCC.7.table, train.AJCC$AJCC.8.table[,-1]),
+<pre class="r"><code>utils::write.table(cbind(train.AJCC$AJCC.7.table, rep(&quot;&quot;, 3), train.AJCC$AJCC.8.table[,-1]),
               file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/AJCC.train.txt&quot;),
               row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)
-utils::write.table(cbind(validation.AJCC$AJCC.7.table, rep(&quot;&quot;, 3), 
-              validation.AJCC$AJCC.8.table[,-1], rep(&quot;&quot;, 3),
-              CIndex.val[, -1], rep(&quot;&quot;, 3), compare.AJCC.model[, -1]),
+utils::write.table(cbind(CIndex.val, rep(&quot;&quot;, 3),
+                   validation.AJCC$AJCC.7.table[, -1], rep(&quot;&quot;, 3), 
+                   compare.AJCC.model[, 2:3], rep(&quot;&quot;, 3),
+                   validation.AJCC$AJCC.8.table[,-1], rep(&quot;&quot;, 3),
+                   compare.AJCC.model[, 4:5]),
               file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/AJCC.validation.txt&quot;),
+              row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)
+utils::write.table(cbind(train.AJCC$AJCC.7.8.count, rep(&quot;&quot;, 3), validation.AJCC$AJCC.7.8.count[,-1]),
+              file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/AJCC.7.8.count.txt&quot;),
               row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)</code></pre>
 </div>
 

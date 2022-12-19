@@ -8,6 +8,7 @@ rm(list = ls(all.names = TRUE))
 if(!is.null(dev.list())) dev.off()
 cat("\014")
 
+# load packages
 library(arsenal)
 library(knitr)
 

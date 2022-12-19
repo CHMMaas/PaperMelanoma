@@ -12,7 +12,7 @@
 <meta name="author" content="Carolien C.H.M. Maas" />
 
 
-<title>Multiple imputation</title>
+<title>Descriptive statistics</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -358,9 +358,9 @@ pre code {
 
 
 
-<h1 class="title toc-ignore">Multiple imputation</h1>
+<h1 class="title toc-ignore">Descriptive statistics</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">December 2022</h4>
+<h4 class="date">January 2023</h4>
 
 </div>
 
@@ -465,44 +465,43 @@ write.table(cbind(c(&quot;Recurrence time&quot;, &quot;Follow-up time&quot;),
   S.Rec &lt;- eval(parse(text=paste0(&quot;S.Rec.&quot;, type)))
   SF.Rec.all &lt;- survival::survfit(S.Rec~1, data=data.to.be.imputed)
   Rec.all &lt;- 100*(1-SF.Rec.all$surv[SF.Rec.all$time==max(SF.Rec.all$time[SF.Rec.all$time&lt;=horizon])])
-  n.Rec.all &lt;- SF.Rec.all$n.risk[SF.Rec.all$time==max(SF.Rec.all$time[SF.Rec.all$time&lt;=horizon])]
-    
+  n.Rec.all &lt;- sum(SF.Rec.all$n.event[SF.Rec.all$time&lt;=horizon])
+  
   # only negative patients, Recurrence
   SF.Rec.neg &lt;-survival::survfit(S.Rec[data.to.be.imputed$SNstatus==&quot;Negative&quot;]~1, data=data.to.be.imputed)
   Rec.neg &lt;- 100*(1-SF.Rec.neg$surv[SF.Rec.neg$time==max(SF.Rec.neg$time[SF.Rec.neg$time&lt;=horizon])])
-  n.Rec.neg &lt;- SF.Rec.neg$n.risk[SF.Rec.neg$time==max(SF.Rec.neg$time[SF.Rec.neg$time&lt;=horizon])]
+  n.Rec.neg &lt;- sum(SF.Rec.neg$n.event[SF.Rec.neg$time&lt;=horizon])
     
   # only positive patients, Recurrence
   SF.Rec.pos &lt;- survival::survfit(S.Rec[data.to.be.imputed$SNstatus==&quot;Positive&quot;]~1, data=data.to.be.imputed)
   Rec.pos &lt;- 100*(1-SF.Rec.pos$surv[SF.Rec.pos$time==max(SF.Rec.pos$time[SF.Rec.pos$time&lt;=horizon])])
-  n.Rec.pos &lt;- SF.Rec.pos$n.risk[SF.Rec.pos$time==max(SF.Rec.pos$time[SF.Rec.pos$time&lt;=horizon])]
+  n.Rec.pos &lt;- sum(SF.Rec.pos$n.event[SF.Rec.pos$time&lt;=horizon])
   
   # all patients, MSM
   S.MSM &lt;- eval(parse(text=paste0(&quot;S.MSM.&quot;, type)))
   SF.MSM.all &lt;- survival::survfit(S.MSM~1, data=data.to.be.imputed)
   MSM.all &lt;- 100*(1-SF.MSM.all$surv[SF.MSM.all$time==max(SF.MSM.all$time[SF.MSM.all$time&lt;=horizon])])
-  n.MSM.all &lt;- SF.MSM.all$n.risk[SF.MSM.all$time==max(SF.MSM.all$time[SF.MSM.all$time&lt;=horizon])]
+  n.MSM.all &lt;- sum(SF.MSM.all$n.event[SF.MSM.all$time&lt;=horizon])
   
   # negative patients, MSM
   SF.MSM.neg &lt;- survival::survfit(S.MSM[data.to.be.imputed$SNstatus==&quot;Negative&quot;]~1, data=data.to.be.imputed)
   MSM.neg &lt;- 100*(1-SF.MSM.neg$surv[SF.MSM.neg$time==max(SF.MSM.neg$time[SF.MSM.neg$time&lt;=horizon])])
-  n.MSM.neg &lt;- SF.MSM.neg$n.risk[SF.MSM.neg$time==max(SF.MSM.neg$time[SF.MSM.neg$time&lt;=horizon])]
+  n.MSM.neg &lt;- sum(SF.MSM.neg$n.event[SF.MSM.neg$time&lt;=horizon])
   
   # positive patients, MSM
   SF.MSM.pos &lt;- survival::survfit(S.MSM[data.to.be.imputed$SNstatus==&quot;Positive&quot;]~1, data=data.to.be.imputed)
   MSM.pos &lt;- 100*(1-SF.MSM.pos$surv[SF.MSM.pos$time==max(SF.MSM.pos$time[SF.MSM.pos$time&lt;=horizon])])
-  n.MSM.pos &lt;- SF.MSM.pos$n.risk[SF.MSM.pos$time==max(SF.MSM.pos$time[SF.MSM.pos$time&lt;=horizon])]
+  n.MSM.pos &lt;- sum(SF.MSM.pos$n.event[SF.MSM.pos$time&lt;=horizon])
   
   # merge in one table
   Rec.MSM.table &lt;- data.frame(n=c(nrow(data.to.be.imputed),
                                   sum(data.to.be.imputed$SNstatus==&quot;Negative&quot;),
                                   sum(data.to.be.imputed$SNstatus==&quot;Positive&quot;)),
-                              perc=c(100,
-                                     sprintf(&quot;%.1f&quot;, sum(data.to.be.imputed$SNstatus==&quot;Negative&quot;)/nrow(data.to.be.imputed)*100),
-                                     sprintf(&quot;%.1f&quot;, sum(data.to.be.imputed$SNstatus==&quot;Positive&quot;)/nrow(data.to.be.imputed)*100)),
+                              e1=rep(&quot;&quot;, 3),
                               n.Rec=c(n.Rec.all, n.Rec.pos, n.Rec.neg),
-                              Rec=sprintf(&quot;%.1f&quot;, c(Rec.all, Rec.neg, Rec.pos)),
                               n.MSM=c(n.MSM.all, n.MSM.pos, n.MSM.neg),
+                              e2=rep(&quot;&quot;, 3),
+                              Rec=sprintf(&quot;%.1f&quot;, c(Rec.all, Rec.neg, Rec.pos)),
                               MSM=sprintf(&quot;%.1f&quot;, c(MSM.all, MSM.neg, MSM.pos)))
   row.names(Rec.MSM.table) &lt;- c(&quot;All&quot;, &quot;Negative&quot;, &quot;Positive&quot;)
   
