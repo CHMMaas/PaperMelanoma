@@ -1,0 +1,409 @@
+---
+title: "Calculate AJCC"
+author: "Carolien C.H.M. Maas"
+date: "December 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Calculate AJCC
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(PredictionTools)  # to plot calibration
+library(compareC)         # compare AJCC to model
+```
+# Obtain C-index of AJCC7 and AJCC8
+```{r, eval=TRUE}
+calculate.AJCC.7.8 <- function(imputed.data=NULL, type=NULL, S.Rec.5=NULL){
+  ####
+  #### AJCC 7
+  ####
+  TNM.7 <- c()
+  AJCC.7 <- c()
+  cindex.AJCC.7 <- rep(0, m)
+  cindex.AJCC.7.se <- rep(0, m)
+  cindex.AJCC.7.pos <- rep(0, m)
+  cindex.AJCC.7.se.pos <- rep(0, m)
+  cindex.AJCC.7.neg <- rep(0, m)
+  cindex.AJCC.7.se.neg <- rep(0, m)
+  for (i in 1:m){
+    imputation.i <- mice::complete(imputed.data,i)
+    TNM.7.i <- rep("", nrow(imputation.i))
+    AJCC.7.i <- rep(0, nrow(imputation.i))
+    for (patient in 1:nrow(imputation.i)){
+      breslow.patient <- imputation.i[patient, "Breslow"]
+      ulceration.patient <- as.character(imputation.i[patient, "Ulceration"])
+      mitosis.patient <- as.character(imputation.i[patient, "Mitosis"])
+      nodes.patient <- imputation.i[patient, "Tot_SNs_pos"]
+  
+      snstatus.patient <- imputation.i[patient, "SNstatus"]
+  
+      # T stage
+      if (breslow.patient <= 1){
+        if (ulceration.patient=="No" & mitosis.patient=="No"){
+          TNM.7.i[patient] <- paste0(TNM.7.i[patient], "T1a")
+        } else if (ulceration.patient=="Yes" | mitosis.patient=="Yes"){
+          TNM.7.i[patient] <- paste0(TNM.7.i[patient], "T1b")
+        }
+      } else if (breslow.patient>1 & breslow.patient <= 2){
+        if (ulceration.patient=="No"){
+          TNM.7.i[patient] <- paste0(TNM.7.i[patient], "T2a")
+        } else if (ulceration.patient=="Yes"){
+          TNM.7.i[patient] <- paste0(TNM.7.i[patient], "T2b")
+        }
+      } else if (breslow.patient>2 & breslow.patient <= 4){
+        if (ulceration.patient=="No"){
+          TNM.7.i[patient] <- paste0(TNM.7.i[patient], "T3a")
+        } else if (ulceration.patient=="Yes"){
+          TNM.7.i[patient] <- paste0(TNM.7.i[patient], "T3b")
+        }
+      } else if (breslow.patient>4){
+        if (ulceration.patient=="No"){
+          TNM.7.i[patient] <- paste0(TNM.7.i[patient], "T4a")
+        } else if (ulceration.patient=="Yes"){
+          TNM.7.i[patient] <- paste0(TNM.7.i[patient], "T4b")
+        }
+      }
+  
+      # N stage
+      if (nodes.patient == 0){
+        TNM.7.i[patient] <- paste0(TNM.7.i[patient], "N0")
+      } else if (nodes.patient==1){
+        TNM.7.i[patient] <- paste0(TNM.7.i[patient], "N1a")
+      } else if (nodes.patient==2 | nodes.patient==3){
+        TNM.7.i[patient] <- paste0(TNM.7.i[patient], "N2a")
+      } else if (nodes.patient>3){
+        TNM.7.i[patient] <- paste0(TNM.7.i[patient], "N3a")
+      }
+  
+      # M stage for all patients in our data set
+      TNM.7.i[patient] <- paste0(TNM.7.i[patient], "M0")
+  
+      # determine AJCC.7.i
+      if (TNM.7.i[patient]=="T1aN0M0"){
+        AJCC.7.i[patient] <- 1.1
+      } else if (TNM.7.i[patient]=="T1bN0M0" | TNM.7.i[patient]=="T2aN0M0"){
+        AJCC.7.i[patient] <- 1.2
+      } else if (TNM.7.i[patient]=="T2bN0M0" | TNM.7.i[patient]=="T3aN0M0"){
+        AJCC.7.i[patient] <- 2.1
+      } else if (TNM.7.i[patient]=="T3bN0M0" | TNM.7.i[patient]=="T4aN0M0"){
+        AJCC.7.i[patient] <- 2.2
+      } else if (TNM.7.i[patient]=="T4bN0M0"){
+        AJCC.7.i[patient] <- 2.3
+      } else if (TNM.7.i[patient]=="T1aN1aM0" | TNM.7.i[patient]=="T2aN1aM0" | # N1a
+                 TNM.7.i[patient]=="T3aN1aM0" | TNM.7.i[patient]=="T4aN1aM0" |
+                 TNM.7.i[patient]=="T1aN2aM0" | TNM.7.i[patient]=="T2aN2aM0" | # N2a
+                 TNM.7.i[patient]=="T3aN2aM0" | TNM.7.i[patient]=="T4aN2aM0"){
+        AJCC.7.i[patient] <- 3.1
+      } else if (TNM.7.i[patient]=="T1bN1aM0" | TNM.7.i[patient]=="T2bN1aM0" | # N1a
+                 TNM.7.i[patient]=="T3bN1aM0" | TNM.7.i[patient]=="T4bN1aM0" |
+                 TNM.7.i[patient]=="T1bN2aM0" | TNM.7.i[patient]=="T2bN2aM0" | # N2a
+                 TNM.7.i[patient]=="T3bN2aM0" | TNM.7.i[patient]=="T4bN2aM0" |
+                 TNM.7.i[patient]=="T1aN1bM0" | TNM.7.i[patient]=="T2aN1bM0" | # N1b
+                 TNM.7.i[patient]=="T3aN1bM0" | TNM.7.i[patient]=="T4aN1bM0" |
+                 TNM.7.i[patient]=="T1aN2bM0" | TNM.7.i[patient]=="T2aN2bM0" | # N2b
+                 TNM.7.i[patient]=="T3aN2bM0" | TNM.7.i[patient]=="T4aN2bM0" |
+                 TNM.7.i[patient]=="T1aN2cM0" | TNM.7.i[patient]=="T2aN2cM0" | # N2c
+                 TNM.7.i[patient]=="T3aN2cM0" | TNM.7.i[patient]=="T4aN2cM0"){
+        AJCC.7.i[patient] <- 3.2
+      } else {
+        AJCC.7.i[patient] <- 3.3
+      }
+    }
+  
+    # save TNM.7 and AJCC.7 for each imputated data set
+    TNM.7 <- cbind(TNM.7, TNM.7.i)
+    AJCC.7 <- cbind(AJCC.7, AJCC.7.i)
+  
+    # compute C-index
+    rc <- Hmisc::rcorr.cens(-AJCC.7.i, S.Rec.5) # add a minus to revert class order: from worst to best
+    cindex.AJCC.7[i]<-rc["C Index"]
+    cindex.AJCC.7.se[i]<-rc["S.D."]/2
+  
+    # compute C-index for only positive sentinel node patients
+    rc.pos <- Hmisc::rcorr.cens(-AJCC.7.i[imputation.i$SNstatus=="Positive"], S.Rec.5[imputation.i$SNstatus=="Positive",])
+    cindex.AJCC.7.pos[i]<-rc.pos["C Index"]
+    cindex.AJCC.7.se.pos[i]<-rc.pos["S.D."]/2
+  
+    # compute C-index for only negative sentinel node patients
+    rc.neg <- Hmisc::rcorr.cens(-AJCC.7.i[imputation.i$SNstatus=="Negative"], S.Rec.5[imputation.i$SNstatus=="Negative",])
+    cindex.AJCC.7.neg[i]<-rc.neg["C Index"]
+    cindex.AJCC.7.se.neg[i]<-rc.neg["S.D."]/2
+  }
+  
+  # combine C-index for each imputed data set
+  cindex.mi.AJCC.7<-Rubin.combine(cindex.AJCC.7,cindex.AJCC.7.se)
+  cindex.mi.AJCC.7.pos<-Rubin.combine(cindex.AJCC.7.pos,cindex.AJCC.7.se.pos)
+  cindex.mi.AJCC.7.neg<-Rubin.combine(cindex.AJCC.7.neg,cindex.AJCC.7.se.neg)
+  
+  # save C-index and confidence interval
+  AJCC.7.table <- rbind(c("All patients:", sprintf("%.2f", cindex.mi.AJCC.7$est),
+                paste0("[", sprintf("%.2f", cindex.mi.AJCC.7$est+qnorm(.025)*cindex.mi.AJCC.7$se),
+                        "; ", sprintf("%.2f", cindex.mi.AJCC.7$est+qnorm(.975)*cindex.mi.AJCC.7$se), "]")),
+              c("Negative SN patients:", sprintf("%.2f", cindex.mi.AJCC.7.neg$est),
+                    paste0("[", sprintf("%.2f", cindex.mi.AJCC.7.neg$est+qnorm(.025)*cindex.mi.AJCC.7.neg$se),
+                           "; ", sprintf("%.2f", cindex.mi.AJCC.7.neg$est+qnorm(.975)*cindex.mi.AJCC.7.neg$se), "]")),
+              c("Positive SN patients:", sprintf("%.2f", cindex.mi.AJCC.7.pos$est),
+                    paste0("[", sprintf("%.2f", cindex.mi.AJCC.7.pos$est+qnorm(.025)*cindex.mi.AJCC.7.pos$se),
+                           "; ", sprintf("%.2f", cindex.mi.AJCC.7.pos$est+qnorm(.975)*cindex.mi.AJCC.7.pos$se), "]")))
+  
+  ####
+  #### AJCC8
+  ####
+  TNM.8 <- c()
+  AJCC.8 <- c()
+  cindex.AJCC.8 <- rep(0, m)
+  cindex.AJCC.8.se <- rep(0, m)
+  cindex.AJCC.8.pos <- rep(0, m)
+  cindex.AJCC.8.se.pos <- rep(0, m)
+  cindex.AJCC.8.neg <- rep(0, m)
+  cindex.AJCC.8.se.neg <- rep(0, m)
+  for (i in 1:m){
+    imputation.i <- mice::complete(imputed.data,i)
+    TNM.8.i <- rep("", nrow(imputation.i))
+    AJCC.8.i <- rep(0, nrow(imputation.i))
+    for (patient in 1:nrow(imputation.i)){
+      breslow.patient <- imputation.i[patient, "Breslow"]
+      ulceration.patient <- as.character(imputation.i[patient, "Ulceration"])
+      mitosis.patient <- as.character(imputation.i[patient, "Mitosis"])
+      nodes.patient <- imputation.i[patient, "Tot_SNs_pos"]
+  
+      # T stage
+      if (breslow.patient <= 1){
+        if (ulceration.patient=="No" & breslow.patient < 0.8){
+          TNM.8.i[patient] <- paste0(TNM.8.i[patient], "T1a")
+        } else {
+          TNM.8.i[patient] <- paste0(TNM.8.i[patient], "T1b")
+        }
+      } else if (breslow.patient>1 & breslow.patient <= 2){
+        if (ulceration.patient=="No"){
+          TNM.8.i[patient] <- paste0(TNM.8.i[patient], "T2a")
+        } else if (ulceration.patient=="Yes"){
+          TNM.8.i[patient] <- paste0(TNM.8.i[patient], "T2b")
+        }
+      } else if (breslow.patient>2 & breslow.patient <= 4){
+        if (ulceration.patient=="No"){
+          TNM.8.i[patient] <- paste0(TNM.8.i[patient], "T3a")
+        } else if (ulceration.patient=="Yes"){
+          TNM.8.i[patient] <- paste0(TNM.8.i[patient], "T3b")
+        }
+      } else if (breslow.patient>4){
+        if (ulceration.patient=="No"){
+          TNM.8.i[patient] <- paste0(TNM.8.i[patient], "T4a")
+        } else if (ulceration.patient=="Yes"){
+          TNM.8.i[patient] <- paste0(TNM.8.i[patient], "T4b")
+        }
+      }
+  
+      # N stage
+      if (nodes.patient == 0){
+        TNM.8.i[patient] <- paste0(TNM.8.i[patient], "N0")
+      } else if (nodes.patient==1){
+        TNM.8.i[patient] <- paste0(TNM.8.i[patient], "N1a")
+      } else if (nodes.patient==2 | nodes.patient==3){
+        TNM.8.i[patient] <- paste0(TNM.8.i[patient], "N2a")
+      } else if (nodes.patient>3){
+        TNM.8.i[patient] <- paste0(TNM.8.i[patient], "N3a")
+      }
+  
+      # M stage for all patients in our data set
+      TNM.8.i[patient] <- paste0(TNM.8.i[patient], "M0")
+  
+      # determine AJCC.8.i
+      if (TNM.8.i[patient]=="T1aN0M0"){
+        AJCC.8.i[patient] <- 1.1
+      } else if (TNM.8.i[patient]=="T1bN0M0" | TNM.8.i[patient]=="T2aN0M0"){
+        AJCC.8.i[patient] <- 1.2
+      } else if (TNM.8.i[patient]=="T2bN0M0" | TNM.8.i[patient]=="T3aN0M0"){
+        AJCC.8.i[patient] <- 2.1
+      } else if (TNM.8.i[patient]=="T3bN0M0" | TNM.8.i[patient]=="T4aN0M0"){
+        AJCC.8.i[patient] <- 2.2
+      } else if (TNM.8.i[patient]=="T4bN0M0"){
+        AJCC.8.i[patient] <- 2.3
+      } else if (TNM.8.i[patient]=="T1aN1aM0" | TNM.8.i[patient]=="T1bN1aM0" | TNM.8.i[patient]=="T2aN1aM0"
+                 | TNM.8.i[patient]=="T1aN2aM0" | TNM.8.i[patient]=="T1bN2aM0" | TNM.8.i[patient]=="T2aN2aM0"){
+        AJCC.8.i[patient] <- 3.1
+      } else if (TNM.8.i[patient]=="T2bN1aM0" | TNM.8.i[patient]=="T3aN1aM0"){
+        AJCC.8.i[patient] <- 3.2
+      } else if (TNM.8.i[patient]=="T4bN3aM0"){
+        AJCC.8.i[patient] <- 3.4
+      } else {
+        AJCC.8.i[patient] <- 3.3
+      }
+  
+    }
+  
+    # save TNM.8 and AJCC.8 for each imputated data set
+    TNM.8 <- cbind(TNM.8, TNM.8.i)
+    AJCC.8 <- cbind(AJCC.8, AJCC.8.i)
+  
+    # compute C-index
+    rc <- Hmisc::rcorr.cens(-AJCC.8.i, S.Rec.5) # add a minus to revert class order: from worst to best
+    cindex.AJCC.8[i]<-rc["C Index"]
+    cindex.AJCC.8.se[i]<-rc["S.D."]/2
+  
+    # compute C-index for only positive sentinel node patients
+    rc.pos <- Hmisc::rcorr.cens(-AJCC.8.i[imputation.i$SNstatus=="Positive"], S.Rec.5[imputation.i$SNstatus=="Positive",])
+    cindex.AJCC.8.pos[i]<-rc.pos["C Index"]
+    cindex.AJCC.8.se.pos[i]<-rc.pos["S.D."]/2
+  
+    # compute C-index for only negative sentinel node patients
+    rc.neg <- Hmisc::rcorr.cens(-AJCC.8.i[imputation.i$SNstatus=="Negative"], S.Rec.5[imputation.i$SNstatus=="Negative",])
+    cindex.AJCC.8.neg[i]<-rc.neg["C Index"]
+    cindex.AJCC.8.se.neg[i]<-rc.neg["S.D."]/2
+  }
+  # combine C-index for each imputed data set
+  cindex.mi.AJCC.8<-Rubin.combine(cindex.AJCC.8,cindex.AJCC.8.se)
+  cindex.mi.AJCC.8.pos<-Rubin.combine(cindex.AJCC.8.pos,cindex.AJCC.8.se.pos)
+  cindex.mi.AJCC.8.neg<-Rubin.combine(cindex.AJCC.8.neg,cindex.AJCC.8.se.neg)
+  
+  # save C-index and confidence interval
+  AJCC.8.table <- rbind(c("All patients:", sprintf("%.2f", cindex.mi.AJCC.8$est),
+                          paste0("[", sprintf("%.2f", cindex.mi.AJCC.8$est+qnorm(.025)*cindex.mi.AJCC.8$se),
+                                 "; ", sprintf("%.2f", cindex.mi.AJCC.8$est+qnorm(.975)*cindex.mi.AJCC.8$se), "]")),
+                    c("Negative SN patients", sprintf("%.2f", cindex.mi.AJCC.8.neg$est),
+                          paste0("[", sprintf("%.2f", cindex.mi.AJCC.8.neg$est+qnorm(.025)*cindex.mi.AJCC.8.neg$se),
+                                 "; ", sprintf("%.2f", cindex.mi.AJCC.8.neg$est+qnorm(.975)*cindex.mi.AJCC.8.neg$se), "]")),
+                    c("Positive SN patients:", sprintf("%.2f", cindex.mi.AJCC.8.pos$est),
+                          paste0("[", sprintf("%.2f", cindex.mi.AJCC.8.pos$est+qnorm(.025)*cindex.mi.AJCC.8.pos$se),
+                                 "; ", sprintf("%.2f", cindex.mi.AJCC.8.pos$est+qnorm(.975)*cindex.mi.AJCC.8.pos$se), "]")))
+  
+  # table of number of AJCC.7 and AJCC.8
+  table.AJCC.7 <- c()
+  table.AJCC.8 <- c()
+  for (i in 1:m){
+    table.AJCC.7 <- cbind(table.AJCC.7, as.numeric(table(AJCC.7[,i])))
+    table.AJCC.8 <- cbind(table.AJCC.8, as.numeric(table(AJCC.8[,i])))
+  }
+  
+  # print(sort(unique(AJCC.7[,1])))
+  # print(sort(unique(AJCC.8[,1])))
+  
+  if (type=="training"){
+    AJCC.7.8.count <- cbind(c("1.1", "1.2", "2.1", "2.2", "2.3", "3.1", "3.2", "3.3", "3.4"),
+                          c(round(rowMeans(table.AJCC.7), 0), 0),
+                          round(rowMeans(table.AJCC.8)))
+  } else if (type=="validation"){
+    AJCC.7.8.count <- cbind(c("1.1", "1.2", "2.1", "2.2", "2.3", "3.1", "3.2", "3.3", "3.4"),
+                          c(round(rowMeans(table.AJCC.7), 0), 0),
+                          c(0, round(rowMeans(table.AJCC.8), 0)))
+  }
+  return(list(AJCC.7=AJCC.7, AJCC.7.table=AJCC.7.table,
+              AJCC.8=AJCC.8, AJCC.8.table=AJCC.8.table, AJCC.7.8.count=AJCC.7.8.count))
+}
+load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData")
+train.AJCC <- calculate.AJCC.7.8(imputed.data=imputed.training.data, S.Rec.5=S.Rec.5.training, type="training")
+load("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData")
+validation.AJCC <- calculate.AJCC.7.8(imputed.data=imputed.validation.data, S.Rec.5=S.Rec.5.validation, type="validation")
+```
+
+# Compare C-index of AJCC and developed model
+```{r, eval=TRUE}
+for (edition in c(7, 8)){
+  for (patient.type in c("All", "Negative", "Positive")){
+    model.C <- c()
+    se.C <- c()
+    diff <- c()
+    se <- c()
+    for (i in 1:m){
+      # compute linear predictor
+      lp.i <- predict(f.mi.BS.Rec.5,
+                    newdata=mice::complete(imputed.validation.data, i),
+                    type="lp")
+       
+      if (patient.type=="All"){
+        lp.i <- lp.i
+        S <- S.Rec.5.validation
+        AJCC <- eval(parse(text=paste0("validation.AJCC$AJCC.", edition, "[, i]")))
+      } else if (patient.type=="Positive"){
+        lp.i <- lp.i[validation.data.to.be.imputed$SNstatus=="Positive"]
+        S <- S.Rec.5.validation[validation.data.to.be.imputed$SNstatus=="Positive",]
+        AJCC <- eval(parse(text=paste0("validation.AJCC$AJCC.", edition, "[validation.data.to.be.imputed$SNstatus==\"Positive\", i]")))
+      } else if (patient.type=="Negative"){
+        lp.i <- lp.i[validation.data.to.be.imputed$SNstatus=="Negative"]
+        S <- S.Rec.5.validation[validation.data.to.be.imputed$SNstatus=="Negative",]
+        AJCC <- eval(parse(text=paste0("validation.AJCC$AJCC.", edition, "[validation.data.to.be.imputed$SNstatus==\"Negative\", i]")))
+      }
+      
+      # compute predictions from model
+      p.i <- 1-exp(-h0.Rec*exp(lp.i))
+      
+      # compare AJCC to model
+      compare.i <- compareC::compareC(S[,1], S[,2], -p.i, -AJCC)
+      
+      model.C <- c(model.C, compare.i$est.c["Cxy"])
+      se.C <- c(se.C, sqrt(compare.i$est.varCxy))
+      
+      # save differences and SE of difference
+      diff <- c(diff, compare.i$est.diff_c)
+      se <- c(se, sqrt(compare.i$est.vardiff_c))
+    }
+    assign(paste0("diff.", patient.type, ".", edition), Rubin.combine(diff, se))
+    assign(paste0("model.", patient.type), Rubin.combine(model.C, se.C))
+  }
+}
+
+# save in Table
+compare.AJCC.model <- rbind(c("All patients:", 
+                sprintf("%.2f", diff.All.7$est),
+                paste0("[", sprintf("%.2f", diff.All.7$est+qnorm(.025)*diff.All.7$se),
+                        "; ", sprintf("%.2f", diff.All.7$est+qnorm(.975)*diff.All.7$se), "]"),
+                sprintf("%.2f", diff.All.8$est),
+                paste0("[", sprintf("%.2f", diff.All.8$est+qnorm(.025)*diff.All.8$se),
+                        "; ", sprintf("%.2f", diff.All.8$est+qnorm(.975)*diff.All.8$se), "]")),
+              c("Negative SN patients:", 
+                sprintf("%.2f", diff.Negative.7$est),
+                paste0("[", sprintf("%.2f", diff.Negative.7$est+qnorm(.025)*diff.Negative.7$se),
+                       "; ", sprintf("%.2f", diff.Negative.7$est+qnorm(.975)*diff.Negative.7$se), "]"),
+                sprintf("%.2f", diff.Negative.8$est),
+                paste0("[", sprintf("%.2f", diff.Negative.8$est+qnorm(.025)*diff.Negative.8$se),
+                       "; ", sprintf("%.2f", diff.Negative.8$est+qnorm(.975)*diff.Negative.8$se), "]")),
+              c("Positive SN patients:", 
+                sprintf("%.2f", diff.Positive.7$est),
+                paste0("[", sprintf("%.2f", diff.Positive.7$est+qnorm(.025)*diff.Positive.7$se),
+                       "; ", sprintf("%.2f", diff.Positive.7$est+qnorm(.975)*diff.Positive.7$se), "]"),
+                sprintf("%.2f", diff.Positive.8$est),
+                paste0("[", sprintf("%.2f", diff.Positive.8$est+qnorm(.025)*diff.Positive.8$se),
+                       "; ", sprintf("%.2f", diff.Positive.8$est+qnorm(.975)*diff.Positive.8$se), "]")))
+
+CIndex.val <- rbind(c("All patients:",
+                sprintf("%.2f", model.All$est),
+                paste0("[", sprintf("%.2f", model.All$est+qnorm(.025)*model.All$se), 
+                      "; ", sprintf("%.2f", model.All$est+qnorm(.975)*model.All$se), "]")),
+                c("Negative SN patients:",
+                sprintf("%.2f", model.Negative$est), 
+                paste0("[", sprintf("%.2f", model.Negative$est+qnorm(.025)*model.Negative$se), 
+                      "; ", sprintf("%.2f", model.Negative$est+qnorm(.975)*model.Negative$se), "]")),
+                c("Positve SN patients:",
+                sprintf("%.2f", model.Positive$est), 
+                paste0("[", sprintf("%.2f", model.Positive$est+qnorm(.025)*model.Positive$se), 
+                      "; ", sprintf("%.2f", model.Positive$est+qnorm(.975)*model.Positive$se), "]")))
+```
+
+# Write to Excel
+```{r, eval=TRUE}
+utils::write.table(cbind(train.AJCC$AJCC.7.table, rep("", 3), train.AJCC$AJCC.8.table[,-1]),
+              file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/AJCC.train.txt"),
+              row.names=FALSE, col.names=FALSE, sep=",")
+utils::write.table(cbind(CIndex.val, rep("", 3),
+                   validation.AJCC$AJCC.7.table[, -1], rep("", 3), 
+                   compare.AJCC.model[, 2:3], rep("", 3),
+                   validation.AJCC$AJCC.8.table[,-1], rep("", 3),
+                   compare.AJCC.model[, 4:5]),
+              file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/AJCC.validation.txt"),
+              row.names=FALSE, col.names=FALSE, sep=",")
+utils::write.table(cbind(train.AJCC$AJCC.7.8.count, rep("", 3), validation.AJCC$AJCC.7.8.count[,-1]),
+              file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/AJCC.7.8.count.txt"),
+              row.names=FALSE, col.names=FALSE, sep=",")
+```

@@ -360,7 +360,7 @@ pre code {
 
 <h1 class="title toc-ignore">Prepare Training Data</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">14-11-2022</h4>
+<h4 class="date">December 2022</h4>
 
 </div>
 
@@ -421,7 +421,8 @@ cat(&quot;Number of patients excluded:&quot;, nrow(original.train.data)-nrow(sel
 </div>
 <div id="define-multiple-fields" class="section level4">
 <h4>Define multiple fields</h4>
-<pre class="r"><code>sel.train.data$multiple.fields &lt;- ifelse(!is.na(sel.train.data$nr_SNs_Field_2)&amp;sel.train.data$nr_SNs_Field_2&gt;0,1,0)</code></pre>
+<pre class="r"><code># 11 patients for which it doesn&quot;t hold that Tot_nr_SNs = nr_SNs_Field_1 + nr_SNs_Field_2 + nr_SNs_Field_3
+sel.train.data$multiple.fields &lt;- ifelse(!is.na(sel.train.data$nr_SNs_Field_2)&amp;sel.train.data$nr_SNs_Field_2&gt;0,1,0)</code></pre>
 </div>
 <div id="number-of-positive-and-negative-nodes" class="section level4">
 <h4>Number of positive and negative nodes</h4>
@@ -475,9 +476,9 @@ table(sel.train.data$Status, sel.train.data$Recurrence)</code></pre>
 ##   unknown             0        0</code></pre>
 <p>Impute recurrence time for 45 patients with missing Rec.time but
 Recurrence==“recurred”</p>
-<pre class="r"><code>cat(&#39;Number of patients dead with recurrence without Date_1st_Rec:&#39;, sum(is.na(sel.train.data$Date_1st_Rec)&amp;sel.train.data$Recurrence==&quot;recurred&quot;&amp;sel.train.data$dead==&quot;Yes&quot;), &#39;\n&#39;)</code></pre>
+<pre class="r"><code>cat(&quot;Number of patients dead with recurrence without Date_1st_Rec:&quot;, sum(is.na(sel.train.data$Date_1st_Rec)&amp;sel.train.data$Recurrence==&quot;recurred&quot;&amp;sel.train.data$dead==&quot;Yes&quot;), &quot;\n&quot;)</code></pre>
 <pre><code>## Number of patients dead with recurrence without Date_1st_Rec: 43</code></pre>
-<pre class="r"><code>cat(&#39;Number of patients alive with recurrence without Date_1st_Rec:&#39;, sum(is.na(sel.train.data$Date_1st_Rec)&amp;sel.train.data$Recurrence==&quot;recurred&quot;&amp;sel.train.data$dead==&quot;No&quot;))</code></pre>
+<pre class="r"><code>cat(&quot;Number of patients alive with recurrence without Date_1st_Rec:&quot;, sum(is.na(sel.train.data$Date_1st_Rec)&amp;sel.train.data$Recurrence==&quot;recurred&quot;&amp;sel.train.data$dead==&quot;No&quot;))</code></pre>
 <pre><code>## Number of patients alive with recurrence without Date_1st_Rec: 2</code></pre>
 </div>
 <div id="melanoma-specific-mortality-msm" class="section level4">
@@ -527,7 +528,7 @@ training.data.to.be.imputed &lt;- sel.train.data[, variables.to.be.imputed]</cod
 <p>Save distributions of all variables, necessary for Harrell
 summaries</p>
 <pre class="r"><code>dd.training&lt;-rms::datadist(training.data.to.be.imputed)
-options(datadist=&#39;dd.training&#39;)
+options(datadist=&quot;dd.training&quot;)
 options(digits=8)</code></pre>
 <p>Relation between outcome and covariates</p>
 <pre class="r"><code>training.data.to.be.imputed$logRec.time &lt;- log(sel.train.data$Rec.time+1/365.25)
@@ -553,7 +554,7 @@ missings.table(training.data.to.be.imputed)</code></pre>
 ## dead               0
 ## MSM                0
 ## logFU.time         0</code></pre>
-<pre class="r"><code>save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;),file=&#39;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&#39;, compress=TRUE)</code></pre>
+<pre class="r"><code>save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;),file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;, compress=TRUE)</code></pre>
 </div>
 
 

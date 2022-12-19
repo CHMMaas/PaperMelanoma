@@ -361,7 +361,7 @@ pre code {
 <h1 class="title toc-ignore">Impute missing values of training and
 validation data using multiple imputation</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">14-11-2022</h4>
+<h4 class="date">December 2022</h4>
 
 </div>
 
@@ -382,28 +382,33 @@ library(mice)</code></pre>
 data</p>
 <pre class="r"><code>impute.missing.values &lt;- function(type=NULL, m=1, new.imputation=FALSE){
   # load data
-  load(paste0(&#39;Z:/Project Melanoom/PaperMelanoma/Data/&#39;, type, &#39;/&#39;, type, &#39;.data.Rdata&#39;))
+  load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;))
   
   if (new.imputation){
     # impute data
-    data.to.be.imputed &lt;- eval(parse(text=paste0(type, &#39;.data.to.be.imputed&#39;)))
+    data.to.be.imputed &lt;- eval(parse(text=paste0(type, &quot;.data.to.be.imputed&quot;)))
     imputed.data &lt;- mice::mice(data.to.be.imputed, m=m, maxit=5, print=FALSE, seed=500)
-    assign(paste0(&#39;imputed.&#39;, type, &#39;.data&#39;), imputed.data)
-    save(list=c(paste0(&#39;imputed.&#39;, type, &#39;.data&#39;)),
-         file=paste0(&#39;Z:/Project Melanoom/PaperMelanoma/Data/&#39;, type, &#39;/imputed.&#39;, type, &#39;.data.Rdata&#39;), compress=TRUE)
+    # print(imputed.data$method)
+    # print(imputed.data$loggedEvents)
+    assign(paste0(&quot;imputed.&quot;, type, &quot;.data&quot;), imputed.data)
+    save(list=c(paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)),
+         file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/imputed.&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
   }
-  load(paste0(&#39;Z:/Project Melanoom/PaperMelanoma/Data/&#39;, type, &#39;/imputed.&#39;, type, &#39;.data.Rdata&#39;))
-  save(list=c(paste0(&#39;dd.&#39;, type), paste0(type, &#39;.data.to.be.imputed&#39;), &#39;m&#39;, paste0(&#39;imputed.&#39;, type, &#39;.data&#39;)),
-       file=paste0(&#39;Z:/Project Melanoom/PaperMelanoma/Data/&#39;, type, &#39;/&#39;, type, &#39;.data.Rdata&#39;), compress=TRUE)
+  load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/imputed.&quot;, type, &quot;.data.Rdata&quot;))
+  save(list=c(paste0(&quot;dd.&quot;, type), paste0(type, &quot;.data.to.be.imputed&quot;), &quot;m&quot;, paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)),
+       file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
 }</code></pre>
 <p>Perform multiple imputation</p>
 <pre class="r"><code># erase memory
 m &lt;- 5
-new.imputation &lt;- FALSE
-impute.missing.values(type=&#39;training&#39;, m=m, new.imputation=new.imputation)
-impute.missing.values(type=&#39;validation&#39;, m=m, new.imputation=new.imputation)
-
-# training data gives warning messages for Mitosis
+new.imputation &lt;- TRUE
+# Impute: Ulceration, Loc_CAT, Histology, Breslow, Tot_SNs_neg, Tot_SNs_pos, Rdamcrit, Dewar, Mitosis, logRec.time
+impute.missing.values(type=&quot;training&quot;, m=m, new.imputation=new.imputation)</code></pre>
+<pre><code>## Warning: Number of logged events: 25</code></pre>
+<pre class="r"><code># Impute: Ulceration, Histology, Rdamcrit, Dewar, logRec.time
+impute.missing.values(type=&quot;validation&quot;, m=m, new.imputation=new.imputation)</code></pre>
+<pre><code>## Warning: Number of logged events: 1</code></pre>
+<pre class="r"><code># training data gives warning messages for Mitosis
 # validation data gives multicolinearity of logRectime and recurrence
 # print(imputed.data$loggedEvents)</code></pre>
 </div>

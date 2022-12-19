@@ -1,7 +1,7 @@
 ---
 title: "Create histogram with risk scores"
 author: "Carolien C.H.M. Maas"
-date: "14-11-2022"
+date: "December 2022"
 output: html_document
 ---
 
@@ -21,48 +21,96 @@ set.seed(100)
 
 # load libraries
 library(mice)
-library(survival)         # needed to use
-# remotes::install_github("CHMMaas/PredictionTools")
-library(PredictionTools)  # to plot calibration
-# import helper functions
+library(survival)
+library(PredictionTools)
 source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
 ```
 
-# Validation
-# Compute predictions for each multiple imputation and make calibration plots with metrics
+# Training data
 ```{r, eval=TRUE}
-# laod data
-load('Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData')
-options(datadist='dd.training')
-options(digits=8)
-load('Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData')
 # load model
-load('Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata')
-p.Rec.val <- matrix(NA, nrow(validation.data.to.be.imputed), m)
-p.MSM.val <- matrix(NA, nrow(validation.data.to.be.imputed), m)
+load("Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata")
+
+# load data
+load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData")
+
+# predictions on training data
+p.Rec.5.training <- matrix(NA, nrow(training.data.to.be.imputed), m)
+p.MSM.5.training <- matrix(NA, nrow(training.data.to.be.imputed), m)
 for (i in 1:m){
-  # Linear predictor
+  lp.train.i <- predict(f.mi.BS.Rec.5,
+                      newdata=mice::complete(imputed.training.data, i),
+                      type="lp")
+  p.Rec.5.training[, i] <- fun.event(h0=h0.Rec, lp=lp.train.i)
+  p.MSM.5.training[, i] <- fun.event(h0=h0.MSM, lp=MSM.cal.fact*lp.train.i)
+}
+```
+
+# Validation data
+```{r, eval=TRUE}
+load("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData")
+p.Rec.5.validation <- matrix(NA, nrow(validation.data.to.be.imputed), m)
+p.MSM.5.validation <- matrix(NA, nrow(validation.data.to.be.imputed), m)
+for (i in 1:m){
   lp.val.i <- predict(f.mi.BS.Rec.5,
                       newdata=mice::complete(imputed.validation.data, i),
                       type="lp")
-
-  # Recurrence
-  p.Rec.val[, i] <- 1-exp(-h0.Rec*exp(lp.val.i))
-
-  # MSM
-  p.MSM.val[, i] <- 1-exp(-h0.MSM*exp(MSM.cal.fact*lp.val.i))
+  p.Rec.5.validation[, i] <- 1-exp(-h0.Rec*exp(lp.val.i))
+  p.MSM.5.validation[, i] <- 1-exp(-h0.MSM*exp(MSM.cal.fact*lp.val.i))
 }
+```
 
-# calibration curve for recurrence, TODO: based on dd.training?
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/val.Rec.png"))
-PredictionTools::val.surv.mi(p.Rec.val,S.Rec.5.validation,g=5,main="Calibration plot of recurrence for all patients",
-                             time=NULL,lim=c(0,1),dist=TRUE)
-grDevices::dev.off()
-
-# calibration curve for MSM
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/val.MSM.png"))
-PredictionTools::val.surv.mi(p.MSM.val,S.MSM.5.validation,g=5,main="Calibration plot of MSM for all patients",
-                             time=NULL,lim=c(0,1),dist=TRUE)
-grDevices::dev.off()
-
+```{r, eval=TRUE}
+# calibration curve for recurrence
+# TODO: validation based on dd.training or dd.validation?
+for (data.type in c("training", "validation")){
+  for (outcome in c("Rec.5", "MSM.5")){
+    options(datadist=paste0("dd.", data.type))
+  
+    S <- eval(parse(text=paste0("S.", outcome, ".", data.type)))
+    p <- eval(parse(text=paste0("p.", outcome, ".", data.type)))
+    data <- eval(parse(text=paste0(data.type, ".data.to.be.imputed")))
+    
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".All.png"))
+    par(mar=rep(0, 4))
+    PredictionTools::val.surv.mi(p, S,
+                                 g=5,main="All patients", time=NULL,lim=c(0,1),dist=TRUE)
+    grDevices::dev.off()
+    
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Positive.png"))
+    par(mar=rep(0, 4))
+    PredictionTools::val.surv.mi(p[data$SNstatus=="Positive",],
+                                 S[data$SNstatus=="Positive",],
+                                 g=5,main="Patients with positive SN", time=NULL,lim=c(0,1),dist=TRUE)
+    grDevices::dev.off()
+    
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Negative.png"))
+    par(mar=rep(0, 4))
+    PredictionTools::val.surv.mi(p[data$SNstatus=="Negative",],
+                                 S[data$SNstatus=="Negative",],
+                                 g=5,main="Patients with negative SN", time=NULL,lim=c(0,1),dist=TRUE)
+    grDevices::dev.off()
+    
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Neg.Pos.png"), 
+        width=32, height=16, units="cm", res=600)
+    par(mar=rep(0, 4))
+    layout(matrix(1:2, ncol=2, byrow=TRUE))
+    for (select.value in c("Positive", "Negative")){
+      plot(NA, xlim=0:1, ylim=0:1, xaxt="n", yaxt="n", bty="n")
+      img <- png::readPNG(paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".", select.value, ".png"))
+      rasterImage(img, 0, 0, 1, 1)
+    }
+    grDevices::dev.off()
+    
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/", data.type, ".", outcome, ".png"), width=32, height=45, units="cm", res=600)
+    par(mar=rep(0, 4))
+    layout(matrix(1:2, ncol=1, nrow=2, byrow=TRUE), heights=c(2, 1), widths=c(2, 2))
+    for (select.value in c("All", "Neg.Pos")){
+      plot(NA, xlim=0:1, ylim=0:1, xaxt="n", yaxt="n", bty="n")
+      img <- png::readPNG(paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".", select.value, ".png"))
+      rasterImage(img, 0, 0, 1, 1)
+    }
+    grDevices::dev.off()
+  }
+}
 ```

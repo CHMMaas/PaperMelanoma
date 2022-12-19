@@ -1,0 +1,140 @@
+---
+title: "Create calibration plots"
+author: "Carolien C.H.M. Maas"
+date: "December 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Create calibration plots
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(Hmisc)
+library(survival)
+library(rms)
+library(mice)
+library(grDevices)
+source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
+# remotes::install_github("CHMMaas/PredictionTools")
+library(PredictionTools)  # to plot calibration
+```
+
+# Cross-validation recurrence 5-years
+```{r, eval=TRUE}
+load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData")
+options(datadist="dd.training")
+
+Centers <- sort(as.character(unique(training.data.to.be.imputed$Center)))
+Centers.anonimized <- c("A", "B", "C", "D")
+cuts <- 5
+for (model in c("Rec.5", "MSM.5")){
+  if (model == "Rec.5"){
+    S.model <- S.Rec.5.training
+  }
+  if (model == "MSM.5"){
+    S.model <- S.MSM.5.training
+  }
+
+  for (type in c("full", "BS")){
+    for (j in 1:4){
+      S.j<-S.model[training.data.to.be.imputed$Center==Centers[j],]
+      S.notj<-S.model[training.data.to.be.imputed$Center!=Centers[j],]
+      S.Rec.5.notj<-S.Rec.5.training[training.data.to.be.imputed$Center!=Centers[j],]
+
+      form.model<-eval(parse(text=paste0("form.", type, ".Rec.5")))
+      form.notj<-update(form.model, S.Rec.5.notj  ~ . )
+      f.mi.Rec.notj<-Hmisc::fit.mult.impute(form.notj,cph,xtrans=imputed.training.data,data=training.data.to.be.imputed,
+                                            n.impute=m,pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE,
+                                            sub=training.data.to.be.imputed$Center!=Centers[j])
+
+      if (model=="Rec.5"){
+        f.basehaz.notj<-survival::basehaz(f.mi.Rec.notj,TRUE)
+        h0.notj<-f.basehaz.notj$hazard[f.basehaz.notj$time==max(f.basehaz.notj$time[f.basehaz.notj$time<=horizon])]
+      } else if (model=="MSM.5"){
+        lp.notj<-f.mi.Rec.notj$linear
+        f.MSM.notj<-rms::cph(S.notj~lp.notj,y=TRUE,x=TRUE)
+
+        f.basehaz.notj<-basehaz(f.MSM.notj,TRUE)
+        h0.notj<-f.basehaz.notj$hazard[f.basehaz.notj$time==max(f.basehaz.notj$time[f.basehaz.notj$time<=horizon])]
+      }
+
+      for (select.value in c("Positive", "Negative", "All")){
+        # identify those patients that are selected
+        if (select.value == "All"){
+          select.patients <- TRUE
+        } else if (select.value != "All"){
+          select.patients <- training.data.to.be.imputed[training.data.to.be.imputed$Center==Centers[j],]$SNstatus==select.value
+        }
+
+        # calibration with metrics
+        S <- S.j[select.patients,]
+        p <- matrix(NA, nrow(S), m)
+        for (i in 1:m){
+          lp.i<-predict(f.mi.Rec.notj,newdata=mice::complete(imputed.training.data,i)[training.data.to.be.imputed$Center==Centers[j],], type="lp")
+
+          if (model=="MSM.5"){
+            lp.i<-predict(f.MSM.notj,newdata=lp.i)
+          }
+
+          if (select.value != "All"){
+            lp.i <- lp.i[select.patients]
+          }
+
+          # baseline hazard
+          if (model=="Rec.5"){
+            f.basehaz<-basehaz(f.mi.Rec.notj,TRUE)
+          }
+          else if (model=="MSM.5"){
+            f.basehaz<-basehaz(f.MSM.notj,TRUE)
+          }
+          h0.i <- f.basehaz$hazard[f.basehaz$time==max(f.basehaz$time[f.basehaz$time<=horizon])]
+
+          # probabilities
+          p.i <- fun.event(lp=lp.i, h0=h0.i)
+          p[, i] <- p.i
+        }
+
+        # omit the observation with predicted probability = 1
+        omit <- unique(c(which(p[,1]==1), which(p[,2]==1), which(p[,3]==1), which(p[,4]==1), which(p[,5]==1)))
+        if (length(omit)>0){
+          cat("Omit:", omit, "\n")
+          p <- p[-omit,]
+          S <- S[-omit,]
+        }
+
+        png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", model, ".", select.value, ".", type, ".", Centers[j], ".png"))
+        out <- PredictionTools::val.surv.mi(p, S, g=5, main=paste("Center", Centers.anonimized[j]),
+                                            time=NULL,lim=c(0,1),dist=TRUE)
+        grDevices::dev.off()
+      }
+    }
+  }
+}
+
+# combine calibration plots into one
+for (select.value in c("All", "Positive", "Negative")){
+  for (y in c("Rec.5", "MSM.5")){
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/", y, ".", select.value, ".png"), width=16, height=16, units="cm", res=300)
+    par(mar=rep(0, 4))
+    layout(matrix(1:4, ncol=2, byrow=TRUE))
+    Centers.val <- rep(1:4, 3)
+    for (i in 1:4){
+      plot(NA, xlim=0:1, ylim=0:1, xaxt="n", yaxt="n", bty="n")
+      img <- png::readPNG(paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", y, ".", select.value, ".BS.", Centers[Centers.val[i]], ".png"))
+      rasterImage(img, 0, 0, 1, 1)
+    }
+    grDevices::dev.off()
+  }
+}
+```

@@ -1,0 +1,167 @@
+---
+title: "Fit models and plots"
+author: "Carolien C.H.M. Maas"
+date: "December 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Fit models
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(Hmisc)
+library(stats)
+library(rms)
+library(utils)
+library(PredictionTools)
+```
+
+# Full model for recurrence
+```{r, eval=TRUE}
+load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData")
+options(datadist="dd.training")
+
+form.full.Rec.5 <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  log(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  log(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:log(Breslow) +
+  SNstatus:multiple.fields
+f.mi.full.Rec.5 <- Hmisc::fit.mult.impute(form.full.Rec.5, cph, xtrans=imputed.training.data,
+                                 data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+stats::anova(f.mi.full.Rec.5)
+summary(f.mi.full.Rec.5, Tot_SNs_pos=c(0, 1))
+```
+
+# Final model for recurrence selected by backward selection with p = 0.01
+```{r, eval=TRUE}
+# center Breslow by using all imputated data sets
+c.Breslow.all <- c()
+for (i in 1:m){
+  c.Breslow.all <- c(c.Breslow.all, mean(log(mice::complete(imputed.training.data, i)$Breslow)))
+}
+c.Breslow <- mean(c.Breslow.all)
+
+form.BS.Rec.5 <- S.Rec.5.training ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow)
+f.mi.BS.Rec.5 <- Hmisc::fit.mult.impute(form.BS.Rec.5,cph,xtrans=imputed.training.data,data=training.data.to.be.imputed,n.impute=m,
+                           pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
+# backward selection
+# round(stats::anova(f.mi.BS.Rec.5)[order(stats::anova(f.mi.BS.Rec.5)[, "P"]),], 3)
+summary(f.mi.BS.Rec.5, Breslow=exp(c.Breslow))
+coef(f.mi.BS.Rec.5)
+stats::anova(f.mi.BS.Rec.5)
+```
+
+# Refitted full model for melanoma specific mortality
+```{r, eval=TRUE}
+form.full.MSM.5.refit <- S.MSM.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  log(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  log(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:log(Breslow) +
+  SNstatus:multiple.fields
+f.mi.full.MSM.5.refit <- Hmisc::fit.mult.impute(form.full.MSM.5.refit,cph,xtrans=imputed.training.data,data=training.data.to.be.imputed,n.impute=m,
+                                 pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
+summary(f.mi.full.MSM.5.refit, Tot_SNs_pos=c(0, 1))
+stats::anova(f.mi.full.MSM.5.refit)
+```
+
+# Refitted final model for melanoma specific mortality
+```{r, eval=TRUE}
+form.BS.MSM.5.refit <- S.MSM.5.training ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow)
+f.mi.BS.MSM.5.refit <- Hmisc::fit.mult.impute(form.BS.MSM.5.refit,cph,xtrans=imputed.training.data,data=training.data.to.be.imputed,n.impute=m,
+                                  pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
+summary(f.mi.BS.MSM.5.refit, Breslow=exp(c.Breslow))
+stats::anova(f.mi.BS.MSM.5.refit)
+```
+
+# Calibrated final model for melanoma specific mortality
+Fit disease specific mortality to the linear predictor of recurrence
+```{r, eval=TRUE}
+# Combine calibration coefficients for all imputated data sets 
+MSM.cal.fact.all <- c()
+MSM.cal.fact.SE <- c()
+for (i in 1:m){
+  lp.i<-predict(f.mi.BS.Rec.5,
+                newdata=mice::complete(imputed.training.data,i), 
+                type="lp")
+  f.mi.i <- rms::cph(S.MSM.5.training~lp.i,y=TRUE,x=TRUE) 
+  MSM.cal.fact.all <- c(MSM.cal.fact.all, stats::coef(f.mi.i))
+  MSM.cal.fact.SE <- c(MSM.cal.fact.SE, sqrt(diag(vcov(f.mi.i))))
+}
+MSM.cal.fact.combined<-Rubin.combine(MSM.cal.fact.all,MSM.cal.fact.SE)
+MSM.cal.fact <- MSM.cal.fact.combined$est
+
+utils::write.table(paste0(sprintf("%.2f", MSM.cal.fact), " [",
+            sprintf("%.2f", MSM.cal.fact.combined$est+qnorm(.025)*MSM.cal.fact.combined$se), "; ",
+            sprintf("%.2f", MSM.cal.fact.combined$est+qnorm(.975)*MSM.cal.fact.combined$se), "]"),
+            file="Z:/Project Melanoom/PaperMelanoma/Results/calibration.MSS.txt", 
+            row.names=FALSE, col.names=FALSE, sep=",")
+
+save(list=c("dd.training", "training.data.to.be.imputed", "m", 
+            "imputed.training.data", "last.imputed.training.data.set", 
+            "horizon", "S.Rec.5.training", "S.MSM.5.training",
+            "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", 
+            "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", 
+            "form.full.Rec.5", "form.BS.Rec.5", "form.full.MSM.5.refit", "form.BS.MSM.5.refit"),
+     file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
+load("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData")
+save(list=c("dd.validation", "validation.data.to.be.imputed", "m", 
+            "imputed.validation.data", "last.imputed.validation.data.set", "horizon", 
+            "S.Rec.5.validation", "S.MSM.5.validation", "f.mi.BS.Rec.5"),
+     file=paste0("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata"), compress=TRUE)
+```

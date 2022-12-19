@@ -1,7 +1,7 @@
 ---
 title: "Prepare Training Data"
 author: "Carolien C.H.M. Maas"
-date: "14-11-2022"
+date: "December 2022"
 output: html_document
 ---
 
@@ -73,6 +73,7 @@ sel.train.data$Histology[sel.train.data$Histology=="LMM"] <- "other"
 
 #### Define multiple fields
 ```{r, eval=TRUE}
+# 11 patients for which it doesn"t hold that Tot_nr_SNs = nr_SNs_Field_1 + nr_SNs_Field_2 + nr_SNs_Field_3
 sel.train.data$multiple.fields <- ifelse(!is.na(sel.train.data$nr_SNs_Field_2)&sel.train.data$nr_SNs_Field_2>0,1,0)
 ```
 
@@ -141,8 +142,8 @@ table(sel.train.data$Status, sel.train.data$Recurrence)
 
 Impute recurrence time for 45 patients with missing Rec.time but Recurrence=="recurred"
 ```{r, eval=TRUE}
-cat('Number of patients dead with recurrence without Date_1st_Rec:', sum(is.na(sel.train.data$Date_1st_Rec)&sel.train.data$Recurrence=="recurred"&sel.train.data$dead=="Yes"), '\n')
-cat('Number of patients alive with recurrence without Date_1st_Rec:', sum(is.na(sel.train.data$Date_1st_Rec)&sel.train.data$Recurrence=="recurred"&sel.train.data$dead=="No"))
+cat("Number of patients dead with recurrence without Date_1st_Rec:", sum(is.na(sel.train.data$Date_1st_Rec)&sel.train.data$Recurrence=="recurred"&sel.train.data$dead=="Yes"), "\n")
+cat("Number of patients alive with recurrence without Date_1st_Rec:", sum(is.na(sel.train.data$Date_1st_Rec)&sel.train.data$Recurrence=="recurred"&sel.train.data$dead=="No"))
 ```
 
 #### Melanoma specific mortality (MSM)
@@ -189,7 +190,7 @@ training.data.to.be.imputed <- sel.train.data[, variables.to.be.imputed]
 Save distributions of all variables, necessary for Harrell summaries
 ```{r, eval=TRUE}
 dd.training<-rms::datadist(training.data.to.be.imputed)
-options(datadist='dd.training')
+options(datadist="dd.training")
 options(digits=8)
 ```
 
@@ -198,5 +199,5 @@ Relation between outcome and covariates
 training.data.to.be.imputed$logRec.time <- log(sel.train.data$Rec.time+1/365.25)
 training.data.to.be.imputed$logFU.time <- log(sel.train.data$FU.time+1/365.25)
 missings.table(training.data.to.be.imputed)
-save(list=c("dd.training", "training.data.to.be.imputed"),file='Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata', compress=TRUE)
+save(list=c("dd.training", "training.data.to.be.imputed"),file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
 ```

@@ -360,7 +360,7 @@ pre code {
 
 <h1 class="title toc-ignore">Prepare Validation Data</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">14-11-2022</h4>
+<h4 class="date">December 2022</h4>
 
 </div>
 
@@ -383,12 +383,19 @@ source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quo
 # load data file
 original.validation.data &lt;- foreign::read.spss(file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/Validation_cohort_MIA.sav&quot;,
                                                to.data.frame=TRUE, origin=&quot;01-01-1970&quot;)
-
-# remove space after Negative # Bespreken met Robert
+cat(&quot;Number of patients in data set:&quot;, nrow(original.validation.data), &quot;\n&quot;)</code></pre>
+<pre><code>## Number of patients in data set: 4827</code></pre>
+<pre class="r"><code># remove space after Negative
 levels(original.validation.data$SNstatus)[levels(original.validation.data$SNstatus)==&quot;Negative &quot;] &lt;- &quot;Negative&quot;
 
-# all patients may be included
-sel.val.data &lt;- original.validation.data</code></pre>
+# exclude 4 patients without Status (don&quot;t know if they alive or dead)
+cat(&quot;Number of patients without Status:&quot;, sum(original.validation.data$Status==&quot;Unknown              &quot;), &quot;\n&quot;)</code></pre>
+<pre><code>## Number of patients without Status: 4</code></pre>
+<pre class="r"><code>sel.val.data &lt;- original.validation.data[original.validation.data$Status!=&quot;Dead, MCC            &quot;,]
+# exculde 1 patient with cause of death MCC
+sel.val.data &lt;- sel.val.data[sel.val.data$Status!=&quot;Unknown              &quot;,]
+cat(&quot;Number of included patients:&quot;, nrow(sel.val.data))</code></pre>
+<pre><code>## Number of included patients: 4822</code></pre>
 </div>
 <div id="recode" class="section level3">
 <h3>Recode</h3>
@@ -401,11 +408,11 @@ sel.val.data &lt;- original.validation.data</code></pre>
 <p>Merge location other with trunk</p>
 <pre class="r"><code>sel.val.data$Loc_CAT[sel.val.data$Loc_CAT==&quot;other&quot;] &lt;- &quot;trunk&quot;</code></pre>
 <p>Merge LMM other with other</p>
-<pre class="r"><code>sel.val.data$Histology[sel.val.data$Histology==&quot;LLM&quot;] &lt;- &quot;other&quot; # Bespreken met Robert, is LLM and LMM the same?</code></pre>
+<pre class="r"><code>sel.val.data$Histology[sel.val.data$Histology==&quot;LLM&quot;] &lt;- &quot;other&quot; # LLM and LMM is the same</code></pre>
 </div>
 <div id="define-multiple-fields" class="section level4">
 <h4>Define multiple fields</h4>
-<pre class="r"><code>sel.val.data$multiple.fields &lt;- as.numeric(!is.na(sel.val.data$Tot_nr_SNs)&amp;sel.val.data$Tot_nr_SNs&gt;1) # Bespreken met ask Robert</code></pre>
+<pre class="r"><code>sel.val.data$multiple.fields &lt;- as.numeric(!is.na(sel.val.data$Tot_nr_SNs)&amp;sel.val.data$Tot_nr_SNs&gt;1)</code></pre>
 </div>
 <div id="number-of-positive-and-negative-nodes" class="section level4">
 <h4>Number of positive and negative nodes</h4>
@@ -416,7 +423,7 @@ sel.val.data &lt;- original.validation.data</code></pre>
 <pre class="r"><code>sel.val.data$Tot_nr_SNs &lt;- sel.val.data$Tot_SNs_neg + sel.val.data$Tot_SNs_pos</code></pre>
 <p>607 positive SN patients have negative nodes</p>
 <pre class="r"><code>sum(!is.na(sel.val.data$Tot_SNs_neg)&amp;sel.val.data$Tot_SNs_neg&gt;0&amp;sel.val.data$SNstatus==&quot;Positive&quot;)</code></pre>
-<pre><code>## [1] 607</code></pre>
+<pre><code>## [1] 606</code></pre>
 </div>
 <div id="sn-tumour-burden" class="section level4">
 <h4>SN tumour burden</h4>
@@ -441,62 +448,45 @@ sum(sel.val.data$SNstatus==&quot;Positive&quot;&amp;sel.val.data$Dewar==&quot;su
 </div>
 <div id="recurrence" class="section level4">
 <h4>Recurrence</h4>
+<p>Set recurrence indicator</p>
+<pre class="r"><code># Recurrence if patient has Date_1st_Rec, Alive with melanoma, or dead with melanoma
+sel.val.data$Recurrence &lt;- as.numeric(!is.na(sel.val.data$Date_1st_Rec)) # n=1352
+# sel.val.data$Recurrence &lt;- as.numeric(sel.val.data$Status==&quot;Alive with Melanoma  &quot; | sel.val.data$Status==&quot;Dead, melanoma       &quot; | !is.na(sel.val.data$Date_1st_Rec)) # n=1352
+sel.val.data$Recurrence &lt;- factor(sel.val.data$Recurrence, labels=c(&quot;no recurrence&quot;, &quot;recurred&quot;))</code></pre>
 <p>Define time since diagnosis in years (follow-up time)</p>
-<pre class="r"><code>sel.val.data$FU.time &lt;- (sel.val.data$Last_FU-sel.val.data$SNdate)/(24*60*60)/365.25</code></pre>
+<pre class="r"><code>sel.val.data$FU.time &lt;- (sel.val.data$Last_FU-sel.val.data$SNdate)/(24*60*60)/365.25
+# median: 4.1629021</code></pre>
 <p>Define recurrence time in years</p>
 <pre class="r"><code>sel.val.data$Rec.time &lt;- (sel.val.data$Date_1st_Rec-sel.val.data$SNdate)/(24*60*60)/365.25</code></pre>
 <p>Check: no patients with Rec date before SN date</p>
 <pre class="r"><code>sum(!(!(sel.val.data$Rec.time&lt;0&amp;!is.na(sel.val.data$Rec.time))))</code></pre>
 <pre><code>## [1] 0</code></pre>
-<p>Impute recurrence time for 45 patients with missing Rec.time but
-Recurrence==“recurred”</p>
-<pre class="r"><code>cat(&#39;Number of patients dead with recurrence without Date_1st_Rec:&#39;, sum(is.na(sel.val.data$Date_1st_Rec)&amp;sel.val.data$Status==&quot;Dead, melanoma       &quot;), &#39;\n&#39;)</code></pre>
-<pre><code>## Number of patients dead with recurrence without Date_1st_Rec: 46</code></pre>
-<pre class="r"><code>cat(&#39;Number of patients alive with recurrence without Date_1st_Rec:&#39;, sum(is.na(sel.val.data$Date_1st_Rec)&amp;sel.val.data$Status==&quot;Alive with Melanoma  &quot;))</code></pre>
-<pre><code>## Number of patients alive with recurrence without Date_1st_Rec: 12</code></pre>
-<p>Set recurrence indicator</p>
-<pre class="r"><code>Rec.date &lt;- as.numeric(!is.na(sel.val.data$Date_1st_Rec)) # n=1294
-Rec.date &lt;- factor(Rec.date, labels=c(&quot;no recurrence&quot;, &quot;recurred&quot;))
-table(sel.val.data$Status, Rec.date) # Bespreken met Robert</code></pre>
-<pre><code>##                        Rec.date
+<p>Set recurrence time equal to follow-up time for those without
+recurrence</p>
+<pre class="r"><code>sel.val.data$Rec.time[sel.val.data$Recurrence==&quot;no recurrence&quot;|is.na(sel.val.data$SNdate)]&lt;-sel.val.data$FU.time[sel.val.data$Recurrence==&quot;no recurrence&quot;|is.na(sel.val.data$SNdate)]
+table(sel.val.data$Status, sel.val.data$Recurrence)</code></pre>
+<pre><code>##                        
 ##                         no recurrence recurred
 ##   Alive NSR                      3127      315
 ##   Alive with Melanoma              12      139
 ##   Alive, status unknown            43       21
 ##   Dead, cause unknown             195       67
-##   Dead, MCC                         1        0
 ##   Dead, melanoma                   46      719
-##   Dead, not melanoma              105       33
-##   Unknown                           4        0</code></pre>
-<pre class="r"><code>cat(&quot;Number of alive patients with Date_1st_Rec, but status NSR:&quot;, sum(!is.na(sel.val.data$Date_1st_Rec)&amp;sel.val.data$Status==&quot;Alive NSR            &quot;), &quot;\n&quot;)</code></pre>
-<pre><code>## Number of alive patients with Date_1st_Rec, but status NSR: 315</code></pre>
-<pre class="r"><code>cat(&quot;Number of alive patients with Date_1st_Rec, but status unknown:&quot;, sum(!is.na(sel.val.data$Date_1st_Rec)&amp;sel.val.data$Status==&quot;Alive, status unknown&quot;), &quot;\n&quot;)</code></pre>
-<pre><code>## Number of alive patients with Date_1st_Rec, but status unknown: 21</code></pre>
-<pre class="r"><code>cat(&quot;Number of dead patients with Date_1st_Rec, but status unknown:&quot;, sum(!is.na(sel.val.data$Date_1st_Rec)&amp;sel.val.data$Status==&quot;Dead, cause unknown  &quot;), &quot;\n&quot;)</code></pre>
-<pre><code>## Number of dead patients with Date_1st_Rec, but status unknown: 67</code></pre>
-<pre class="r"><code>cat(&quot;Number of dead patients with Date_1st_Rec, but status not melanoma:&quot;, sum(!is.na(sel.val.data$Date_1st_Rec)&amp;sel.val.data$Status==&quot;Dead, not melanoma   &quot;), &quot;\n&quot;)</code></pre>
-<pre><code>## Number of dead patients with Date_1st_Rec, but status not melanoma: 33</code></pre>
-<pre class="r"><code># Recurrence if patient has Date_1st_Rec, Alive with melanoma, or dead with melanoma
-sel.val.data$Recurrence &lt;- as.numeric(sel.val.data$Status==&quot;Alive with Melanoma  &quot; | sel.val.data$Status==&quot;Dead, melanoma       &quot; | !is.na(sel.val.data$Date_1st_Rec)) # n=1352
-sum(sel.val.data$Recurrence)</code></pre>
-<pre><code>## [1] 1352</code></pre>
+##   Dead, not melanoma              105       33</code></pre>
 </div>
 <div id="melanoma-specific-mortality-msm" class="section level4">
 <h4>Melanoma specific mortality (MSM)</h4>
 <pre class="r"><code>sel.val.data$dead &lt;- as.numeric(stringr::str_detect(sel.val.data$Status, &quot;Dead&quot;))
-
-# 504 patients died due to melanoma, 102 patients died from other causes
+sel.val.data$dead &lt;- factor(sel.val.data$dead, labels=c(&quot;No&quot;, &quot;Yes&quot;))
 table(sel.val.data$Status, sel.val.data$dead)</code></pre>
 <pre><code>##                        
-##                            0    1
+##                           No  Yes
 ##   Alive NSR             3442    0
 ##   Alive with Melanoma    151    0
 ##   Alive, status unknown   64    0
 ##   Dead, cause unknown      0  262
-##   Dead, MCC                0    1
 ##   Dead, melanoma           0  765
-##   Dead, not melanoma       0  138
-##   Unknown                  4    0</code></pre>
+##   Dead, not melanoma       0  138</code></pre>
 <pre class="r"><code>sel.val.data$MSM &lt;- as.numeric(sel.val.data$Status==&quot;Dead, melanoma       &quot;)</code></pre>
 </div>
 <div id="mitosis" class="section level4">
@@ -516,8 +506,6 @@ sel.val.data$Mitosis &lt;- factor(sel.val.data$Mitosis, labels=c(&quot;Yes&quot;
 
 sel.val.data$multiple.fields &lt;- factor(sel.val.data$multiple.fields, labels=c(&quot;Multiple SN fields&quot;, &quot;Other&quot;))
 
-sel.val.data$Recurrence &lt;- factor(sel.val.data$Recurrence, labels=c(&quot;no recurrence&quot;, &quot;recurred&quot;))
-sel.val.data$dead &lt;- factor(sel.val.data$dead, labels=c(&quot;No&quot;, &quot;Yes&quot;))
 sel.val.data$MSM &lt;- factor(sel.val.data$MSM, labels=c(&quot;Other&quot;, &quot;Death by melanoma&quot;))</code></pre>
 </div>
 </div>
@@ -528,38 +516,40 @@ sel.val.data$MSM &lt;- factor(sel.val.data$MSM, labels=c(&quot;Other&quot;, &quo
                              &quot;Loc_CAT&quot;, &quot;Histology&quot;, &quot;Breslow&quot;, &quot;multiple.fields&quot;,
                              &quot;Tot_SNs_neg&quot;, &quot;Tot_SNs_pos&quot;, &quot;Rdamcrit&quot;, &quot;Dewar&quot;,
                              &quot;Mitosis&quot;,
-                             &quot;Recurrence&quot;, &quot;dead&quot;, &quot;MSM&quot;)
+                             &quot;Recurrence&quot;, &quot;dead&quot;, &quot;MSM&quot;, &quot;Rec.time&quot;, &quot;FU.time&quot;)
 validation.data.to.be.imputed &lt;- sel.val.data[, variables.to.be.imputed]</code></pre>
 <p>Save distributions of all variables, necessary for Harrell
 summaries</p>
 <pre class="r"><code>dd.validation&lt;-rms::datadist(validation.data.to.be.imputed)
-options(datadist=&#39;dd.validation&#39;)
+options(datadist=&quot;dd.validation&quot;)
 options(digits=8)</code></pre>
 <p>Relation between outcome and covariates</p>
 <pre class="r"><code>validation.data.to.be.imputed$logRec.time &lt;- log(sel.val.data$Rec.time+1/365.25)
 validation.data.to.be.imputed$logFU.time &lt;- log(sel.val.data$FU.time+1/365.25)
 missings.table(validation.data.to.be.imputed)</code></pre>
-<pre><code>##                    m
-## logRec.time     3533
-## Histology        631
-## Ulceration       279
-## Dewar            174
-## Rdamcrit         153
-## Center             0
-## SNstatus           0
-## Sex                0
-## Age.SN             0
-## Loc_CAT            0
-## Breslow            0
-## multiple.fields    0
-## Tot_SNs_neg        0
-## Tot_SNs_pos        0
-## Mitosis            0
-## Recurrence         0
-## dead               0
-## MSM                0
-## logFU.time         0</code></pre>
-<pre class="r"><code>save(list=c(&quot;dd.validation&quot;, &quot;validation.data.to.be.imputed&quot;),file=&#39;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata&#39;, compress=TRUE)</code></pre>
+<pre><code>##                   m
+## Histology       628
+## Ulceration      279
+## Dewar           173
+## Rdamcrit        153
+## Center            0
+## SNstatus          0
+## Sex               0
+## Age.SN            0
+## Loc_CAT           0
+## Breslow           0
+## multiple.fields   0
+## Tot_SNs_neg       0
+## Tot_SNs_pos       0
+## Mitosis           0
+## Recurrence        0
+## dead              0
+## MSM               0
+## Rec.time          0
+## FU.time           0
+## logRec.time       0
+## logFU.time        0</code></pre>
+<pre class="r"><code>save(list=c(&quot;dd.validation&quot;, &quot;validation.data.to.be.imputed&quot;),file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata&quot;, compress=TRUE)</code></pre>
 </div>
 
 

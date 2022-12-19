@@ -1,7 +1,7 @@
 ---
 title: "Prepare Validation Data"
 author: "Carolien C.H.M. Maas"
-date: "14-11-2022"
+date: "December 2022"
 output: html_document
 ---
 
@@ -27,12 +27,17 @@ source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
 # load data file
 original.validation.data <- foreign::read.spss(file="Z:/Project Melanoom/PaperMelanoma/Data/validation/Validation_cohort_MIA.sav",
                                                to.data.frame=TRUE, origin="01-01-1970")
+cat("Number of patients in data set:", nrow(original.validation.data), "\n")
 
-# remove space after Negative # Bespreken met Robert
+# remove space after Negative
 levels(original.validation.data$SNstatus)[levels(original.validation.data$SNstatus)=="Negative "] <- "Negative"
 
-# all patients may be included
-sel.val.data <- original.validation.data
+# exclude 4 patients without Status (don"t know if they alive or dead)
+cat("Number of patients without Status:", sum(original.validation.data$Status=="Unknown              "), "\n")
+sel.val.data <- original.validation.data[original.validation.data$Status!="Dead, MCC            ",]
+# exculde 1 patient with cause of death MCC
+sel.val.data <- sel.val.data[sel.val.data$Status!="Unknown              ",]
+cat("Number of included patients:", nrow(sel.val.data))
 ```
 
 ### Recode
@@ -49,12 +54,12 @@ sel.val.data$Loc_CAT[sel.val.data$Loc_CAT=="other"] <- "trunk"
 
 Merge LMM other with other
 ```{r, eval=TRUE}
-sel.val.data$Histology[sel.val.data$Histology=="LLM"] <- "other" # Bespreken met Robert, is LLM and LMM the same?
+sel.val.data$Histology[sel.val.data$Histology=="LLM"] <- "other" # LLM and LMM is the same
 ```
 
 #### Define multiple fields
 ```{r, eval=TRUE}
-sel.val.data$multiple.fields <- as.numeric(!is.na(sel.val.data$Tot_nr_SNs)&sel.val.data$Tot_nr_SNs>1) # Bespreken met ask Robert
+sel.val.data$multiple.fields <- as.numeric(!is.na(sel.val.data$Tot_nr_SNs)&sel.val.data$Tot_nr_SNs>1)
 ```
 
 #### Number of positive and negative nodes
@@ -94,9 +99,18 @@ sel.val.data$Dewar[sel.val.data$SNstatus=="Negative"] <- "subcap"
 sum(sel.val.data$SNstatus=="Positive"&sel.val.data$Dewar=="subcap"&!is.na(sel.val.data$Dewar))
 ```
 #### Recurrence 
+Set recurrence indicator
+```{r, eval=TRUE}
+# Recurrence if patient has Date_1st_Rec, Alive with melanoma, or dead with melanoma
+sel.val.data$Recurrence <- as.numeric(!is.na(sel.val.data$Date_1st_Rec)) # n=1352
+# sel.val.data$Recurrence <- as.numeric(sel.val.data$Status=="Alive with Melanoma  " | sel.val.data$Status=="Dead, melanoma       " | !is.na(sel.val.data$Date_1st_Rec)) # n=1352
+sel.val.data$Recurrence <- factor(sel.val.data$Recurrence, labels=c("no recurrence", "recurred"))
+```
+
 Define time since diagnosis in years (follow-up time)
 ```{r, eval=TRUE}
 sel.val.data$FU.time <- (sel.val.data$Last_FU-sel.val.data$SNdate)/(24*60*60)/365.25
+# median: 4.1629021
 ```
 
 Define recurrence time in years
@@ -109,35 +123,17 @@ Check: no patients with Rec date before SN date
 sum(!(!(sel.val.data$Rec.time<0&!is.na(sel.val.data$Rec.time))))
 ```
 
-Impute recurrence time for 45 patients with missing Rec.time but Recurrence=="recurred"
+Set recurrence time equal to follow-up time for those without recurrence
 ```{r, eval=TRUE}
-cat('Number of patients dead with recurrence without Date_1st_Rec:', sum(is.na(sel.val.data$Date_1st_Rec)&sel.val.data$Status=="Dead, melanoma       "), '\n')
-cat('Number of patients alive with recurrence without Date_1st_Rec:', sum(is.na(sel.val.data$Date_1st_Rec)&sel.val.data$Status=="Alive with Melanoma  "))
-```
-
-Set recurrence indicator
-```{r, eval=TRUE}
-Rec.date <- as.numeric(!is.na(sel.val.data$Date_1st_Rec)) # n=1294
-Rec.date <- factor(Rec.date, labels=c("no recurrence", "recurred"))
-table(sel.val.data$Status, Rec.date) # Bespreken met Robert
-
-cat("Number of alive patients with Date_1st_Rec, but status NSR:", sum(!is.na(sel.val.data$Date_1st_Rec)&sel.val.data$Status=="Alive NSR            "), "\n")
-cat("Number of alive patients with Date_1st_Rec, but status unknown:", sum(!is.na(sel.val.data$Date_1st_Rec)&sel.val.data$Status=="Alive, status unknown"), "\n")
-cat("Number of dead patients with Date_1st_Rec, but status unknown:", sum(!is.na(sel.val.data$Date_1st_Rec)&sel.val.data$Status=="Dead, cause unknown  "), "\n")
-cat("Number of dead patients with Date_1st_Rec, but status not melanoma:", sum(!is.na(sel.val.data$Date_1st_Rec)&sel.val.data$Status=="Dead, not melanoma   "), "\n")
-
-# Recurrence if patient has Date_1st_Rec, Alive with melanoma, or dead with melanoma
-sel.val.data$Recurrence <- as.numeric(sel.val.data$Status=="Alive with Melanoma  " | sel.val.data$Status=="Dead, melanoma       " | !is.na(sel.val.data$Date_1st_Rec)) # n=1352
-sum(sel.val.data$Recurrence)
+sel.val.data$Rec.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)]<-sel.val.data$FU.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)]
+table(sel.val.data$Status, sel.val.data$Recurrence)
 ```
 
 #### Melanoma specific mortality (MSM)
 ```{r, eval=TRUE}
 sel.val.data$dead <- as.numeric(stringr::str_detect(sel.val.data$Status, "Dead"))
-
-# 504 patients died due to melanoma, 102 patients died from other causes
+sel.val.data$dead <- factor(sel.val.data$dead, labels=c("No", "Yes"))
 table(sel.val.data$Status, sel.val.data$dead)
-
 sel.val.data$MSM <- as.numeric(sel.val.data$Status=="Dead, melanoma       ")
 ```
 #### Mitosis
@@ -159,8 +155,6 @@ sel.val.data$Mitosis <- factor(sel.val.data$Mitosis, labels=c("Yes", "No"))
 
 sel.val.data$multiple.fields <- factor(sel.val.data$multiple.fields, labels=c("Multiple SN fields", "Other"))
 
-sel.val.data$Recurrence <- factor(sel.val.data$Recurrence, labels=c("no recurrence", "recurred"))
-sel.val.data$dead <- factor(sel.val.data$dead, labels=c("No", "Yes"))
 sel.val.data$MSM <- factor(sel.val.data$MSM, labels=c("Other", "Death by melanoma"))
 ```
 
@@ -170,14 +164,14 @@ variables.to.be.imputed <- c("Center", "SNstatus", "Sex", "Age.SN", "Ulceration"
                              "Loc_CAT", "Histology", "Breslow", "multiple.fields",
                              "Tot_SNs_neg", "Tot_SNs_pos", "Rdamcrit", "Dewar",
                              "Mitosis",
-                             "Recurrence", "dead", "MSM")
+                             "Recurrence", "dead", "MSM", "Rec.time", "FU.time")
 validation.data.to.be.imputed <- sel.val.data[, variables.to.be.imputed]
 ```
 
 Save distributions of all variables, necessary for Harrell summaries
 ```{r, eval=TRUE}
 dd.validation<-rms::datadist(validation.data.to.be.imputed)
-options(datadist='dd.validation')
+options(datadist="dd.validation")
 options(digits=8)
 ```
 
@@ -186,5 +180,5 @@ Relation between outcome and covariates
 validation.data.to.be.imputed$logRec.time <- log(sel.val.data$Rec.time+1/365.25)
 validation.data.to.be.imputed$logFU.time <- log(sel.val.data$FU.time+1/365.25)
 missings.table(validation.data.to.be.imputed)
-save(list=c("dd.validation", "validation.data.to.be.imputed"),file='Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata', compress=TRUE)
+save(list=c("dd.validation", "validation.data.to.be.imputed"),file="Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata", compress=TRUE)
 ```

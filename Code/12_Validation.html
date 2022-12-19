@@ -360,7 +360,7 @@ pre code {
 
 <h1 class="title toc-ignore">Create histogram with risk scores</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">14-11-2022</h4>
+<h4 class="date">December 2022</h4>
 
 </div>
 
@@ -377,153 +377,91 @@ set.seed(100)
 
 # load libraries
 library(mice)
-library(survival)         # needed to use
-# remotes::install_github(&quot;CHMMaas/PredictionTools&quot;)
-library(PredictionTools)  # to plot calibration
-# import helper functions
+library(survival)
+library(PredictionTools)
 source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quot;)</code></pre>
 </div>
 </div>
-<div id="validation" class="section level1">
-<h1>Validation</h1>
-</div>
-<div id="compute-predictions-for-each-multiple-imputation-and-make-calibration-plots-with-metrics" class="section level1">
-<h1>Compute predictions for each multiple imputation and make
-calibration plots with metrics</h1>
-<pre class="r"><code># laod data
-load(&#39;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&#39;)
-options(datadist=&#39;dd.training&#39;)
-options(digits=8)
-load(&#39;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&#39;)
-# load model
-load(&#39;Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata&#39;)
-p.Rec.val &lt;- matrix(NA, nrow(validation.data.to.be.imputed), m)
-p.MSM.val &lt;- matrix(NA, nrow(validation.data.to.be.imputed), m)
+<div id="training-data" class="section level1">
+<h1>Training data</h1>
+<pre class="r"><code># load model
+load(&quot;Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata&quot;)
+
+# load data
+load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
+
+# predictions on training data
+p.Rec.5.training &lt;- matrix(NA, nrow(training.data.to.be.imputed), m)
+p.MSM.5.training &lt;- matrix(NA, nrow(training.data.to.be.imputed), m)
 for (i in 1:m){
-  # Linear predictor
+  lp.train.i &lt;- predict(f.mi.BS.Rec.5,
+                      newdata=mice::complete(imputed.training.data, i),
+                      type=&quot;lp&quot;)
+  p.Rec.5.training[, i] &lt;- fun.event(h0=h0.Rec, lp=lp.train.i)
+  p.MSM.5.training[, i] &lt;- fun.event(h0=h0.MSM, lp=MSM.cal.fact*lp.train.i)
+}</code></pre>
+</div>
+<div id="validation-data" class="section level1">
+<h1>Validation data</h1>
+<pre class="r"><code>load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;)
+p.Rec.5.validation &lt;- matrix(NA, nrow(validation.data.to.be.imputed), m)
+p.MSM.5.validation &lt;- matrix(NA, nrow(validation.data.to.be.imputed), m)
+for (i in 1:m){
   lp.val.i &lt;- predict(f.mi.BS.Rec.5,
                       newdata=mice::complete(imputed.validation.data, i),
                       type=&quot;lp&quot;)
-
-  # Recurrence
-  p.Rec.val[, i] &lt;- 1-exp(-h0.Rec*exp(lp.val.i))
-
-  # MSM
-  p.MSM.val[, i] &lt;- 1-exp(-h0.MSM*exp(MSM.cal.fact*lp.val.i))
-}
-
-# calibration curve for recurrence, TODO: based on dd.training?
-png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/val.Rec.png&quot;))
-PredictionTools::val.surv.mi(p.Rec.val,S.Rec.5.validation,g=5,main=&quot;Calibration plot of recurrence for all patients&quot;,
-                             time=NULL,lim=c(0,1),dist=TRUE)</code></pre>
-<pre><code>## $main
-## [1] &quot;Calibration plot of recurrence for all patients&quot;
-## 
-## $n
-## [1] 4827
-## 
-## $quants
-##         20%         40%         60%         80% 
-## 0.092578849 0.140886731 0.224022197 0.381970011 
-## 
-## $p.mi
-##           1           2           3           4           5 
-## 0.073011778 0.114438761 0.177812396 0.292400160 0.567165050 
-## 
-## $obs.mi
-## [1] 0.11869174 0.24130258 0.39084729 0.53556610 0.77617016
-## 
-## $obs.mi.lower
-## [1] 0.089947479 0.202619517 0.344331817 0.485265774 0.733263986
-## 
-## $obs.mi.upper
-## [1] 0.15580480 0.28595052 0.44127650 0.58757055 0.81649547
-## 
-## $int
-## [1] 0.78198108
-## 
-## $int.lower
-## [1] 0.70930072
-## 
-## $int.upper
-## [1] 0.85466144
-## 
-## $slope
-## [1] 1.0788374
-## 
-## $slope.lower
-## [1] 1.0101416
-## 
-## $slope.upper
-## [1] 1.1475331
-## 
-## $cindex
-## [1] 0.76753395
-## 
-## $cindex.lower
-## [1] 0.75345832
-## 
-## $cindex.upper
-## [1] 0.78160959</code></pre>
-<pre class="r"><code>grDevices::dev.off()</code></pre>
-<pre><code>## png 
-##   2</code></pre>
-<pre class="r"><code># calibration curve for MSM
-png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/val.MSM.png&quot;))
-PredictionTools::val.surv.mi(p.MSM.val,S.MSM.5.validation,g=5,main=&quot;Calibration plot of MSM for all patients&quot;,
-                             time=NULL,lim=c(0,1),dist=TRUE)</code></pre>
-<pre><code>## $main
-## [1] &quot;Calibration plot of MSM for all patients&quot;
-## 
-## $n
-## [1] 4827
-## 
-## $quants
-##         20%         40%         60%         80% 
-## 0.037153775 0.061079011 0.106982223 0.209380423 
-## 
-## $p.mi
-##           1           2           3           4           5 
-## 0.028219988 0.047800999 0.081001127 0.149659332 0.370510276 
-## 
-## $obs.mi
-## [1] 0.037475144 0.054234685 0.122007949 0.188446767 0.385057210
-## 
-## $obs.mi.lower
-## [1] 0.024281902 0.038814415 0.098841626 0.160228564 0.351034743
-## 
-## $obs.mi.upper
-## [1] 0.057622034 0.075535986 0.150135471 0.220946172 0.421190969
-## 
-## $int
-## [1] 0.14251226
-## 
-## $int.lower
-## [1] 0.057637562
-## 
-## $int.upper
-## [1] 0.22738696
-## 
-## $slope
-## [1] 0.89351223
-## 
-## $slope.lower
-## [1] 0.81323773
-## 
-## $slope.upper
-## [1] 0.97378673
-## 
-## $cindex
-## [1] 0.76023429
-## 
-## $cindex.lower
-## [1] 0.74069416
-## 
-## $cindex.upper
-## [1] 0.77977441</code></pre>
-<pre class="r"><code>grDevices::dev.off()</code></pre>
-<pre><code>## png 
-##   2</code></pre>
+  p.Rec.5.validation[, i] &lt;- 1-exp(-h0.Rec*exp(lp.val.i))
+  p.MSM.5.validation[, i] &lt;- 1-exp(-h0.MSM*exp(MSM.cal.fact*lp.val.i))
+}</code></pre>
+<pre class="r"><code># calibration curve for recurrence
+# TODO: validation based on dd.training or dd.validation?
+for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
+  for (outcome in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
+    options(datadist=paste0(&quot;dd.&quot;, data.type))
+  
+    S &lt;- eval(parse(text=paste0(&quot;S.&quot;, outcome, &quot;.&quot;, data.type)))
+    p &lt;- eval(parse(text=paste0(&quot;p.&quot;, outcome, &quot;.&quot;, data.type)))
+    data &lt;- eval(parse(text=paste0(data.type, &quot;.data.to.be.imputed&quot;)))
+    
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.All.png&quot;))
+    PredictionTools::val.surv.mi(p, S,
+                                 g=5,main=&quot;All patients&quot;, time=NULL,lim=c(0,1),dist=TRUE)
+    grDevices::dev.off()
+    
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Positive.png&quot;))
+    PredictionTools::val.surv.mi(p[data$SNstatus==&quot;Positive&quot;,],
+                                 S[data$SNstatus==&quot;Positive&quot;,],
+                                 g=5,main=&quot;Patients with positive SN&quot;, time=NULL,lim=c(0,1),dist=TRUE)
+    grDevices::dev.off()
+    
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Negative.png&quot;))
+    PredictionTools::val.surv.mi(p[data$SNstatus==&quot;Negative&quot;,],
+                                 S[data$SNstatus==&quot;Negative&quot;,],
+                                 g=5,main=&quot;Patients with negative SN&quot;, time=NULL,lim=c(0,1),dist=TRUE)
+    grDevices::dev.off()
+    
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Neg.Pos.png&quot;), 
+        width=32, height=16, units=&quot;cm&quot;, res=600)
+    par(mar=rep(0, 4))
+    layout(matrix(1:2, ncol=2, byrow=TRUE))
+    for (select.value in c(&quot;Positive&quot;, &quot;Negative&quot;)){
+      plot(NA, xlim=0:1, ylim=0:1, xaxt=&quot;n&quot;, yaxt=&quot;n&quot;, bty=&quot;n&quot;)
+      img &lt;- png::readPNG(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.&quot;, select.value, &quot;.png&quot;))
+      rasterImage(img, 0, 0, 1, 1)
+    }
+    grDevices::dev.off()
+    
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/&quot;, data.type, &quot;.&quot;, outcome, &quot;.png&quot;), width=32, height=48, units=&quot;cm&quot;, res=600)
+    par(mar=rep(0, 4))
+    layout(matrix(1:2, ncol=1, nrow=2, byrow=TRUE), heights=c(2, 1), widths=c(2, 2))
+    for (select.value in c(&quot;All&quot;, &quot;Neg.Pos&quot;)){
+      plot(NA, xlim=0:1, ylim=0:1, xaxt=&quot;n&quot;, yaxt=&quot;n&quot;, bty=&quot;n&quot;)
+      img &lt;- png::readPNG(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.&quot;, select.value, &quot;.png&quot;))
+      rasterImage(img, 0, 0, 1, 1)
+    }
+    grDevices::dev.off()
+  }
+}</code></pre>
 </div>
 
 

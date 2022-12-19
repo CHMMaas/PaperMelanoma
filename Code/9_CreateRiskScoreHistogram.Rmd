@@ -1,0 +1,156 @@
+---
+title: "Create histogram with risk scores"
+author: "Carolien C.H.M. Maas"
+date: "December 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Create calibration plots
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(grDevices)
+library(stats)
+library(survival)
+source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
+```
+
+# Risk score distribution
+```{r, eval=TRUE}
+load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData")
+options(datadist="dd.training")
+
+# baseline hazard of MSM
+h0.MSM.all <- c()
+lp.MSM.all <- c()
+for (i in 1:m){
+  lp.i<-predict(f.mi.BS.Rec.5,
+                newdata=mice::complete(imputed.training.data,i), 
+                type="lp")
+  lp.MSM.all <- cbind(lp.MSM.all, lp.i)
+  f.MSM.basehaz.i <- basehaz(rms::cph(S.MSM.5.training~lp.i,y=TRUE,x=TRUE))
+  h0.MSM.i <- f.MSM.basehaz.i$hazard[f.MSM.basehaz.i$time==max(f.MSM.basehaz.i$time[f.MSM.basehaz.i$time<=horizon])]
+  h0.MSM.all <- c(h0.MSM.all, h0.MSM.i)
+}
+h0.MSM <- mean(h0.MSM.all)
+lp.MSM <- rowMeans(lp.MSM.all)
+
+# TODO: Is this correct?
+lp.MSM.all[3,]
+
+# lp range MSM
+rc.MSM <- MSM.cal.fact*rc.Rec
+int.MSM <- MSM.cal.fact*int.Rec
+max.range <- 16
+points.range <- 0:max.range
+lp.points.Rec.5 <- int.Rec+rc.Rec*points.range
+lp.points.MSM.5 <- int.MSM+rc.MSM*points.range
+
+# Recurrence lp scores
+Breslow.trunc <- last.imputed.training.data.set$Breslow
+Breslow.trunc[last.imputed.training.data.set$Breslow<0.1] <- .1
+Breslow.trunc[last.imputed.training.data.set$Breslow>7] <- 7
+lp.Rec <- predict(f.mi.BS.Rec.5,newdata=data.frame(SNstatus=last.imputed.training.data.set$SNstatus,
+                                                         Age.SN=last.imputed.training.data.set$Age.SN,
+                                                         Ulceration=last.imputed.training.data.set$Ulceration,
+                                                         Loc_CAT=last.imputed.training.data.set$Loc_CAT,
+                                                         Breslow=Breslow.trunc,
+                                                         Rdamcrit=last.imputed.training.data.set$Rdamcrit))
+mean(lp.Rec)
+score.Rec <- round((lp.Rec-int.Rec)/rc.Rec,0)
+max.breaks <- max.range+1
+h.Rec <- hist(score.Rec,plot=FALSE,breaks=0:max.breaks,right=FALSE, beside=TRUE)
+
+# score table
+data.frame(table(score.Rec)/length(score.Rec))
+```
+
+# Plot of risk score distribution
+```{r, eval=TRUE, message=FALSE}
+h.plot <- h.Rec
+h.plot$density <- 100*h.Rec$density
+p.Rec <- fun.event(lp=lp.points.Rec.5, h0=h0.Rec)
+p.MSM <- fun.event(lp=lp.points.MSM.5, h0=h0.MSM)
+x.lim <- c(0, max.range+1)
+y.lim <- c(0, 100)
+y.lim.hist <- c(0, 25)
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.png"))
+par(mar = c(5,5,2,5))
+plot(h.plot,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,main=NA,col="white")
+abline(h=(0:30)*1,col="light grey",lty=2)
+axis(side = 4)
+mtext(side = 4, line = 3, "Risk score distribution (%)")
+par(new = TRUE)
+plot(h.plot,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,main=NA,col="white")
+par(new = TRUE)
+plot(points.range,p.Rec*100,type="b",lwd=1,xlim=x.lim,ylim=y.lim,pch=15, xlab="Risk score",ylab="Predicted 5-year risk (%)")
+points(points.range,p.MSM*100,type="b",lwd=1,xlim=x.lim,ylim=y.lim,pch=16)
+legend(x=0,y=100,legend=c("Recurrence","Melanoma-specific mortality"),pch=c(15,16),cex=.9,bg="white")
+grDevices::dev.off()
+```
+
+```{r, eval=TRUE, echo=FALSE}
+# table of risk distribution
+cbind(points.range, round(p.Rec*100, 1), round(p.MSM*100, 1))[c(1, 9, 10, 12, 13),]
+```
+# Save for Rshiny app
+```{r, eval=TRUE}
+coef.Rec <- stats::coef(f.mi.BS.Rec.5)
+center.Rec <- f.mi.BS.Rec.5$center
+
+save(h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec, MSM.cal.fact,
+     file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata"), compress=TRUE)
+save(list=c("dd.training", "training.data.to.be.imputed", "m", "imputed.training.data", 
+            "last.imputed.training.data.set", "horizon", "S.Rec.5.training", "S.MSM.5.training",
+            "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", 
+            "form.full.Rec.5", "form.BS.Rec.5", "form.full.MSM.5.refit", "form.BS.MSM.5.refit", 
+            "rc.Rec", "int.Rec", "h0.Rec", "lp.points.Rec.5",
+            "rc.MSM", "rc.Rec", "h0.MSM", "lp.points.MSM.5",
+            "lp.Rec", "lp.MSM", "max.breaks", "h.Rec", 
+            "h.plot", "y.lim.hist", "x.lim", "coef.Rec", "center.Rec"),
+     file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
+```
+
+# Risk distribution and scores with ggplot
+```{r, eval=TRUE}
+library(ggplot2)
+last.imputed.training.data.set$score.Rec <- score.Rec # TODO: over 5 imputations?
+
+plot <- ggplot(data=data.frame(), aes(x=0:max.range, y=0:100))+
+  geom_bar(data=last.imputed.training.data.set, 
+           aes(x=score.Rec, y=(..count..)/sum(..count..)*400, fill=SNstatus))+
+  geom_line(aes(x=points.range, y=p.Rec*100))+
+  geom_point(aes(x=points.range, y=p.Rec*100, alpha="Recurrence"), shape=15)+
+  geom_line(aes(x=points.range, y=p.MSM*100))+
+  geom_point(aes(x=points.range, y=p.MSM*100, alpha="Melanoma-specific mortality"), shape=19)+
+  scale_y_continuous(limits=c(0, 100), minor_breaks=seq(0, 100, 5),
+                     sec.axis=sec_axis(~./4, name="Risk score distribution (%)"))+
+  ylab("Predicted 5-year risk (%)")+
+  xlab("Risk score")+
+  theme_bw()+
+  scale_fill_discrete(name=NULL,
+                      labels=c("Negative SN status", "Positive SN status"))+
+  scale_alpha_manual(name=NULL, 
+                     values=c(15, 19),
+                     breaks=c("Recurrence", "Melanoma-specific mortality"),
+                     guide=guide_legend(override.aes=list(linetype=c(0, 1), 
+                                                          shape=c(15, 19), 
+                                                          color="black")))+
+  theme(legend.position=c(0.25, 0.80),
+        legend.title=element_blank())
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.png"), 
+    width=15, height=15, units="cm", res=300)
+show(plot)
+grDevices::dev.off()
+```

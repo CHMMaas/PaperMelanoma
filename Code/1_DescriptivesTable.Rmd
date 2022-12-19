@@ -6,13 +6,13 @@ output: word_document
 # clear all
 rm(list = ls(all.names = TRUE))
 if(!is.null(dev.list())) dev.off()
-cat('\014')
+cat("\014")
 
 library(arsenal)
 library(knitr)
 
-load('Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata')
-load('Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata')
+load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata")
+load("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata")
 descr.table <- arsenal::tableby(Center ~ SNstatus
                                 +Sex
                                 +Age.SN
@@ -30,7 +30,7 @@ descr.table <- arsenal::tableby(Center ~ SNstatus
                                 +dead
                                 +MSM
                                 +logRec.time
-                                +logFU.time, data=rbind(training.data.to.be.imputed, validation.data.to.be.imputed), 
+                                +logFU.time, data=rbind(training.data.to.be.imputed, validation.data.to.be.imputed[, -c(18, 19)]), # training.data.to.be.imputed,
                                 total.pos="before",
                                 digits = 1,
                                 test = F,
