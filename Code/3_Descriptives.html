@@ -255,6 +255,7 @@ if (window.hljs) {
 
 
 
+
 <style type="text/css">
 .main-container {
   max-width: 940px;
@@ -276,6 +277,9 @@ button.code-folding-btn:focus {
 summary {
   display: list-item;
 }
+details > summary > p:only-child {
+  display: inline;
+}
 pre code {
   padding: 0;
 }
@@ -295,8 +299,8 @@ pre code {
   border-radius: 4px;
 }
 
-.tabset-dropdown > .nav-tabs > li.active:before {
-  content: "";
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
   font-family: 'Glyphicons Halflings';
   display: inline-block;
   padding: 10px;
@@ -304,16 +308,9 @@ pre code {
 }
 
 .tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
-  content: "";
-  border: none;
-}
-
-.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
-  content: "";
+  content: "\e258";
   font-family: 'Glyphicons Halflings';
-  display: inline-block;
-  padding: 10px;
-  border-right: 1px solid #ddd;
+  border: none;
 }
 
 .tabset-dropdown > .nav-tabs > li.active {
@@ -434,15 +431,15 @@ survminer::ggsurvplot(survival::survfit(S.Rec.validation ~ 1, data=last.imputed.
   
   # save in tab.time
   tab.time &lt;- c(&quot;Total Development&quot;, paste(sprintf(&quot;%.2f&quot;, median.time.total$quantiles.survival[3, &quot;quantile&quot;]),
-                   paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, median.time.total$quantiles.survival[3, &quot;lower&quot;]), &quot;; &quot;,
-                          sprintf(&quot;%.2f&quot;, median.time.total$quantiles.survival[3, &quot;upper&quot;]), &quot;]&quot;)))
+                   paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, median.time.total$quantiles.survival[4, &quot;quantile&quot;]), &quot;; &quot;,
+                          sprintf(&quot;%.2f&quot;, median.time.total$quantiles.survival[2, &quot;quantile&quot;]), &quot;]&quot;)))
   
   # time per center
   for (center in c(&quot;Amsterdam&quot;, &quot;Berlin&quot;, &quot;Rotterdam&quot;, &quot;Warsaw&quot;, &quot;Australia&quot;)){
     med.table &lt;- eval(parse(text=paste0(&quot;median.time$`Center=&quot;, center, &quot;`&quot;)))
     med &lt;- med.table[3,&quot;quantile&quot;]
-    lower &lt;- med.table[3,&quot;lower&quot;]
-    upper &lt;- med.table[3,&quot;upper&quot;]
+    lower &lt;- med.table[4,&quot;quantile&quot;]
+    upper &lt;- med.table[2,&quot;quantile&quot;]
     tab.time &lt;- rbind(tab.time, c(center, paste(sprintf(&quot;%.2f&quot;, med), paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, lower), &quot;; &quot;, sprintf(&quot;%.2f&quot;, upper), &quot;]&quot;))))
   }
   

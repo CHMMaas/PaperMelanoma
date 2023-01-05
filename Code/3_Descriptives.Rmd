@@ -78,15 +78,15 @@ median.time <- function(data=NA, type=NA){
   
   # save in tab.time
   tab.time <- c("Total Development", paste(sprintf("%.2f", median.time.total$quantiles.survival[3, "quantile"]),
-                   paste0("[", sprintf("%.2f", median.time.total$quantiles.survival[3, "lower"]), "; ",
-                          sprintf("%.2f", median.time.total$quantiles.survival[3, "upper"]), "]")))
+                   paste0("[", sprintf("%.2f", median.time.total$quantiles.survival[4, "quantile"]), "; ",
+                          sprintf("%.2f", median.time.total$quantiles.survival[2, "quantile"]), "]")))
   
   # time per center
   for (center in c("Amsterdam", "Berlin", "Rotterdam", "Warsaw", "Australia")){
     med.table <- eval(parse(text=paste0("median.time$`Center=", center, "`")))
     med <- med.table[3,"quantile"]
-    lower <- med.table[3,"lower"]
-    upper <- med.table[3,"upper"]
+    lower <- med.table[4,"quantile"]
+    upper <- med.table[2,"quantile"]
     tab.time <- rbind(tab.time, c(center, paste(sprintf("%.2f", med), paste0("[", sprintf("%.2f", lower), "; ", sprintf("%.2f", upper), "]"))))
   }
   
