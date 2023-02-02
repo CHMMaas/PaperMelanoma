@@ -126,6 +126,8 @@ sum(!(!(sel.val.data$Rec.time<0&!is.na(sel.val.data$Rec.time))))
 Set recurrence time equal to follow-up time for those without recurrence
 ```{r, eval=TRUE}
 sel.val.data$Rec.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)]<-sel.val.data$FU.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)]
+
+sel.val.data$Rec.time[sel.val.data$Recurrence=="recurrence"&is.na(sel.val.data$Date_1st_Rec)]<-NA
 table(sel.val.data$Status, sel.val.data$Recurrence)
 ```
 
