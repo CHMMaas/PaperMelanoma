@@ -31,7 +31,7 @@ descr.table <- arsenal::tableby(Center ~ SNstatus
                                 +dead
                                 +MSM
                                 +logRec.time
-                                +logFU.time, data=rbind(training.data.to.be.imputed, validation.data.to.be.imputed[, -c(18, 19)]), # training.data.to.be.imputed,
+                                +logFU.time, data=rbind(training.data.to.be.imputed, validation.data.to.be.imputed), # training.data.to.be.imputed,
                                 total.pos="before",
                                 digits = 1,
                                 test = F,

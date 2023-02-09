@@ -255,6 +255,7 @@ if (window.hljs) {
 
 
 
+
 <style type="text/css">
 .main-container {
   max-width: 940px;
@@ -276,6 +277,9 @@ button.code-folding-btn:focus {
 summary {
   display: list-item;
 }
+details > summary > p:only-child {
+  display: inline;
+}
 pre code {
   padding: 0;
 }
@@ -295,8 +299,8 @@ pre code {
   border-radius: 4px;
 }
 
-.tabset-dropdown > .nav-tabs > li.active:before {
-  content: "";
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
   font-family: 'Glyphicons Halflings';
   display: inline-block;
   padding: 10px;
@@ -304,16 +308,9 @@ pre code {
 }
 
 .tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
-  content: "";
-  border: none;
-}
-
-.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
-  content: "";
+  content: "\e258";
   font-family: 'Glyphicons Halflings';
-  display: inline-block;
-  padding: 10px;
-  border-right: 1px solid #ddd;
+  border: none;
 }
 
 .tabset-dropdown > .nav-tabs > li.active {
@@ -464,6 +461,8 @@ sel.val.data$Recurrence &lt;- factor(sel.val.data$Recurrence, labels=c(&quot;no 
 <p>Set recurrence time equal to follow-up time for those without
 recurrence</p>
 <pre class="r"><code>sel.val.data$Rec.time[sel.val.data$Recurrence==&quot;no recurrence&quot;|is.na(sel.val.data$SNdate)]&lt;-sel.val.data$FU.time[sel.val.data$Recurrence==&quot;no recurrence&quot;|is.na(sel.val.data$SNdate)]
+
+sel.val.data$Rec.time[sel.val.data$Recurrence==&quot;recurrence&quot;&amp;is.na(sel.val.data$Date_1st_Rec)]&lt;-NA
 table(sel.val.data$Status, sel.val.data$Recurrence)</code></pre>
 <pre><code>##                        
 ##                         no recurrence recurred
@@ -497,7 +496,8 @@ table(sel.val.data$Status, sel.val.data$dead)</code></pre>
 <div id="delete-unused-levels" class="section level4">
 <h4>Delete unused levels</h4>
 <pre class="r"><code>sel.val.data &lt;- droplevels(sel.val.data)
-sel.val.data$Center &lt;- &quot;Australia&quot;</code></pre>
+sel.val.data$Center &lt;- 5
+sel.val.data$Center &lt;- factor(sel.val.data$Center, labels = c(&quot;Australia&quot;))</code></pre>
 </div>
 <div id="set-levels" class="section level4">
 <h4>Set levels</h4>
@@ -516,7 +516,7 @@ sel.val.data$MSM &lt;- factor(sel.val.data$MSM, labels=c(&quot;Other&quot;, &quo
                              &quot;Loc_CAT&quot;, &quot;Histology&quot;, &quot;Breslow&quot;, &quot;multiple.fields&quot;,
                              &quot;Tot_SNs_neg&quot;, &quot;Tot_SNs_pos&quot;, &quot;Rdamcrit&quot;, &quot;Dewar&quot;,
                              &quot;Mitosis&quot;,
-                             &quot;Recurrence&quot;, &quot;dead&quot;, &quot;MSM&quot;, &quot;Rec.time&quot;, &quot;FU.time&quot;)
+                             &quot;Recurrence&quot;, &quot;dead&quot;, &quot;MSM&quot;)
 validation.data.to.be.imputed &lt;- sel.val.data[, variables.to.be.imputed]</code></pre>
 <p>Save distributions of all variables, necessary for Harrell
 summaries</p>
@@ -545,8 +545,6 @@ missings.table(validation.data.to.be.imputed)</code></pre>
 ## Recurrence        0
 ## dead              0
 ## MSM               0
-## Rec.time          0
-## FU.time           0
 ## logRec.time       0
 ## logFU.time        0</code></pre>
 <pre class="r"><code>save(list=c(&quot;dd.validation&quot;, &quot;validation.data.to.be.imputed&quot;),file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata&quot;, compress=TRUE)</code></pre>

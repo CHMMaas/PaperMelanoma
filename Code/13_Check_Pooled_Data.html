@@ -12,7 +12,7 @@
 <meta name="author" content="Carolien C.H.M. Maas" />
 
 
-<title>Impute missing values of training and validation data using multiple imputation</title>
+<title>Fit models and plots</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -355,16 +355,15 @@ pre code {
 
 
 
-<h1 class="title toc-ignore">Impute missing values of training and
-validation data using multiple imputation</h1>
+<h1 class="title toc-ignore">Fit models and plots</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
 <h4 class="date">January 2023</h4>
 
 </div>
 
 
-<div id="multiple-imputation" class="section level2">
-<h2>Multiple imputation</h2>
+<div id="fit-models" class="section level2">
+<h2>Fit models</h2>
 <div id="load-packages-functions-and-data" class="section level3">
 <h3>Load packages, functions, and data</h3>
 <pre class="r"><code># erase memory
@@ -374,51 +373,213 @@ rm(list = ls(all.names = TRUE))
 set.seed(100)
 
 # load libraries
-library(mice)</code></pre>
-<p>Function to perform multiple imputation for training or validation
-data</p>
-<pre class="r"><code>impute.missing.values &lt;- function(type=NULL, m=1, new.imputation=FALSE){
-  # load data
-  if (type==&quot;pooled&quot;){
-    load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;))
-    load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata&quot;))
-    pooled.data.to.be.imputed &lt;- rbind(training.data.to.be.imputed, validation.data.to.be.imputed)
-    dd.pooled&lt;-rms::datadist(pooled.data.to.be.imputed)
-  } else{
-    load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;))
-  }
-  
-  if (new.imputation){
-    # impute data
-    data.to.be.imputed &lt;- eval(parse(text=paste0(type, &quot;.data.to.be.imputed&quot;)))
-    imputed.data &lt;- mice::mice(data.to.be.imputed, m=m, maxit=5, print=FALSE, seed=500)
-    # print(imputed.data$method)
-    # print(imputed.data$loggedEvents)
-    assign(paste0(&quot;imputed.&quot;, type, &quot;.data&quot;), imputed.data)
-    save(list=c(paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)),
-         file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/imputed.&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
-  }
-  load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/imputed.&quot;, type, &quot;.data.Rdata&quot;))
-  save(list=c(paste0(&quot;dd.&quot;, type), paste0(type, &quot;.data.to.be.imputed&quot;), &quot;m&quot;, paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)),
-       file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
-}</code></pre>
-<p>Perform multiple imputation</p>
-<pre class="r"><code># erase memory
-m &lt;- 5
-new.imputation &lt;- TRUE
-# Impute: Ulceration, Loc_CAT, Histology, Breslow, Tot_SNs_neg, Tot_SNs_pos, Rdamcrit, Dewar, Mitosis, logRec.time
-impute.missing.values(type=&quot;training&quot;, m=m, new.imputation=new.imputation)</code></pre>
-<pre><code>## Warning: Number of logged events: 25</code></pre>
-<pre class="r"><code># Impute: Ulceration, Histology, Rdamcrit, Dewar, logRec.time
-impute.missing.values(type=&quot;validation&quot;, m=m, new.imputation=new.imputation)</code></pre>
-<pre><code>## Warning: Number of logged events: 1</code></pre>
-<pre class="r"><code># Impute pooled data
-# impute.missing.values(type=&quot;pooled&quot;, m=m, new.imputation=new.imputation)
-
-# training data gives warning messages for Mitosis
-# validation data gives multicolinearity of logRectime and recurrence
-# print(imputed.data$loggedEvents)</code></pre>
+library(mice)
+library(dplyr)
+library(rms)</code></pre>
 </div>
+</div>
+<div id="check-pooled-data" class="section level1">
+<h1>Check pooled data</h1>
+<pre class="r"><code>load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
+
+# model based on training data
+c.Breslow.all &lt;- c()
+for (i in 1:m){
+  c.Breslow.all &lt;- c(c.Breslow.all, mean(log(mice::complete(imputed.training.data, i)$Breslow)))
+}
+c.Breslow &lt;- mean(c.Breslow.all)
+
+# prepare data
+load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;)
+# combine two raw (without imputation) data sets
+pooled.data.to.be.imputed &lt;- rbind(training.data.to.be.imputed, validation.data.to.be.imputed)
+# add continent
+continent.df &lt;- data.frame(Continent=c(rep(&quot;Europe&quot;, nrow(complete(imputed.training.data, 5))), 
+                                     rep(&quot;Australia&quot;, nrow(complete(imputed.validation.data, 5)))))
+
+# set datadist
+dd.pooled&lt;-rms::datadist(cbind(pooled.data.to.be.imputed, continent.df))
+options(datadist=&quot;dd.pooled&quot;)
+
+# combine two imputed data sets into one mids object
+imputed.pooled.data &lt;- mice::rbind(imputed.training.data, imputed.validation.data)
+# add continent variable
+imputed.pooled.data &lt;- mice::cbind(imputed.pooled.data, continent.df)
+
+# define the outcome based on last imputed data set
+last.imputed.pooled.data.set &lt;- rbind(mice::complete(imputed.training.data, m), mice::complete(imputed.validation.data, m))
+S.Rec.training.validation &lt;- survival::Surv(exp(last.imputed.pooled.data.set$logRec.time), last.imputed.pooled.data.set$Recurrence==&quot;recurred&quot;)
+S.Rec.5.training.validation &lt;- S.Rec.training.validation
+S.Rec.5.training.validation[S.Rec.training.validation[,1]&gt;5, 1] &lt;- 5 # set time to 5
+S.Rec.5.training.validation[S.Rec.training.validation[,1]&gt;5, 2] &lt;- 0 # set censoring</code></pre>
+<pre class="r"><code># model is based on training data
+# plus a variable for continent
+# model is fitted on pooled data
+form.BS.Rec.5.pooled.continent &lt;- S.Rec.5.training.validation ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow) +
+  Continent*(SNstatus + Age.SN + Ulceration + Loc_CAT + I(log(Breslow)-c.Breslow) + log(Rdamcrit))
+
+# fit model
+f.mi.full.pooled.continent &lt;- Hmisc::fit.mult.impute(form.BS.Rec.5.pooled.continent, cph, xtrans=imputed.pooled.data,
+                                 data=pooled.data.to.be.imputed, n.impute=m, pr=FALSE,
+                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+anova(f.mi.full.pooled.continent)</code></pre>
+<pre><code>##                 Wald Statistics          Response: S.Rec.5.training.validation 
+## 
+##  Factor                                                Chi-Square d.f. P     
+##  SNstatus  (Factor+Higher Order Factors)                375.59     3   &lt;.0001
+##   All Interactions                                       21.12     2   &lt;.0001
+##  Age.SN  (Factor+Higher Order Factors)                   69.88     2   &lt;.0001
+##   All Interactions                                        5.27     1   0.0216
+##  Ulceration  (Factor+Higher Order Factors)               83.09     2   &lt;.0001
+##   All Interactions                                        0.02     1   0.8845
+##  Loc_CAT  (Factor+Higher Order Factors)                  52.74     6   &lt;.0001
+##   All Interactions                                       15.05     3   0.0018
+##  Breslow  (Factor+Higher Order Factors)                 339.32     3   &lt;.0001
+##   All Interactions                                       23.16     2   &lt;.0001
+##  Rdamcrit  (Factor+Higher Order Factors)                 42.68     2   &lt;.0001
+##   All Interactions                                        0.41     1   0.5227
+##  Continent  (Factor+Higher Order Factors)                35.83     9   &lt;.0001
+##   All Interactions                                       27.96     8   0.0005
+##  SNstatus * Breslow  (Factor+Higher Order Factors)       16.98     1   &lt;.0001
+##  SNstatus * Continent  (Factor+Higher Order Factors)      1.86     1   0.1732
+##  Age.SN * Continent  (Factor+Higher Order Factors)        5.27     1   0.0216
+##  Ulceration * Continent  (Factor+Higher Order Factors)    0.02     1   0.8845
+##  Loc_CAT * Continent  (Factor+Higher Order Factors)      15.05     3   0.0018
+##  Breslow * Continent  (Factor+Higher Order Factors)       7.83     1   0.0051
+##  Rdamcrit * Continent  (Factor+Higher Order Factors)      0.41     1   0.5227
+##  TOTAL INTERACTION                                       42.92     9   &lt;.0001
+##  TOTAL                                                 1512.87    18   &lt;.0001</code></pre>
+<pre class="r"><code># model is based on training data
+# plus a variable for continent
+# model is fitted on pooled data
+form.BS.Rec.5.pooled &lt;- S.Rec.5.training.validation ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow) +
+  Continent
+  
+# fit model
+f.mi.full.pooled &lt;- Hmisc::fit.mult.impute(form.BS.Rec.5.pooled, cph, xtrans=imputed.pooled.data,
+                                 data=pooled.data.to.be.imputed, n.impute=m, pr=FALSE,
+                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+summary(f.mi.full.pooled)</code></pre>
+<pre><code>##              Effects              Response : S.Rec.5.training.validation 
+## 
+##  Factor                       Low   High Diff. Effect   S.E.     Lower 0.95
+##  Age.SN                       45.00 67.0 22.00  0.28357 0.035377  0.214230 
+##   Hazard Ratio                45.00 67.0 22.00  1.32790       NA  1.238900 
+##  Breslow                       1.20  3.3  2.10  0.72542 0.042260  0.642590 
+##   Hazard Ratio                 1.20  3.3  2.10  2.06560       NA  1.901400 
+##  Rdamcrit                      0.01 38.0 37.99  1.69530 0.259380  1.186900 
+##   Hazard Ratio                 0.01 38.0 37.99  5.44810       NA  3.276900 
+##  SNstatus - Positive:Negative  1.00  2.0    NA  1.09670 0.059988  0.979120 
+##   Hazard Ratio                 1.00  2.0    NA  2.99420       NA  2.662100 
+##  Ulceration - Yes:No           1.00  2.0    NA  0.46986 0.050978  0.369940 
+##   Hazard Ratio                 1.00  2.0    NA  1.59980       NA  1.447700 
+##  Loc_CAT - arm:trunk           3.00  1.0    NA -0.24811 0.079598 -0.404120 
+##   Hazard Ratio                 3.00  1.0    NA  0.78028       NA  0.667570 
+##  Loc_CAT - leg:trunk           3.00  2.0    NA  0.12477 0.055993  0.015023 
+##   Hazard Ratio                 3.00  2.0    NA  1.13290       NA  1.015100 
+##  Loc_CAT - head &amp; neck:trunk   3.00  4.0    NA  0.25707 0.069204  0.121430 
+##   Hazard Ratio                 3.00  4.0    NA  1.29310       NA  1.129100 
+##  Continent - Europe:Australia  1.00  2.0    NA -0.14327 0.048298 -0.237930 
+##   Hazard Ratio                 1.00  2.0    NA  0.86652       NA  0.788260 
+##  Upper 0.95
+##   0.352910 
+##   1.423200 
+##   0.808250 
+##   2.244000 
+##   2.203600 
+##   9.058000 
+##   1.214300 
+##   3.367800 
+##   0.569770 
+##   1.767900 
+##  -0.092098 
+##   0.912020 
+##   0.234510 
+##   1.264300 
+##   0.392700 
+##   1.481000 
+##  -0.048606 
+##   0.952560 
+## 
+## Adjusted to: SNstatus=Negative Breslow=2</code></pre>
+<pre class="r"><code>anova(f.mi.full.pooled)</code></pre>
+<pre><code>##                 Wald Statistics          Response: S.Rec.5.training.validation 
+## 
+##  Factor                                            Chi-Square d.f. P     
+##  SNstatus  (Factor+Higher Order Factors)            392.24     2   &lt;.0001
+##   All Interactions                                   14.64     1   1e-04 
+##  Age.SN                                              64.25     1   &lt;.0001
+##  Ulceration                                          84.95     1   &lt;.0001
+##  Loc_CAT                                             35.72     3   &lt;.0001
+##  Breslow  (Factor+Higher Order Factors)             336.92     2   &lt;.0001
+##   All Interactions                                   14.64     1   1e-04 
+##  Rdamcrit                                            42.72     1   &lt;.0001
+##  Continent                                            8.80     1   3e-03 
+##  SNstatus * Breslow  (Factor+Higher Order Factors)   14.64     1   1e-04 
+##  TOTAL                                             1490.39    10   &lt;.0001</code></pre>
+<pre class="r"><code># Coefficients with CI
+# Negative results
+neg.results.BS &lt;- summary(f.mi.full.pooled, SNstatus=&quot;Negative&quot;, Breslow=exp(c.Breslow), Loc_CAT=&quot;arm&quot;, Continent=&quot;Europe&quot;)
+neg.table.BS &lt;- rbind(rep(NA, 3), # SN status
+                      exp(neg.results.BS[c(&quot;Age.SN&quot;,
+                                           &quot;Ulceration - Yes:No&quot;,
+                                           &quot;Loc_CAT - leg:arm&quot;,
+                                           &quot;Loc_CAT - trunk:arm&quot;,
+                                           &quot;Loc_CAT - head &amp; neck:arm&quot;,
+                                           &quot;Breslow&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
+                      rep(NA, 3), # Rdamcrit
+                      exp(neg.results.BS[&quot;Continent - Australia:Europe&quot;, c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)])) 
+# add CI
+neg.table.BS &lt;- cbind(sprintf(&quot;%.2f&quot;, neg.table.BS[, 1]),
+                      paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, neg.table.BS[, 2]), &quot;; &quot;, sprintf(&quot;%.2f&quot;, neg.table.BS[, 3]), &quot;]&quot;))
+
+# Positive results
+pos.results.BS &lt;- summary(f.mi.full.pooled, SNstatus=&quot;Positive&quot;, Breslow=exp(c.Breslow), Loc_CAT=&quot;arm&quot;, Continent=&quot;Europe&quot;)
+pos.table.BS &lt;- rbind(exp(neg.results.BS[&quot;SNstatus - Positive:Negative&quot;, c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
+                      exp(pos.results.BS[c(&quot;Age.SN&quot;,
+                                           &quot;Ulceration - Yes:No&quot;,
+                                           &quot;Loc_CAT - leg:arm&quot;,
+                                           &quot;Loc_CAT - trunk:arm&quot;,
+                                           &quot;Loc_CAT - head &amp; neck:arm&quot;,
+                                           &quot;Breslow&quot;,
+                                           &quot;Rdamcrit&quot;,
+                                           &quot;Continent - Australia:Europe&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]))
+# add CI
+pos.table.BS &lt;- cbind(sprintf(&quot;%.2f&quot;, pos.table.BS[, 1]),
+                      paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, pos.table.BS[, 2]), &quot;; &quot;, sprintf(&quot;%.2f&quot;, pos.table.BS[, 3]), &quot;]&quot;))
+
+# combine postive with negative
+BS.table &lt;- cbind(neg.table.BS, pos.table.BS)
+
+BS.table &lt;- rbind(BS.table[1:3,],
+                    rep(NA, 4),
+                    c(&quot;(ref)&quot;, NA, &quot;(ref)&quot;, NA),
+                    BS.table[4:nrow(BS.table),])
+
+# add blanks
+BS.table[BS.table==&quot;[NA; NA]&quot;] &lt;- NA
+BS.table[BS.table==&quot;NA&quot;] &lt;- NA
+BS.table[is.na(BS.table)] &lt;- &quot;&quot;
+
+# write to Excel
+write.table(BS.table,
+            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/pooled.final.full.table.Rec.txt&quot;,
+            row.names=FALSE,
+            sep=&quot;,&quot;)</code></pre>
 </div>
 
 

@@ -147,7 +147,8 @@ sel.val.data$Mitosis <- as.numeric(!is.na(sel.val.data$Mitosis))
 #### Delete unused levels
 ```{r, eval=TRUE}
 sel.val.data <- droplevels(sel.val.data)
-sel.val.data$Center <- "Australia"
+sel.val.data$Center <- 5
+sel.val.data$Center <- factor(sel.val.data$Center, labels = c("Australia"))
 ```
 
 #### Set levels
@@ -166,7 +167,7 @@ variables.to.be.imputed <- c("Center", "SNstatus", "Sex", "Age.SN", "Ulceration"
                              "Loc_CAT", "Histology", "Breslow", "multiple.fields",
                              "Tot_SNs_neg", "Tot_SNs_pos", "Rdamcrit", "Dewar",
                              "Mitosis",
-                             "Recurrence", "dead", "MSM", "Rec.time", "FU.time")
+                             "Recurrence", "dead", "MSM")
 validation.data.to.be.imputed <- sel.val.data[, variables.to.be.imputed]
 ```
 

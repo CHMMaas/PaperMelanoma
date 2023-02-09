@@ -1,0 +1,156 @@
+---
+title: "Fit models and plots"
+author: "Carolien C.H.M. Maas"
+date: "January 2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Fit models
+
+### Load packages, functions, and data 
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+# load libraries
+library(mice)
+library(dplyr)
+library(rms)
+```
+
+# Check pooled data
+```{r, eval=TRUE}
+load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData")
+
+# model based on training data
+c.Breslow.all <- c()
+for (i in 1:m){
+  c.Breslow.all <- c(c.Breslow.all, mean(log(mice::complete(imputed.training.data, i)$Breslow)))
+}
+c.Breslow <- mean(c.Breslow.all)
+
+# prepare data
+load("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData")
+# combine two raw (without imputation) data sets
+pooled.data.to.be.imputed <- rbind(training.data.to.be.imputed, validation.data.to.be.imputed)
+# add continent
+continent.df <- data.frame(Continent=c(rep("Europe", nrow(complete(imputed.training.data, 5))), 
+                                     rep("Australia", nrow(complete(imputed.validation.data, 5)))))
+
+# set datadist
+dd.pooled<-rms::datadist(cbind(pooled.data.to.be.imputed, continent.df))
+options(datadist="dd.pooled")
+
+# combine two imputed data sets into one mids object
+imputed.pooled.data <- mice::rbind(imputed.training.data, imputed.validation.data)
+# add continent variable
+imputed.pooled.data <- mice::cbind(imputed.pooled.data, continent.df)
+
+# define the outcome based on last imputed data set
+last.imputed.pooled.data.set <- rbind(mice::complete(imputed.training.data, m), mice::complete(imputed.validation.data, m))
+S.Rec.training.validation <- survival::Surv(exp(last.imputed.pooled.data.set$logRec.time), last.imputed.pooled.data.set$Recurrence=="recurred")
+S.Rec.5.training.validation <- S.Rec.training.validation
+S.Rec.5.training.validation[S.Rec.training.validation[,1]>5, 1] <- 5 # set time to 5
+S.Rec.5.training.validation[S.Rec.training.validation[,1]>5, 2] <- 0 # set censoring
+```
+
+```{r, eval=TRUE}
+# model is based on training data
+# plus a variable for continent
+# model is fitted on pooled data
+form.BS.Rec.5.pooled.continent <- S.Rec.5.training.validation ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow) +
+  Continent*(SNstatus + Age.SN + Ulceration + Loc_CAT + I(log(Breslow)-c.Breslow) + log(Rdamcrit))
+
+# fit model
+f.mi.full.pooled.continent <- Hmisc::fit.mult.impute(form.BS.Rec.5.pooled.continent, cph, xtrans=imputed.pooled.data,
+                                 data=pooled.data.to.be.imputed, n.impute=m, pr=FALSE,
+                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+anova(f.mi.full.pooled.continent)
+```
+```{r, eval=TRUE}
+# model is based on training data
+# plus a variable for continent
+# model is fitted on pooled data
+form.BS.Rec.5.pooled <- S.Rec.5.training.validation ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow) +
+  Continent
+  
+# fit model
+f.mi.full.pooled <- Hmisc::fit.mult.impute(form.BS.Rec.5.pooled, cph, xtrans=imputed.pooled.data,
+                                 data=pooled.data.to.be.imputed, n.impute=m, pr=FALSE,
+                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+summary(f.mi.full.pooled)
+anova(f.mi.full.pooled)
+```
+
+```{r, eval=TRUE}
+# Coefficients with CI
+# Negative results
+neg.results.BS <- summary(f.mi.full.pooled, SNstatus="Negative", Breslow=exp(c.Breslow), Loc_CAT="arm", Continent="Europe")
+neg.table.BS <- rbind(rep(NA, 3), # SN status
+                      exp(neg.results.BS[c("Age.SN",
+                                           "Ulceration - Yes:No",
+                                           "Loc_CAT - leg:arm",
+                                           "Loc_CAT - trunk:arm",
+                                           "Loc_CAT - head & neck:arm",
+                                           "Breslow"), c("Effect", "Lower 0.95", "Upper 0.95")]),
+                      rep(NA, 3), # Rdamcrit
+                      exp(neg.results.BS["Continent - Australia:Europe", c("Effect", "Lower 0.95", "Upper 0.95")])) 
+# add CI
+neg.table.BS <- cbind(sprintf("%.2f", neg.table.BS[, 1]),
+                      paste0("[", sprintf("%.2f", neg.table.BS[, 2]), "; ", sprintf("%.2f", neg.table.BS[, 3]), "]"))
+
+# Positive results
+pos.results.BS <- summary(f.mi.full.pooled, SNstatus="Positive", Breslow=exp(c.Breslow), Loc_CAT="arm", Continent="Europe")
+pos.table.BS <- rbind(exp(neg.results.BS["SNstatus - Positive:Negative", c("Effect", "Lower 0.95", "Upper 0.95")]),
+                      exp(pos.results.BS[c("Age.SN",
+                                           "Ulceration - Yes:No",
+                                           "Loc_CAT - leg:arm",
+                                           "Loc_CAT - trunk:arm",
+                                           "Loc_CAT - head & neck:arm",
+                                           "Breslow",
+                                           "Rdamcrit",
+                                           "Continent - Australia:Europe"), c("Effect", "Lower 0.95", "Upper 0.95")]))
+# add CI
+pos.table.BS <- cbind(sprintf("%.2f", pos.table.BS[, 1]),
+                      paste0("[", sprintf("%.2f", pos.table.BS[, 2]), "; ", sprintf("%.2f", pos.table.BS[, 3]), "]"))
+
+# combine postive with negative
+BS.table <- cbind(neg.table.BS, pos.table.BS)
+
+BS.table <- rbind(BS.table[1:3,],
+                    rep(NA, 4),
+                    c("(ref)", NA, "(ref)", NA),
+                    BS.table[4:nrow(BS.table),])
+
+# add blanks
+BS.table[BS.table=="[NA; NA]"] <- NA
+BS.table[BS.table=="NA"] <- NA
+BS.table[is.na(BS.table)] <- ""
+
+# write to Excel
+write.table(BS.table,
+            file="Z:/Project Melanoom/PaperMelanoma/Results/pooled.final.full.table.Rec.txt",
+            row.names=FALSE,
+            sep=",")
+```
