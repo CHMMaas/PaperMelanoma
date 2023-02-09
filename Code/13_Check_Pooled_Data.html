@@ -382,6 +382,9 @@ library(rms)</code></pre>
 <h1>Check pooled data</h1>
 <pre class="r"><code>load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
 
+# set datadist
+options(datadist=&quot;dd.training&quot;)
+
 # model based on training data
 c.Breslow.all &lt;- c()
 for (i in 1:m){
@@ -396,10 +399,6 @@ pooled.data.to.be.imputed &lt;- rbind(training.data.to.be.imputed, validation.da
 # add continent
 continent.df &lt;- data.frame(Continent=c(rep(&quot;Europe&quot;, nrow(complete(imputed.training.data, 5))), 
                                      rep(&quot;Australia&quot;, nrow(complete(imputed.validation.data, 5)))))
-
-# set datadist
-dd.pooled&lt;-rms::datadist(cbind(pooled.data.to.be.imputed, continent.df))
-options(datadist=&quot;dd.pooled&quot;)
 
 # combine two imputed data sets into one mids object
 imputed.pooled.data &lt;- mice::rbind(imputed.training.data, imputed.validation.data)
@@ -473,14 +472,14 @@ form.BS.Rec.5.pooled &lt;- S.Rec.5.training.validation ~
 f.mi.full.pooled &lt;- Hmisc::fit.mult.impute(form.BS.Rec.5.pooled, cph, xtrans=imputed.pooled.data,
                                  data=pooled.data.to.be.imputed, n.impute=m, pr=FALSE,
                                  fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
-summary(f.mi.full.pooled)</code></pre>
+summary(f.mi.full.pooled, Continent=&quot;Europe&quot;)</code></pre>
 <pre><code>##              Effects              Response : S.Rec.5.training.validation 
 ## 
 ##  Factor                       Low   High Diff. Effect   S.E.     Lower 0.95
-##  Age.SN                       45.00 67.0 22.00  0.28357 0.035377  0.214230 
-##   Hazard Ratio                45.00 67.0 22.00  1.32790       NA  1.238900 
-##  Breslow                       1.20  3.3  2.10  0.72542 0.042260  0.642590 
-##   Hazard Ratio                 1.20  3.3  2.10  2.06560       NA  1.901400 
+##  Age.SN                       43.00 66.0 23.00  0.29646 0.036985  0.223970 
+##   Hazard Ratio                43.00 66.0 23.00  1.34510       NA  1.251000 
+##  Breslow                       1.20  3.5  2.30  0.76761 0.044718  0.679970 
+##   Hazard Ratio                 1.20  3.5  2.30  2.15460       NA  1.973800 
 ##  Rdamcrit                      0.01 38.0 37.99  1.69530 0.259380  1.186900 
 ##   Hazard Ratio                 0.01 38.0 37.99  5.44810       NA  3.276900 
 ##  SNstatus - Positive:Negative  1.00  2.0    NA  1.09670 0.059988  0.979120 
@@ -493,13 +492,13 @@ summary(f.mi.full.pooled)</code></pre>
 ##   Hazard Ratio                 3.00  2.0    NA  1.13290       NA  1.015100 
 ##  Loc_CAT - head &amp; neck:trunk   3.00  4.0    NA  0.25707 0.069204  0.121430 
 ##   Hazard Ratio                 3.00  4.0    NA  1.29310       NA  1.129100 
-##  Continent - Europe:Australia  1.00  2.0    NA -0.14327 0.048298 -0.237930 
-##   Hazard Ratio                 1.00  2.0    NA  0.86652       NA  0.788260 
+##  Continent - Australia:Europe  2.00  1.0    NA  0.14327 0.048298  0.048606 
+##   Hazard Ratio                 2.00  1.0    NA  1.15400       NA  1.049800 
 ##  Upper 0.95
-##   0.352910 
-##   1.423200 
-##   0.808250 
-##   2.244000 
+##   0.368950 
+##   1.446200 
+##   0.855260 
+##   2.352000 
 ##   2.203600 
 ##   9.058000 
 ##   1.214300 
@@ -512,8 +511,8 @@ summary(f.mi.full.pooled)</code></pre>
 ##   1.264300 
 ##   0.392700 
 ##   1.481000 
-##  -0.048606 
-##   0.952560 
+##   0.237930 
+##   1.268600 
 ## 
 ## Adjusted to: SNstatus=Negative Breslow=2</code></pre>
 <pre class="r"><code>anova(f.mi.full.pooled)</code></pre>

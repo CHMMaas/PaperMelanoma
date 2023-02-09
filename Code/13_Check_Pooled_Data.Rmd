@@ -29,6 +29,9 @@ library(rms)
 ```{r, eval=TRUE}
 load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData")
 
+# set datadist
+options(datadist="dd.training")
+
 # model based on training data
 c.Breslow.all <- c()
 for (i in 1:m){
@@ -43,10 +46,6 @@ pooled.data.to.be.imputed <- rbind(training.data.to.be.imputed, validation.data.
 # add continent
 continent.df <- data.frame(Continent=c(rep("Europe", nrow(complete(imputed.training.data, 5))), 
                                      rep("Australia", nrow(complete(imputed.validation.data, 5)))))
-
-# set datadist
-dd.pooled<-rms::datadist(cbind(pooled.data.to.be.imputed, continent.df))
-options(datadist="dd.pooled")
 
 # combine two imputed data sets into one mids object
 imputed.pooled.data <- mice::rbind(imputed.training.data, imputed.validation.data)
@@ -99,7 +98,7 @@ form.BS.Rec.5.pooled <- S.Rec.5.training.validation ~
 f.mi.full.pooled <- Hmisc::fit.mult.impute(form.BS.Rec.5.pooled, cph, xtrans=imputed.pooled.data,
                                  data=pooled.data.to.be.imputed, n.impute=m, pr=FALSE,
                                  fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
-summary(f.mi.full.pooled)
+summary(f.mi.full.pooled, Continent="Europe")
 anova(f.mi.full.pooled)
 ```
 
