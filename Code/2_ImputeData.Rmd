@@ -27,21 +27,14 @@ Function to perform multiple imputation for training or validation data
 ```{r, eval=TRUE}
 impute.missing.values <- function(type=NULL, m=1, new.imputation=FALSE){
   # load data
-  if (type=="pooled"){
-    load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata"))
-    load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata"))
-    pooled.data.to.be.imputed <- rbind(training.data.to.be.imputed, validation.data.to.be.imputed)
-    dd.pooled<-rms::datadist(pooled.data.to.be.imputed)
-  } else{
-    load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/", type, "/", type, ".data.Rdata"))
-  }
+  load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/", type, "/", type, ".data.Rdata"))
   
   if (new.imputation){
     # impute data
     data.to.be.imputed <- eval(parse(text=paste0(type, ".data.to.be.imputed")))
     imputed.data <- mice::mice(data.to.be.imputed, m=m, maxit=5, print=FALSE, seed=500)
-    # print(imputed.data$method)
-    # print(imputed.data$loggedEvents)
+    print(imputed.data$method)
+    print(imputed.data$loggedEvents)
     assign(paste0("imputed.", type, ".data"), imputed.data)
     save(list=c(paste0("imputed.", type, ".data")),
          file=paste0("Z:/Project Melanoom/PaperMelanoma/Data/", type, "/imputed.", type, ".data.Rdata"), compress=TRUE)
@@ -61,8 +54,6 @@ new.imputation <- TRUE
 impute.missing.values(type="training", m=m, new.imputation=new.imputation)
 # Impute: Ulceration, Histology, Rdamcrit, Dewar, logRec.time
 impute.missing.values(type="validation", m=m, new.imputation=new.imputation)
-# Impute pooled data
-# impute.missing.values(type="pooled", m=m, new.imputation=new.imputation)
 
 # training data gives warning messages for Mitosis
 # validation data gives multicolinearity of logRectime and recurrence

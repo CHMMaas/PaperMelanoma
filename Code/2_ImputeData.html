@@ -379,21 +379,14 @@ library(mice)</code></pre>
 data</p>
 <pre class="r"><code>impute.missing.values &lt;- function(type=NULL, m=1, new.imputation=FALSE){
   # load data
-  if (type==&quot;pooled&quot;){
-    load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;))
-    load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata&quot;))
-    pooled.data.to.be.imputed &lt;- rbind(training.data.to.be.imputed, validation.data.to.be.imputed)
-    dd.pooled&lt;-rms::datadist(pooled.data.to.be.imputed)
-  } else{
-    load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;))
-  }
+  load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;))
   
   if (new.imputation){
     # impute data
     data.to.be.imputed &lt;- eval(parse(text=paste0(type, &quot;.data.to.be.imputed&quot;)))
     imputed.data &lt;- mice::mice(data.to.be.imputed, m=m, maxit=5, print=FALSE, seed=500)
-    # print(imputed.data$method)
-    # print(imputed.data$loggedEvents)
+    print(imputed.data$method)
+    print(imputed.data$loggedEvents)
     assign(paste0(&quot;imputed.&quot;, type, &quot;.data&quot;), imputed.data)
     save(list=c(paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)),
          file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/imputed.&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
@@ -409,13 +402,54 @@ new.imputation &lt;- TRUE
 # Impute: Ulceration, Loc_CAT, Histology, Breslow, Tot_SNs_neg, Tot_SNs_pos, Rdamcrit, Dewar, Mitosis, logRec.time
 impute.missing.values(type=&quot;training&quot;, m=m, new.imputation=new.imputation)</code></pre>
 <pre><code>## Warning: Number of logged events: 25</code></pre>
+<pre><code>##          Center        SNstatus             Sex          Age.SN      Ulceration 
+##              &quot;&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot;        &quot;logreg&quot; 
+##         Loc_CAT       Histology         Breslow multiple.fields     Tot_SNs_neg 
+##       &quot;polyreg&quot;       &quot;polyreg&quot;           &quot;pmm&quot;              &quot;&quot;           &quot;pmm&quot; 
+##     Tot_SNs_pos        Rdamcrit           Dewar         Mitosis      Recurrence 
+##           &quot;pmm&quot;           &quot;pmm&quot;       &quot;polyreg&quot;        &quot;logreg&quot;              &quot;&quot; 
+##            dead             MSM     logRec.time      logFU.time 
+##              &quot;&quot;              &quot;&quot;           &quot;pmm&quot;              &quot;&quot; 
+##    it im     dep   meth                        out
+## 1   1  1 Mitosis logreg CenterBerlin, CenterWarsaw
+## 2   1  2 Mitosis logreg CenterBerlin, CenterWarsaw
+## 3   1  3 Mitosis logreg CenterBerlin, CenterWarsaw
+## 4   1  4 Mitosis logreg CenterBerlin, CenterWarsaw
+## 5   1  5 Mitosis logreg CenterBerlin, CenterWarsaw
+## 6   2  1 Mitosis logreg CenterBerlin, CenterWarsaw
+## 7   2  2 Mitosis logreg CenterBerlin, CenterWarsaw
+## 8   2  3 Mitosis logreg CenterBerlin, CenterWarsaw
+## 9   2  4 Mitosis logreg CenterBerlin, CenterWarsaw
+## 10  2  5 Mitosis logreg CenterBerlin, CenterWarsaw
+## 11  3  1 Mitosis logreg CenterBerlin, CenterWarsaw
+## 12  3  2 Mitosis logreg CenterBerlin, CenterWarsaw
+## 13  3  3 Mitosis logreg CenterBerlin, CenterWarsaw
+## 14  3  4 Mitosis logreg CenterBerlin, CenterWarsaw
+## 15  3  5 Mitosis logreg CenterBerlin, CenterWarsaw
+## 16  4  1 Mitosis logreg CenterBerlin, CenterWarsaw
+## 17  4  2 Mitosis logreg CenterBerlin, CenterWarsaw
+## 18  4  3 Mitosis logreg CenterBerlin, CenterWarsaw
+## 19  4  4 Mitosis logreg CenterBerlin, CenterWarsaw
+## 20  4  5 Mitosis logreg CenterBerlin, CenterWarsaw
+## 21  5  1 Mitosis logreg CenterBerlin, CenterWarsaw
+## 22  5  2 Mitosis logreg CenterBerlin, CenterWarsaw
+## 23  5  3 Mitosis logreg CenterBerlin, CenterWarsaw
+## 24  5  4 Mitosis logreg CenterBerlin, CenterWarsaw
+## 25  5  5 Mitosis logreg CenterBerlin, CenterWarsaw</code></pre>
 <pre class="r"><code># Impute: Ulceration, Histology, Rdamcrit, Dewar, logRec.time
 impute.missing.values(type=&quot;validation&quot;, m=m, new.imputation=new.imputation)</code></pre>
 <pre><code>## Warning: Number of logged events: 1</code></pre>
-<pre class="r"><code># Impute pooled data
-# impute.missing.values(type=&quot;pooled&quot;, m=m, new.imputation=new.imputation)
-
-# training data gives warning messages for Mitosis
+<pre><code>##          Center        SNstatus             Sex          Age.SN      Ulceration 
+##              &quot;&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot;        &quot;logreg&quot; 
+##         Loc_CAT       Histology         Breslow multiple.fields     Tot_SNs_neg 
+##              &quot;&quot;       &quot;polyreg&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot; 
+##     Tot_SNs_pos        Rdamcrit           Dewar         Mitosis      Recurrence 
+##              &quot;&quot;           &quot;pmm&quot;        &quot;logreg&quot;              &quot;&quot;              &quot;&quot; 
+##            dead             MSM     logRec.time      logFU.time 
+##              &quot;&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot; 
+##   it im dep     meth    out
+## 1  0  0     constant Center</code></pre>
+<pre class="r"><code># training data gives warning messages for Mitosis
 # validation data gives multicolinearity of logRectime and recurrence
 # print(imputed.data$loggedEvents)</code></pre>
 </div>

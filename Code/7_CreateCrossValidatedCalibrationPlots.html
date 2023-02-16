@@ -411,17 +411,6 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
                                             n.impute=m,pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE,
                                             sub=training.data.to.be.imputed$Center!=Centers[j])
 
-      if (model==&quot;Rec.5&quot;){
-        f.basehaz.notj&lt;-survival::basehaz(f.mi.Rec.notj,TRUE)
-        h0.notj&lt;-f.basehaz.notj$hazard[f.basehaz.notj$time==max(f.basehaz.notj$time[f.basehaz.notj$time&lt;=horizon])]
-      } else if (model==&quot;MSM.5&quot;){
-        lp.notj&lt;-f.mi.Rec.notj$linear
-        f.MSM.notj&lt;-rms::cph(S.notj~lp.notj,y=TRUE,x=TRUE)
-
-        f.basehaz.notj&lt;-basehaz(f.MSM.notj,TRUE)
-        h0.notj&lt;-f.basehaz.notj$hazard[f.basehaz.notj$time==max(f.basehaz.notj$time[f.basehaz.notj$time&lt;=horizon])]
-      }
-
       for (select.value in c(&quot;Positive&quot;, &quot;Negative&quot;, &quot;All&quot;)){
         # identify those patients that are selected
         if (select.value == &quot;All&quot;){
@@ -434,10 +423,13 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
         S &lt;- S.j[select.patients,]
         p &lt;- matrix(NA, nrow(S), m)
         for (i in 1:m){
-          lp.i&lt;-predict(f.mi.Rec.notj,newdata=mice::complete(imputed.training.data,i)[training.data.to.be.imputed$Center==Centers[j],], type=&quot;lp&quot;)
+          data.i &lt;- mice::complete(imputed.training.data, i)
+          lp.i &lt;- predict(f.mi.Rec.notj,newdata=data.i[training.data.to.be.imputed$Center==Centers[j],], type=&quot;lp&quot;)
 
           if (model==&quot;MSM.5&quot;){
-            lp.i&lt;-predict(f.MSM.notj,newdata=lp.i)
+            lp.notj&lt;-f.mi.Rec.notj$linear
+            f.MSM.notj&lt;-rms::cph(S.notj~lp.notj, data=data.i[which(data.i$Center!=Centers[j]),],y=TRUE,x=TRUE)
+            lp.i&lt;- predict(f.MSM.notj,newdata=lp.i)
           }
 
           if (select.value != &quot;All&quot;){
@@ -446,12 +438,12 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
 
           # baseline hazard
           if (model==&quot;Rec.5&quot;){
-            f.basehaz&lt;-basehaz(f.mi.Rec.notj,TRUE)
+            f.basehaz.i &lt;- basehaz(cph(form.notj, data=data.i[which(data.i$Center!=Centers[j]),], se.fit=TRUE, x=TRUE, y=TRUE))
           }
           else if (model==&quot;MSM.5&quot;){
-            f.basehaz&lt;-basehaz(f.MSM.notj,TRUE)
+            f.basehaz.i &lt;- basehaz(f.MSM.notj)
           }
-          h0.i &lt;- f.basehaz$hazard[f.basehaz$time==max(f.basehaz$time[f.basehaz$time&lt;=horizon])]
+          h0.i &lt;- f.basehaz.i$hazard[f.basehaz.i$time==max(f.basehaz.i$time[f.basehaz.i$time&lt;=horizon])]
 
           # probabilities
           p.i &lt;- fun.event(lp=lp.i, h0=h0.i)
@@ -465,7 +457,7 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
           p &lt;- p[-omit,]
           S &lt;- S[-omit,]
         }
-
+      
         png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, model, &quot;.&quot;, select.value, &quot;.&quot;, type, &quot;.&quot;, Centers[j], &quot;.png&quot;))
         out &lt;- PredictionTools::val.surv.mi(p, S, g=5, main=paste(&quot;Center&quot;, Centers.anonimized[j]),
                                             time=NULL,lim=c(0,1),dist=TRUE)
@@ -476,7 +468,7 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
 }
 
 # combine calibration plots into one
-for (select.value in c(&quot;All&quot;, &quot;Positive&quot;, &quot;Negative&quot;)){
+for (select.value in c(&quot;All&quot;, &quot;Positive&quot;, &quot;Negative&quot;)){ 
   for (y in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/&quot;, y, &quot;.&quot;, select.value, &quot;.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
     par(mar=rep(0, 4))

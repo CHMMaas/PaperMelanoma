@@ -394,9 +394,31 @@ for (i in 1:m){
   lp.train.i &lt;- predict(f.mi.BS.Rec.5,
                       newdata=mice::complete(imputed.training.data, i),
                       type=&quot;lp&quot;)
+  print(head(lp.train.i))
   p.Rec.5.training[, i] &lt;- fun.event(h0=h0.Rec, lp=lp.train.i)
   p.MSM.5.training[, i] &lt;- fun.event(h0=h0.MSM, lp=MSM.cal.fact*lp.train.i)
 }</code></pre>
+<pre><code>##          1          2          3          4          5          6 
+## -0.2238303 -0.6881674 -0.2186917 -0.4988960 -0.6424830  0.4539616 
+##          1          2          3          4          5          6 
+## -0.2238303 -0.6881674 -0.2186917 -0.4988960 -0.6424830  0.4539616 
+##          1          2          3          4          5          6 
+## -0.2238303 -0.6881674 -0.2186917 -0.4988960 -0.1744611  0.4539616 
+##          1          2          3          4          5          6 
+## -0.2238303 -0.6881674  0.2493302 -0.4988960 -0.6424830  0.4539616 
+##          1          2          3          4          5          6 
+##  0.2441915 -0.6881674 -0.2186917 -0.4988960 -0.1744611  0.4539616</code></pre>
+<pre class="r"><code>print(coef(f.mi.BS.Rec.5))</code></pre>
+<pre><code>##           SNstatus=Positive                      Age.SN 
+##                 1.075608619                 0.008265325 
+##              Ulceration=Yes                 Loc_CAT=leg 
+##                 0.468021848                 0.259086511 
+##               Loc_CAT=trunk         Loc_CAT=head &amp; neck 
+##                 0.378969762                 0.680752572 
+##                     Breslow                    Rdamcrit 
+##                 0.882773643                 0.198893260 
+## SNstatus=Positive * Breslow 
+##                -0.452258337</code></pre>
 </div>
 <div id="validation-data" class="section level1">
 <h1>Validation data</h1>

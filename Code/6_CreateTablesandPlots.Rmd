@@ -248,6 +248,21 @@ for (model in list("Rec.5", "MSM.5.refit")){
   for (type in c("full", "BS")){
     # load model
     f.mi <- eval(parse(text=paste0("f.mi.", type, ".", model)))
+    form.mi <- eval(parse(text=paste0("form.", type, ".", model)))
+    
+    # obtain predictions for each imputed data set
+    p <- matrix(NA, nrow(training.data.to.be.imputed), m)
+    for (i in 1:m){
+      # baseline hazard
+      # f.Rec.basehaz.i <- basehaz(f.mi, TRUE)
+      f.Rec.basehaz.i <- basehaz(cph(form.mi, data=mice::complete(imputed.training.data, i), se.fit=TRUE, x=TRUE, y=TRUE))
+      h0.Rec.i <- f.Rec.basehaz.i$hazard[f.Rec.basehaz.i$time==max(f.Rec.basehaz.i$time[f.Rec.basehaz.i$time<=horizon])]
+      
+      # probabilities
+      lp.i <- predict(f.mi,newdata=mice::complete(imputed.training.data, i), type="lp")
+      p.i <- fun.event(lp=lp.i, h0=h0.Rec.i)
+      p[, i] <- p.i
+    }
     
     # load outcome
     if (model=="Rec.5"){
@@ -257,19 +272,6 @@ for (model in list("Rec.5", "MSM.5.refit")){
       S <- S.MSM.5.training
     }
     
-    # obtain predictions for each imputed data set
-    p <- matrix(NA, nrow(training.data.to.be.imputed), m)
-    for (i in 1:m){
-      # predicted lp for imputation i
-      lp.i <- predict(f.mi,newdata=mice::complete(imputed.training.data,i), type="lp")
-      # baseline hazard
-      f.basehaz <- survival::basehaz(f.mi,TRUE)
-      h0.i <- f.basehaz$hazard[f.basehaz$time==max(f.basehaz$time[f.basehaz$time<=horizon])]
-      # probabilities
-      p.i <- fun.event(lp=lp.i, h0=h0.i)
-      p[, i] <- p.i
-    }
-
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/all.centers.", model, ".", type, ".png"))
     out <- PredictionTools::val.surv.mi(p,S,g=5,main="All centers",
                        time=NULL,lim=c(0,1),dist=TRUE)
@@ -390,7 +392,7 @@ final.BS.table.MSM.5.refit
 for (arm in c("Positive", "Negative")){
   f.mi.stratified <- eval(parse(text=paste0("f.mi.BS.Rec.5")))
   S.5.subset <- S.Rec.5.training[last.imputed.training.data.set$SNstatus==arm,]
-  
+
   cindex.stratified <- rep(0, m)
   cindex.se.stratified <- rep(0, m)
   for (i in 1:m){
@@ -400,10 +402,10 @@ for (arm in c("Positive", "Negative")){
     cindex.se.stratified[i]<-rc["S.D."]/2
   }
   cindex.mi.stratified<-Rubin.combine(cindex.stratified,cindex.se.stratified)
-  
-  assign(paste0("CIndex.BS.Rec.5.", arm), 
-         c(sprintf("%.2f", cindex.mi.stratified$est), 
-           paste0("[", sprintf("%.2f", cindex.mi.stratified$est+qnorm(.025)*cindex.mi.stratified$se), 
+
+  assign(paste0("CIndex.BS.Rec.5.", arm),
+         c(sprintf("%.2f", cindex.mi.stratified$est),
+           paste0("[", sprintf("%.2f", cindex.mi.stratified$est+qnorm(.025)*cindex.mi.stratified$se),
                   "; ", sprintf("%.2f", cindex.mi.stratified$est+qnorm(.975)*cindex.mi.stratified$se), "]")))
 }
 
@@ -413,111 +415,3 @@ utils::write.table(CIndex.Rec.Table,
               file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/CIndex.train.txt"),
               row.names=FALSE, col.names=FALSE, sep=",")
 ```
-# Plot cross-validated calibration of all centers combined and all centers seperate for recurrence and calibrated melanoma specific mortality model
-```{r, eval=TRUE}
-Centers <- sort(as.character(unique(training.data.to.be.imputed$Center)))
-Centers.anonimized <- c("A", "B", "C", "D")
-cuts <- 5
-for (model in c("Rec.5", "MSM.5")){
-  if (model == "Rec.5"){
-    S.model <- S.Rec.5.training
-    fact <- 1
-  }
-  if (model == "MSM.5"){
-    S.model <- S.MSM.5.training
-    fact <- MSM.cal.fact
-  }
-
-  for (type in c("full", "BS")){
-    for (j in 1:4){
-      S.j<-S.model[training.data.to.be.imputed$Center==Centers[j],]
-      S.notj<-S.model[training.data.to.be.imputed$Center!=Centers[j],]
-      S.Rec.5.notj<-S.Rec.5.training[training.data.to.be.imputed$Center!=Centers[j],]
-
-      form.model<-eval(parse(text=paste0("form.", type, ".Rec.5")))
-      form.notj<-update(form.model, S.Rec.5.notj  ~ . )
-      f.mi.Rec.notj<-Hmisc::fit.mult.impute(form.notj,cph,xtrans=imputed.training.data,data=training.data.to.be.imputed,
-                                 n.impute=m,pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE,
-                                 sub=training.data.to.be.imputed$Center!=Centers[j])
-
-      if (model=="Rec.5"){
-        f.basehaz.notj<-survival::basehaz(f.mi.Rec.notj,TRUE)
-        h0.notj<-f.basehaz.notj$hazard[f.basehaz.notj$time==max(f.basehaz.notj$time[f.basehaz.notj$time<=horizon])]
-      } else if (model=="MSM.5"){
-        lp.notj<-f.mi.Rec.notj$linear
-        f.MSM.notj<-rms::cph(S.notj~lp.notj,y=TRUE,x=TRUE)
-
-        f.basehaz.notj<-basehaz(f.MSM.notj,TRUE)
-        h0.notj<-f.basehaz.notj$hazard[f.basehaz.notj$time==max(f.basehaz.notj$time[f.basehaz.notj$time<=horizon])]
-      }
-
-      for (select.value in c("Positive", "Negative", "All")){
-        # identify those patients that are selected
-        if (select.value == "All"){
-          select.patients <- TRUE
-        } else if (select.value != "All"){
-          select.patients <- training.data.to.be.imputed[training.data.to.be.imputed$Center==Centers[j],]$SNstatus==select.value
-        }
-
-        # calibration with metrics
-        S <- S.j[select.patients,]
-        p <- matrix(NA, nrow(S), m)
-        for (i in 1:m){
-          lp.i<-predict(f.mi.Rec.notj,newdata=mice::complete(imputed.training.data,i)[training.data.to.be.imputed$Center==Centers[j],], type="lp")
-
-          if (model=="MSM.5"){
-            lp.i<-predict(f.MSM.notj,newdata=lp.i)
-          }
-
-          if (select.value != "All"){
-            lp.i <- lp.i[select.patients]
-          }
-
-          # baseline hazard
-          if (model=="Rec.5"){
-            f.basehaz<-basehaz(f.mi.Rec.notj,TRUE)
-          }
-          else if (model=="MSM.5"){
-            f.basehaz<-basehaz(f.MSM.notj,TRUE)
-          }
-          h0.i <- f.basehaz$hazard[f.basehaz$time==max(f.basehaz$time[f.basehaz$time<=horizon])]
-
-          # probabilities
-          p.i <- fun.event(lp=fact*lp.i, h0=h0.i)
-          p[, i] <- p.i
-        }
-
-        # omit the observation with predicted probability = 1
-        omit <- unique(c(which(p[,1]==1), which(p[,2]==1), which(p[,3]==1), which(p[,4]==1), which(p[,5]==1)))
-        if (length(omit)>0){
-          cat("Omit:", omit, "\n")
-          p <- p[-omit,]
-          S <- S[-omit,]
-        }
-
-        png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", model, ".", select.value, ".", type, ".", Centers[j], ".png"))
-        out <- PredictionTools::val.surv.mi(p, S, g=5, main=paste("Center", Centers.anonimized[j]),
-                           time=NULL,lim=c(0,1),dist=TRUE)
-        grDevices::dev.off()
-      }
-    }
-  }
-}
-
-# combine calibration plots into one
-for (select.value in c("All", "Positive", "Negative")){
-  for (y in c("Rec.5", "MSM.5")){
-    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/", y, ".", select.value, ".png"), width=16, height=16, units="cm", res=300)
-    par(mar=rep(0, 4))
-    layout(matrix(1:4, ncol=2, byrow=TRUE))
-    Centers.val <- rep(1:4, 3)
-    for (i in 1:4){
-      plot(NA, xlim=0:1, ylim=0:1, xaxt="n", yaxt="n", bty="n")
-      img <- readPNG(paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", y, ".", select.value, ".BS.", Centers[Centers.val[i]], ".png"))
-      rasterImage(img, 0, 0, 1, 1)
-    }
-    grDevices::dev.off()
-  }
-}
-```
-

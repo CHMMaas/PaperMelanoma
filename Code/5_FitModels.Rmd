@@ -143,7 +143,7 @@ for (i in 1:m){
   MSM.cal.fact.all <- c(MSM.cal.fact.all, stats::coef(f.mi.i))
   MSM.cal.fact.SE <- c(MSM.cal.fact.SE, sqrt(diag(vcov(f.mi.i))))
 }
-MSM.cal.fact.combined<-Rubin.combine(MSM.cal.fact.all,MSM.cal.fact.SE)
+MSM.cal.fact.combined<-Rubin.combine(MSM.cal.fact.all, MSM.cal.fact.SE)
 MSM.cal.fact <- MSM.cal.fact.combined$est
 
 utils::write.table(paste0(sprintf("%.2f", MSM.cal.fact), " [",
