@@ -255,7 +255,7 @@ for (model in list("Rec.5", "MSM.5.refit")){
     for (i in 1:m){
       # baseline hazard
       # f.Rec.basehaz.i <- basehaz(f.mi, TRUE)
-      f.Rec.basehaz.i <- basehaz(cph(form.mi, data=mice::complete(imputed.training.data, i), se.fit=TRUE, x=TRUE, y=TRUE))
+      f.Rec.basehaz.i <- survival::basehaz(cph(form.mi, data=mice::complete(imputed.training.data, i), se.fit=TRUE, x=TRUE, y=TRUE))
       h0.Rec.i <- f.Rec.basehaz.i$hazard[f.Rec.basehaz.i$time==max(f.Rec.basehaz.i$time[f.Rec.basehaz.i$time<=horizon])]
       
       # probabilities
@@ -274,7 +274,7 @@ for (model in list("Rec.5", "MSM.5.refit")){
     
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/all.centers.", model, ".", type, ".png"))
     out <- PredictionTools::val.surv.mi(p,S,g=5,main="All centers",
-                       time=NULL,lim=c(0,1),dist=TRUE)
+                                        time=NULL,lim=c(0,1),dist=TRUE)
     grDevices::dev.off()
     
     final.full.table <- eval(parse(text=paste0("final.", type, ".table.", model)))

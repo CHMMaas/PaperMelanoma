@@ -57,11 +57,32 @@ prepare.data(type="validation")
 ### Kaplan-Meier plots
 ```{r, eval=TRUE}
 load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData"))
-survminer::ggsurvplot(survival::survfit(S.Rec.training ~ Center, data=last.imputed.training.data.set), conf.int=TRUE, risk.table=TRUE)
-survminer::ggsurvplot(survival::survfit(S.MSM.training ~ Center, data=last.imputed.training.data.set), conf.int=TRUE, risk.table=TRUE)
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.training.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.Rec.training ~ Center, data=last.imputed.training.data.set), 
+                      legend.title="",
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.training.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.MSM.training ~ Center, data=last.imputed.training.data.set), 
+                      legend.title="",
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()
+
 load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData"))
-survminer::ggsurvplot(survival::survfit(S.Rec.validation ~ 1, data=last.imputed.validation.data.set), conf.int=TRUE, risk.table=TRUE)
-survminer::ggsurvplot(survival::survfit(S.MSM.validation ~ 1, data=last.imputed.validation.data.set), conf.int=TRUE, risk.table=TRUE)
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.validation.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.Rec.validation ~ 1, data=last.imputed.validation.data.set), 
+                      legend.title="",
+                      legend.labs="Center=Australia",
+                      conf.int=TRUE, risk.table=TRUE)
+grDevices::dev.off()
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.validation.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.MSM.validation ~ 1, data=last.imputed.validation.data.set), 
+                      legend.title="",
+                      legend.labs="Center=Australia",
+                      conf.int=TRUE, risk.table=TRUE)
+grDevices::dev.off()
 ```
 
 # Median time to recurrence and follow-up time

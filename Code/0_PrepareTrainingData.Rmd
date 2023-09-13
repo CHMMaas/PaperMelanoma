@@ -150,7 +150,7 @@ cat("Number of patients alive with recurrence without Date_1st_Rec:", sum(is.na(
 ```{r, eval=TRUE}
 # 504 patients died due to melanoma, 102 patients died from other causes
 table(sel.train.data$Status, sel.train.data$dead)
-sel.train.data$MSM<-1*(sel.train.data$Status=="DOD")
+sel.train.data$MSM <- 1*(sel.train.data$Status=="DOD")
 ```
 
 #### Mitosis
@@ -175,6 +175,17 @@ sel.train.data <- droplevels(sel.train.data)
 # set levels for multiple.fields
 sel.train.data$multiple.fields <- factor(sel.train.data$multiple.fields, labels=c("Other", "Multiple SN fields"))
 sel.train.data$MSM <- factor(sel.train.data$MSM, labels=c("Other", "Death by melanoma"))
+```
+
+#### Describe years
+```{r, eval=TRUE}
+dates <- as.POSIXct(sel.train.data$SNdate, origin="1582-10-14")
+Years <- as.numeric(format(dates, format="%Y"))
+utils::write.table(cbind(table(Years), table(Years, sel.train.data$Recurrence)[,2], 
+                         table(Years, sel.train.data$MSM)[, 2]),
+                   file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Time.Rec.MSM.txt"),
+                   row.names=TRUE, sep=",")
+hist(Years, main="")
 ```
 
 # Multiple imputation

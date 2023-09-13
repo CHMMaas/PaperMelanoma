@@ -77,7 +77,7 @@ form.BS.Rec.5.pooled.continent <- S.Rec.5.training.validation ~
 # fit model
 f.mi.full.pooled.continent <- Hmisc::fit.mult.impute(form.BS.Rec.5.pooled.continent, cph, xtrans=imputed.pooled.data,
                                  data=pooled.data.to.be.imputed, n.impute=m, pr=FALSE,
-                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+                                 fit.reps=TRUE, fitargs=list(y=TRUE, x=TRUE, se.fit=TRUE))
 anova(f.mi.full.pooled.continent)
 ```
 ```{r, eval=TRUE}
@@ -97,7 +97,7 @@ form.BS.Rec.5.pooled <- S.Rec.5.training.validation ~
 # fit model
 f.mi.full.pooled <- Hmisc::fit.mult.impute(form.BS.Rec.5.pooled, cph, xtrans=imputed.pooled.data,
                                  data=pooled.data.to.be.imputed, n.impute=m, pr=FALSE,
-                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+                                 fit.reps=TRUE, fitargs=list(y=TRUE, x=TRUE, se.fit=TRUE))
 summary(f.mi.full.pooled, Continent="Europe")
 anova(f.mi.full.pooled)
 ```

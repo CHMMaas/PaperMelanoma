@@ -63,4 +63,3 @@ Table 1. Descriptive statistics.
 ```{r echo=FALSE}
 knitr::kable(summary(descr.table, labelTranslations=my_labels))
 ```
-

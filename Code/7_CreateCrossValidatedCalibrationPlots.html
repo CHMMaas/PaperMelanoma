@@ -408,7 +408,8 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
       form.model&lt;-eval(parse(text=paste0(&quot;form.&quot;, type, &quot;.Rec.5&quot;)))
       form.notj&lt;-update(form.model, S.Rec.5.notj  ~ . )
       f.mi.Rec.notj&lt;-Hmisc::fit.mult.impute(form.notj,cph,xtrans=imputed.training.data,data=training.data.to.be.imputed,
-                                            n.impute=m,pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE,
+                                            n.impute=m,pr=FALSE,fit.reps=TRUE,
+                                            fitargs=list(y=TRUE, x=TRUE, se.fit=TRUE),
                                             sub=training.data.to.be.imputed$Center!=Centers[j])
 
       for (select.value in c(&quot;Positive&quot;, &quot;Negative&quot;, &quot;All&quot;)){

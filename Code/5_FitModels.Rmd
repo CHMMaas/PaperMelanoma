@@ -52,9 +52,12 @@ form.full.Rec.5 <- S.Rec.5.training ~
   SNstatus:Histology +
   SNstatus:log(Breslow) +
   SNstatus:multiple.fields
-f.mi.full.Rec.5 <- Hmisc::fit.mult.impute(form.full.Rec.5, cph, xtrans=imputed.training.data,
-                                 data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
-                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+f.mi.full.Rec.5 <- Hmisc::fit.mult.impute(form.full.Rec.5, cph, 
+                                          xtrans=imputed.training.data,
+                                          data=training.data.to.be.imputed,
+                                          n.impute=m, pr=FALSE, fit.reps=TRUE, 
+                                          fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 stats::anova(f.mi.full.Rec.5)
 summary(f.mi.full.Rec.5, Tot_SNs_pos=c(0, 1))
 ```
@@ -64,7 +67,8 @@ summary(f.mi.full.Rec.5, Tot_SNs_pos=c(0, 1))
 # center Breslow by using all imputated data sets
 c.Breslow.all <- c()
 for (i in 1:m){
-  c.Breslow.all <- c(c.Breslow.all, mean(log(mice::complete(imputed.training.data, i)$Breslow)))
+  c.Breslow.all <- c(c.Breslow.all, 
+                     mean(log(mice::complete(imputed.training.data, i)$Breslow)))
 }
 c.Breslow <- mean(c.Breslow.all)
 
@@ -76,8 +80,11 @@ form.BS.Rec.5 <- S.Rec.5.training ~
   I(log(Breslow)-c.Breslow) +
   log(Rdamcrit) +
   SNstatus:I(log(Breslow)-c.Breslow)
-f.mi.BS.Rec.5 <- Hmisc::fit.mult.impute(form.BS.Rec.5,cph,xtrans=imputed.training.data,data=training.data.to.be.imputed,n.impute=m,
-                           pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
+f.mi.BS.Rec.5 <- Hmisc::fit.mult.impute(form.BS.Rec.5,cph,
+                                        xtrans=imputed.training.data,
+                                        data=training.data.to.be.imputed,
+                                        n.impute=m, pr=FALSE,fit.reps=TRUE,
+                                        fitargs=list(y=TRUE,x=TRUE,se.fit=TRUE))
 # backward selection
 # round(stats::anova(f.mi.BS.Rec.5)[order(stats::anova(f.mi.BS.Rec.5)[, "P"]),], 3)
 summary(f.mi.BS.Rec.5, Breslow=exp(c.Breslow))
@@ -107,8 +114,13 @@ form.full.MSM.5.refit <- S.MSM.5.training ~
   SNstatus:Histology +
   SNstatus:log(Breslow) +
   SNstatus:multiple.fields
-f.mi.full.MSM.5.refit <- Hmisc::fit.mult.impute(form.full.MSM.5.refit,cph,xtrans=imputed.training.data,data=training.data.to.be.imputed,n.impute=m,
-                                 pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
+f.mi.full.MSM.5.refit <- Hmisc::fit.mult.impute(form.full.MSM.5.refit,cph,
+                                                xtrans=imputed.training.data,
+                                                data=training.data.to.be.imputed,
+                                                n.impute=m, pr=FALSE,
+                                                fit.reps=TRUE,
+                                                fitargs=list(y=TRUE,x=TRUE,
+                                                             se.fit=TRUE))
 summary(f.mi.full.MSM.5.refit, Tot_SNs_pos=c(0, 1))
 stats::anova(f.mi.full.MSM.5.refit)
 ```
@@ -123,8 +135,13 @@ form.BS.MSM.5.refit <- S.MSM.5.training ~
   I(log(Breslow)-c.Breslow) +
   log(Rdamcrit) +
   SNstatus:I(log(Breslow)-c.Breslow)
-f.mi.BS.MSM.5.refit <- Hmisc::fit.mult.impute(form.BS.MSM.5.refit,cph,xtrans=imputed.training.data,data=training.data.to.be.imputed,n.impute=m,
-                                  pr=FALSE,fit.reps=TRUE,y=TRUE,x=TRUE,se.fit=TRUE)
+f.mi.BS.MSM.5.refit <- Hmisc::fit.mult.impute(form.BS.MSM.5.refit,cph,
+                                              xtrans=imputed.training.data,
+                                              data=training.data.to.be.imputed,
+                                              n.impute=m,
+                                              pr=FALSE,fit.reps=TRUE,
+                                              fitargs=list(y=TRUE,x=TRUE,
+                                                           se.fit=TRUE))
 summary(f.mi.BS.MSM.5.refit, Breslow=exp(c.Breslow))
 stats::anova(f.mi.BS.MSM.5.refit)
 ```
@@ -164,4 +181,53 @@ save(list=c("dd.validation", "validation.data.to.be.imputed", "m",
             "imputed.validation.data", "last.imputed.validation.data.set", "horizon", 
             "S.Rec.5.validation", "S.MSM.5.validation", "f.mi.BS.Rec.5"),
      file=paste0("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata"), compress=TRUE)
+```
+
+# Redevelop model
+```{r, eval=TRUE}
+form.full.MSM.5.redev <- S.MSM.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  # Loc_CAT +
+  # Histology +
+  log(Breslow) +
+  # multiple.fields +
+  # Tot_SNs_neg +
+  # Tot_SNs_pos +
+  log(Rdamcrit) +
+  # Dewar +
+  # SNstatus:Sex +
+  SNstatus:Age.SN +
+  # SNstatus:Ulceration +
+  # SNstatus:Loc_CAT +
+  # SNstatus:Histology +
+  SNstatus:log(Breslow) 
+  # SNstatus:multiple.fields
+f.mi.full.MSM.5.redev <- Hmisc::fit.mult.impute(form.full.MSM.5.redev,cph,
+                                                xtrans=imputed.training.data,
+                                                data=training.data.to.be.imputed,
+                                                n.impute=m,pr=FALSE,fit.reps=TRUE,
+                                                fitargs=list(y=TRUE,x=TRUE,se.fit=TRUE))
+# summary(f.mi.full.MSM.5.redev)
+stats::anova(f.mi.full.MSM.5.redev)
+
+# backward selection
+# round(stats::anova(f.mi.full.MSM.5.redev)[order(stats::anova(f.mi.full.MSM.5.redev)[, "P"]),], 3)
+
+# c-index
+p.MSM.5.redev<- matrix(NA, nrow(training.data.to.be.imputed), m)
+f.MSM.basehaz <- survival::basehaz(cph(form.full.MSM.5.redev, 
+                             data=mice::complete(imputed.training.data, 1), 
+                             se.fit=TRUE, x=TRUE, y=TRUE))
+h0.MSM.redev <- f.MSM.basehaz$hazard[f.MSM.basehaz$time==max(f.MSM.basehaz$time[f.MSM.basehaz$time<=horizon])]
+for (i in 1:m){
+  lp.val.i <- predict(f.mi.full.MSM.5.redev,
+                      newdata=mice::complete(imputed.training.data, i),
+                      type="lp")
+  p.MSM.5.redev[, i] <- 1-exp(-h0.MSM.redev*exp(lp.val.i))
+}
+PredictionTools::val.surv.mi(p.MSM.5.redev, S.MSM.5.training, g=5,
+                             main="All patients",time=NULL,lim=c(0,1),dist=TRUE)
 ```

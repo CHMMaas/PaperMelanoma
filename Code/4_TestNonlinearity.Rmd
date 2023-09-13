@@ -79,12 +79,18 @@ form.nonlinear.age.full.Rec <- S.Rec.5.training ~
   SNstatus:Histology +
   SNstatus:Breslow +
   SNstatus:multiple.fields
-linear.full.Rec <- Hmisc::fit.mult.impute(form.linear.full.Rec, cph, xtrans=imputed.training.data,
-                                          data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
-                                          fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+linear.full.Rec <- Hmisc::fit.mult.impute(form.linear.full.Rec, cph, 
+                                          xtrans=imputed.training.data,
+                                          data=training.data.to.be.imputed,
+                                          n.impute=m, pr=FALSE,
+                                          fit.reps=TRUE, 
+                                          fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 nonlinear.age.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.age.full.Rec, cph, xtrans=imputed.training.data,
                                                  data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
-                                                 fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+                                                 fit.reps=TRUE, 
+                                                 fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 # distribution of Age
 hist(last.imputed.training.data.set$Age.SN)
 # linear model
@@ -117,7 +123,9 @@ form.nonlinear.Breslow.full.Rec <- S.Rec.5.training ~
   SNstatus:multiple.fields
 nonlinear.Breslow.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Breslow.full.Rec, cph, xtrans=imputed.training.data,
                                                      data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
-                                                     fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+                                                     fit.reps=TRUE, 
+                                                     fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 # distribution of Breslow
 hist(last.imputed.training.data.set$Breslow)
 # linear model
@@ -152,7 +160,9 @@ form.nonlinear.Rdamcrit.full.Rec <- S.Rec.5.training ~
   SNstatus:multiple.fields
 nonlinear.Rdamcrit.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Rdamcrit.full.Rec, cph, xtrans=imputed.training.data,
                                                       data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
-                                                      fit.reps=TRUE, y=TRUE, x=TRUE, se.fit=TRUE)
+                                                      fit.reps=TRUE, 
+                                                      fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 # distribution of Rdamcrit
 hist(last.imputed.training.data.set$Rdamcrit)
 # linear model
