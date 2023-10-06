@@ -44,7 +44,11 @@ calculate.AJCC.7.8 <- function(imputed.data=NULL, type=NULL, S.Rec.5=NULL){
     for (patient in 1:nrow(imputation.i)){
       breslow.patient <- imputation.i[patient, "Breslow"]
       ulceration.patient <- as.character(imputation.i[patient, "Ulceration"])
-      mitosis.patient <- as.character(imputation.i[patient, "Mitosis"])
+      if (type=="training"){
+        mitosis.patient <- as.character(imputation.i[patient, "Mitosis"])
+      } else{
+        mitosis.patient <- ifelse(imputation.i[patient, "Mitosis"]<1, "Yes", "No")
+      }
       nodes.patient <- imputation.i[patient, "Tot_SNs_pos"]
   
       snstatus.patient <- imputation.i[patient, "SNstatus"]

@@ -386,7 +386,10 @@ data</p>
          file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/imputed.&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
   }
   load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/imputed.&quot;, type, &quot;.data.Rdata&quot;))
-  save(list=c(paste0(&quot;dd.&quot;, type), paste0(type, &quot;.data.to.be.imputed&quot;), &quot;m&quot;, paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)),
+  save(list=c(paste0(&quot;dd.&quot;, type), 
+              paste0(type, &quot;.data.to.be.imputed&quot;), 
+              &quot;m&quot;, 
+              paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)),
        file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
 }</code></pre>
 <p>Perform multiple imputation</p>
@@ -438,7 +441,7 @@ impute.missing.values(type=&quot;validation&quot;, m=m, new.imputation=new.imput
 ##         Loc_CAT       Histology         Breslow multiple.fields     Tot_SNs_neg 
 ##              &quot;&quot;       &quot;polyreg&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot; 
 ##     Tot_SNs_pos        Rdamcrit           Dewar         Mitosis      Recurrence 
-##              &quot;&quot;           &quot;pmm&quot;        &quot;logreg&quot;              &quot;&quot;              &quot;&quot; 
+##              &quot;&quot;           &quot;pmm&quot;        &quot;logreg&quot;           &quot;pmm&quot;              &quot;&quot; 
 ##            dead             MSM     logRec.time      logFU.time 
 ##              &quot;&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot; 
 ##   it im dep     meth    out

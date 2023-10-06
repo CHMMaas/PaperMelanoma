@@ -25,7 +25,7 @@ library(rms)
 source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
 
 # load data file
-original.train.data <- foreign::read.spss(file="Z:/Project Melanoom/PaperMelanoma/Data/training/Dataset Predictiemodel.sav",
+original.training.data <- foreign::read.spss(file="Z:/Project Melanoom/PaperMelanoma/Data/training/Dataset Predictiemodel.sav",
                                     to.data.frame=TRUE, origin="01-01-1970")
 
 # Select necessary variables
@@ -46,8 +46,8 @@ Leave the patients included that have EXCLUSIE = 1 and Dbstatus = 8 (Dbstatus=0:
 negative, Dbstatus=1: positive), even though diagnosis and operation date are 
 very close.
 ```{r, eval=TRUE}
-sel.train.data <- original.train.data[original.train.data$EXCLUSIE!="Exclusion", selected.vars]
-cat("Number of patients excluded:", nrow(original.train.data)-nrow(sel.train.data), "\n")
+sel.train.data <- original.training.data[original.training.data$EXCLUSIE!="Exclusion", selected.vars]
+cat("Number of patients excluded:", nrow(original.training.data)-nrow(sel.train.data), "\n")
 ```
 Omit one patient that has no last follow-up date
 ```{r, eval=TRUE, echo=FALSE}
@@ -177,24 +177,12 @@ sel.train.data$multiple.fields <- factor(sel.train.data$multiple.fields, labels=
 sel.train.data$MSM <- factor(sel.train.data$MSM, labels=c("Other", "Death by melanoma"))
 ```
 
-#### Describe years
-```{r, eval=TRUE}
-dates <- as.POSIXct(sel.train.data$SNdate, origin="1582-10-14")
-Years <- as.numeric(format(dates, format="%Y"))
-utils::write.table(cbind(table(Years), table(Years, sel.train.data$Recurrence)[,2], 
-                         table(Years, sel.train.data$MSM)[, 2]),
-                   file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Time.Rec.MSM.txt"),
-                   row.names=TRUE, sep=",")
-hist(Years, main="")
-```
-
 # Multiple imputation
 ```{r, eval=TRUE}
 variables.to.be.imputed <- c("Center", "SNstatus", "Sex", "Age.SN", "Ulceration",
                              "Loc_CAT", "Histology", "Breslow", "multiple.fields",
                              "Tot_SNs_neg", "Tot_SNs_pos", "Rdamcrit", "Dewar",
-                             "Mitosis",
-                             "Recurrence", "dead", "MSM")
+                             "Mitosis", "Status", "Recurrence", "dead", "MSM")
 training.data.to.be.imputed <- sel.train.data[, variables.to.be.imputed]
 ```
 
@@ -210,5 +198,5 @@ Relation between outcome and covariates
 training.data.to.be.imputed$logRec.time <- log(sel.train.data$Rec.time+1/365.25)
 training.data.to.be.imputed$logFU.time <- log(sel.train.data$FU.time+1/365.25)
 missings.table(training.data.to.be.imputed)
-save(list=c("dd.training", "training.data.to.be.imputed"),file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
+# save(list=c("dd.training", "training.data.to.be.imputed"),file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
 ```

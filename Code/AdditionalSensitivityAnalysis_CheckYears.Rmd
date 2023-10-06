@@ -1,0 +1,220 @@
+---
+title: "Sensitivity Analysis"
+author: "Carolien C.H.M. Maas"
+date: "January 2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Fit models
+
+### Load packages, functions, and data
+```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+# erase memory
+rm(list = ls(all.names = TRUE))
+
+# for reproducibility
+set.seed(100)
+
+library(ggplot2)
+library(rms)
+```
+
+# Load data 
+```{r, eval=TRUE}
+load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata")
+original.training.data <- foreign::read.spss(file="Z:/Project Melanoom/PaperMelanoma/Data/training/Dataset Predictiemodel.sav",
+                                    to.data.frame=TRUE, 
+                                    origin="01-01-1970")
+load("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata")
+original.validation.data <- foreign::read.spss(file="Z:/Project Melanoom/PaperMelanoma/Data/validation/Validation_cohort_MIA.sav",
+                                               to.data.frame=TRUE, 
+                                               origin="01-01-1970")
+```
+# Inclusion development data
+```{r, eval=TRUE}
+sel.train.data <- original.training.data[original.training.data$EXCLUSIE!="Exclusion", ]
+sel.train.data <- sel.train.data[!is.na(sel.train.data$Last_FU),]
+sel.train.data$Rec.time <- (sel.train.data$Date_1st_Rec-sel.train.data$SNdate)/(24*60*60)/365.25
+sel.train.data <- sel.train.data[!(sel.train.data$Rec.time<0&!is.na(sel.train.data$Rec.time)),]
+```
+# Describe years
+```{r, eval=TRUE}
+dates.train <- as.POSIXct(sel.train.data$SNdate, origin="1582-10-15")
+dates.val <- as.POSIXct(original.validation.data$SNdate, origin="1582-10-15")
+Years.train <- as.numeric(format(dates.train, format="%Y"))
+Years.train[Years.train==2014] <- 2013
+Years.val <- as.numeric(format(dates.val, format="%Y"))
+hist(Years.train, main="Development")
+hist(Years.val, main="Validation")
+```
+# Make plot
+```{r, eval=TRUE}
+dats <- rbind(data.frame(Years=Years.train, Data="Development"),
+              data.frame(Years=Years.val, Data="Validation"))
+ggplot(dats, aes(Years, fill=Data))+
+  geom_histogram(alpha=1, position="dodge", bins=50)+
+  ylab("Frequency")+xlab("Calendar year of sentinel node procedure")+
+  theme_set(theme_bw())
+```
+# Add Years to model linearly
+```{r, eval=TRUE}
+Years.train.stand <- Years.train-1993
+
+form.full.Rec.5.Years <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  log(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  log(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:log(Breslow) +
+  SNstatus:multiple.fields +
+  Years.train.stand
+f.mi.full.Rec.5.Years <- Hmisc::fit.mult.impute(form.full.Rec.5.Years, cph, 
+                                          xtrans=imputed.training.data,
+                                          data=training.data.to.be.imputed,
+                                          n.impute=m, pr=FALSE, fit.reps=TRUE, 
+                                          fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
+
+form.BS.Rec.5.Years <- S.Rec.5.training ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow)+
+  Years.train.stand
+f.mi.BS.Rec.5.Years <- Hmisc::fit.mult.impute(form.BS.Rec.5.Years,cph,
+                                        xtrans=imputed.training.data,
+                                        data=training.data.to.be.imputed,
+                                        n.impute=m, pr=FALSE,fit.reps=TRUE,
+                                        fitargs=list(y=TRUE,x=TRUE,se.fit=TRUE))
+```
+
+# Melanoma-specific survival
+```{r, eval=TRUE}
+form.BS.MSM.5.refit.Years <- S.MSM.5.training ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow)+
+  Years.train.stand
+f.mi.BS.MSM.5.refit.Years <- Hmisc::fit.mult.impute(form.BS.MSM.5.refit.Years,cph,
+                                              xtrans=imputed.training.data,
+                                              data=training.data.to.be.imputed,
+                                              n.impute=m,
+                                              pr=FALSE,fit.reps=TRUE,
+                                              fitargs=list(y=TRUE,x=TRUE,
+                                                           se.fit=TRUE))
+```
+# Add Years to non-linear
+```{r, eval=TRUE}
+form.full.Rec.5.Years.nonlinear <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  log(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  log(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:log(Breslow) +
+  SNstatus:multiple.fields +
+  rcs(Years.train.stand)
+f.mi.full.Rec.5.Years.nonlinear <- Hmisc::fit.mult.impute(form.full.Rec.5.Years.nonlinear, cph, 
+                                          xtrans=imputed.training.data,
+                                          data=training.data.to.be.imputed,
+                                          n.impute=m, pr=FALSE, fit.reps=TRUE, 
+                                          fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
+
+form.BS.Rec.5.Years.nonlinear <- S.Rec.5.training ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow)+
+  rcs(Years.train.stand)
+f.mi.BS.Rec.5.Years.nonlinear <- Hmisc::fit.mult.impute(form.BS.Rec.5.Years.nonlinear,cph,
+                                        xtrans=imputed.training.data,
+                                        data=training.data.to.be.imputed,
+                                        n.impute=m, pr=FALSE,fit.reps=TRUE,
+                                        fitargs=list(y=TRUE,x=TRUE,se.fit=TRUE))
+
+form.BS.MSM.5.refit.Years.nonlinear <- S.MSM.5.training ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow)+
+  rcs(Years.train.stand)
+f.mi.BS.MSM.5.refit.Years.nonlinear <- Hmisc::fit.mult.impute(form.BS.MSM.5.refit.Years.nonlinear,cph,
+                                              xtrans=imputed.training.data,
+                                              data=training.data.to.be.imputed,
+                                              n.impute=m,
+                                              pr=FALSE,fit.reps=TRUE,
+                                              fitargs=list(y=TRUE,x=TRUE,
+                                                           se.fit=TRUE))
+```
+# Make Table
+```{r,eval=TRUE}
+results.Years <- c()
+for (outcome in c("Rec.5", "MSM.5.refit")){
+  if (outcome=="Rec.5"){
+    models <- c("full", "BS")
+  } else{
+      models <- c("BS")
+  }
+  
+  for (model in models){
+    form <- eval(parse(text=paste0("f.mi.", model, ".", outcome)))
+    results.Years <- rbind(results.Years, c(paste(model, outcome, "- no years"), 
+                                            sprintf("%.1f", AIC(form)), "", ""))
+    
+    for (linearity in c("Years", "Years.nonlinear")){
+        form.years <- eval(parse(text=paste0("f.mi.", model, ".", outcome, ".", linearity)))
+        LR.Years <- lrtest(form, form.years)
+        results.Years <- rbind(results.Years, c(paste(model, outcome, "-", linearity),
+                                                sprintf("%.1f", AIC(form.years)), 
+                                                sprintf("%.1f", as.numeric(LR.Years$stats["L.R. Chisq"])), 
+                                                sprintf("%.3f", as.numeric(LR.Years$stats["P"]))))
+    }
+  }
+}
+openxlsx::write.xlsx(as.data.frame(results.Years),
+            rowNames=FALSE,
+            file="Z:/Project Melanoom/PaperMelanoma/Results/Review/SA.Years.xlsx")
+```

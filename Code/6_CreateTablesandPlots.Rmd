@@ -145,56 +145,50 @@ for (model in c("Rec.5", "MSM.5.refit")){
   # Coefficients with CI
   # Negative results
   neg.results.BS <- summary(f.mi.BS, SNstatus="Negative", Breslow=exp(c.Breslow), Loc_CAT="arm")
-  neg.table.BS <- rbind(rep(NA, 3), # SN status
-                        exp(neg.results.BS[c("Age.SN",
+  pos.results.BS <- summary(f.mi.BS, SNstatus="Positive", Breslow=exp(c.Breslow), Loc_CAT="arm")
+  table.BS <- rbind(exp(neg.results.BS["SNstatus - Positive:Negative", c("Effect", "Lower 0.95", "Upper 0.95")]),
+                    exp(neg.results.BS[c("Age.SN",
                                              "Ulceration - Yes:No",
                                              "Loc_CAT - leg:arm",
                                              "Loc_CAT - trunk:arm",
                                              "Loc_CAT - head & neck:arm",
                                              "Breslow"), c("Effect", "Lower 0.95", "Upper 0.95")]),
-                        rep(NA, 3)) # Rdamcrit
+                    exp(pos.results.BS[c("Breslow",
+                                         "Rdamcrit"), c("Effect", "Lower 0.95", "Upper 0.95")]))
   # add CI
-  neg.table.BS <- cbind(sprintf("%.2f", neg.table.BS[, 1]),
-                        paste0("[", sprintf("%.2f", neg.table.BS[, 2]), "; ", sprintf("%.2f", neg.table.BS[, 3]), "]"))
-
-  # Positive results
-  pos.results.BS <- summary(f.mi.BS, SNstatus="Positive", Breslow=exp(c.Breslow), Loc_CAT="arm")
-  pos.table.BS <- rbind(exp(neg.results.BS["SNstatus - Positive:Negative", c("Effect", "Lower 0.95", "Upper 0.95")]),
-                        exp(pos.results.BS[c("Age.SN",
-                                             "Ulceration - Yes:No",
-                                             "Loc_CAT - leg:arm",
-                                             "Loc_CAT - trunk:arm",
-                                             "Loc_CAT - head & neck:arm",
-                                             "Breslow",
-                                             "Rdamcrit"), c("Effect", "Lower 0.95", "Upper 0.95")]))
-  # add CI
-  pos.table.BS <- cbind(sprintf("%.2f", pos.table.BS[, 1]),
-                        paste0("[", sprintf("%.2f", pos.table.BS[, 2]), "; ", sprintf("%.2f", pos.table.BS[, 3]), "]"))
-
-  # combine postive with negative
-  BS.table <- cbind(neg.table.BS, pos.table.BS)
+  BS.table <- cbind(sprintf("%.2f", table.BS[, 1]),
+                        paste0("[", sprintf("%.2f", table.BS[, 2]), "; ", 
+                               sprintf("%.2f", table.BS[, 3]), "]"))
 
   # add reference rows
-  BS.table <- rbind(BS.table[1:3,],
-                    rep(NA, 4),
-                    c("(ref)", NA, "(ref)", NA),
-                    BS.table[4:nrow(BS.table),])
+  BS.table <- rbind(rep(NA, 2),             # SN status title
+                    c("(ref)", NA),         # Negative SN status
+                    BS.table[1:3,],         # Positive SN status, Age, Ulceration
+                    rep(NA, 2),             # Location title
+                    c("(ref)", NA),         # Upper limb ref
+                    BS.table[4:6,],         # Lower limb, tunk, head&neck
+                    rep(NA, 2),             # Breslow title
+                    BS.table[7:9,])         # Breslow negative and positive, tumour burden
 
   # add Chi-square statistics
   anova.out <- anova(f.mi.BS)[, "Chi-Square"]
-  anova.main <- c(anova.out[c("SNstatus  (Factor+Higher Order Factors)",
-                              "Age.SN",
-                              "Ulceration",
-                              "Loc_CAT")],
-                  rep(NA, 4),
-                  anova.out[c("Breslow  (Factor+Higher Order Factors)",
-                              "Rdamcrit")])
-  anova.int <- c(rep(NA, 8),
-                 anova.out["SNstatus * Breslow  (Factor+Higher Order Factors)"],
-                 NA)
-  BS.table <- cbind(BS.table, sprintf("%.0f", anova.main), sprintf("%.0f", anova.int))
+  anova.main <- c(anova.out[c("SNstatus  (Factor+Higher Order Factors)")], # SN status
+                  NA,               # negative SN
+                  NA,               # positive SN
+                  anova.out[c("Age.SN",     # Age
+                              "Ulceration", # Ulceration
+                              "Loc_CAT")],  # Location
+                  NA,               # upper limb
+                  NA,               # lower limb
+                  NA,               # trunk
+                  NA,               # head & neck
+                  NA,               # Breslow title
+                  anova.out[c("Breslow  (Factor+Higher Order Factors)")], # Breslow negative
+                  anova.out["SNstatus * Breslow  (Factor+Higher Order Factors)"], # Breslow positive
+                  anova.out[c("Rdamcrit")])
+  BS.table <- cbind(BS.table, sprintf("%.0f", anova.main))
 
-  colnames(BS.table) <- c("HR.neg", "CI.neg", "HR.pos", "CI.pos", "Main", "Int")
+  colnames(BS.table) <- c("HR", "CI", "Imp.")
   assign(paste0("final.BS.table.", model), as.data.frame(BS.table))
 }
 ```
@@ -238,8 +232,12 @@ for (model in list("Rec.5", "MSM.5.refit")){
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Breslow.Rec.png"))
     plot.Breslow <- plot(Predict(f.mi.full.Rec.5, Breslow=0:20, SNstatus), ~ Breslow, groups="SNstatus",
                          adj.subtitle=FALSE, lwd=2, labels=FALSE,
-                         par.settings=list(superpose.line=list(lty=c(1, 2), col=c("red", "blue"))),
-                         key=list(cex=.8,corner = c(0.1, .9),lines=list(col=c("red","blue"), lty=c(1,2), lwd=2),text=list(c("Negative","Positive"))))
+                         par.settings=list(superpose.line=list(lty=c(1, 2), 
+                                                               col=c("red", "blue"))),
+                         key=list(cex=.8,corner = c(0.1, .9),
+                                  lines=list(col=c("red","blue"), 
+                                             lty=c(1,2), lwd=2),
+                                  text=list(c("Negative","Positive"))))
     show(plot.Breslow)
     grDevices::dev.off()
   }
@@ -255,7 +253,9 @@ for (model in list("Rec.5", "MSM.5.refit")){
     for (i in 1:m){
       # baseline hazard
       # f.Rec.basehaz.i <- basehaz(f.mi, TRUE)
-      f.Rec.basehaz.i <- survival::basehaz(cph(form.mi, data=mice::complete(imputed.training.data, i), se.fit=TRUE, x=TRUE, y=TRUE))
+      f.Rec.basehaz.i <- survival::basehaz(cph(form.mi, 
+                                               data=mice::complete(imputed.training.data, i), 
+                                               se.fit=TRUE, x=TRUE, y=TRUE))
       h0.Rec.i <- f.Rec.basehaz.i$hazard[f.Rec.basehaz.i$time==max(f.Rec.basehaz.i$time[f.Rec.basehaz.i$time<=horizon])]
       
       # probabilities
@@ -278,8 +278,8 @@ for (model in list("Rec.5", "MSM.5.refit")){
     grDevices::dev.off()
     
     final.full.table <- eval(parse(text=paste0("final.", type, ".table.", model)))
-    final.full.table["C-index", "HR.neg"] <- sprintf("%.2f", out$cindex-optimism)
-    final.full.table["C-index", "CI.neg"] <- paste0("[", sprintf("%.2f", out$cindex.lower-optimism),
+    final.full.table["C-index", "HR"] <- sprintf("%.2f", out$cindex-optimism)
+    final.full.table["C-index", "CI"] <- paste0("[", sprintf("%.2f", out$cindex.lower-optimism),
                                                    "; ", sprintf("%.2f", out$cindex.upper-optimism), "]")
 
     assign(paste0("final.", type, ".table.", model), final.full.table)
@@ -297,19 +297,21 @@ for (model in list("Rec.5", "MSM.5.refit")){
 ```{r, eval=TRUE}
 for (type in c("full", "BS")){
   f.mi <- eval(parse(text=paste0("f.mi.", type, ".Rec.5")))
-  cindex.MSM.refit <- rep(0, m)
-  cindex.se.MSM.refit <- rep(0, m)
+  cindex.MSM.cal <- rep(0, m)
+  cindex.se.MSM.cal <- rep(0, m)
   for (i in 1:m){
-    rc <- Hmisc::rcorr.cens(-predict(f.mi,newdata=mice::complete(imputed.training.data,i), type="lp"), S.MSM.5.training)
-    cindex.MSM.refit[i]<-rc["C Index"]
-    cindex.se.MSM.refit[i]<-rc["S.D."]/2
+    rc <- Hmisc::rcorr.cens(-predict(f.mi,
+                                     newdata=mice::complete(imputed.training.data,i), type="lp"), 
+                            S.MSM.5.training)
+    cindex.MSM.cal[i] <- rc["C Index"]
+    cindex.se.MSM.cal[i] <- rc["S.D."]/2
   }
-  cindex.mi.MSM.refit<-Rubin.combine(cindex.MSM.refit,cindex.se.MSM.refit)
+  cindex.mi.MSM.cal <- Rubin.combine(cindex.MSM.cal, cindex.se.MSM.cal)
   
   final.full.table <- eval(parse(text=paste0("final.", type, ".table.Rec.5")))
-  final.full.table["C-index MSM", "HR.neg"] <- sprintf("%.2f", cindex.mi.MSM.refit$est-optimism)
-  final.full.table["C-index MSM", "CI.neg"] <- paste0("[", sprintf("%.2f", cindex.mi.MSM.refit$est+qnorm(.025)*cindex.mi.MSM.refit$se-optimism),
-                                                 "; ", sprintf("%.2f", cindex.mi.MSM.refit$est+qnorm(.975)*cindex.mi.MSM.refit$se-optimism), "]")
+  final.full.table["C-index MSM", "HR"] <- sprintf("%.2f", cindex.mi.MSM.cal$est-optimism)
+  final.full.table["C-index MSM", "CI"] <- paste0("[", sprintf("%.2f", cindex.mi.MSM.cal$est+qnorm(.025)*cindex.mi.MSM.cal$se-optimism),
+                                                 "; ", sprintf("%.2f", cindex.mi.MSM.cal$est+qnorm(.975)*cindex.mi.MSM.cal$se-optimism), "]")
 
   assign(paste0("final.", type, ".table.Rec.5"), final.full.table)
 }
@@ -354,16 +356,36 @@ row.names(final.full.table.MSM.5.refit) <- c("Positive SN status", "Male",
                                           "Multifocal", "Extensive",
                                           row.names(final.full.table.MSM.5.refit)[nrow(final.full.table.MSM.5.refit)])
 final.BS.table.Rec.5 <- as.data.frame(final.BS.table.Rec.5)
-row.names(final.BS.table.Rec.5) <- c("Positive SN status", "Age", "Ulceration",
-                                   "Location", "Arm", "Leg", "Trunk", 
-                                   "Head and neck",
-                                   "Breslow", "SN tumour burden", 
+row.names(final.BS.table.Rec.5) <- c("SN status",
+                                     "Negative SN status",
+                                     "Positive SN status", 
+                                     "Age", 
+                                     "Ulceration",
+                                     "Location", 
+                                     "Upper limb", 
+                                     "Lower limb", 
+                                     "Trunk", 
+                                     "Head and neck",
+                                     "Breslow",
+                                     "Breslow (negative)",
+                                     "Breslow (positive)",
+                                     "SN tumour burden", 
                                    row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-1):nrow(final.BS.table.Rec.5)])
 final.BS.table.MSM.5.refit <- as.data.frame(final.BS.table.MSM.5.refit)
-row.names(final.BS.table.MSM.5.refit) <- c("Positive SN status", "Age", "Ulceration",
-                                   "Location", "Arm", "Leg", "Trunk", 
-                                   "Head and neck",
-                                   "Breslow", "SN tumour burden", 
+row.names(final.BS.table.MSM.5.refit) <- c("SN status",
+                                     "Negative SN status",
+                                     "Positive SN status", 
+                                     "Age", 
+                                     "Ulceration",
+                                     "Location", 
+                                     "Upper limb", 
+                                     "Lower limb", 
+                                     "Trunk", 
+                                     "Head and neck",
+                                     "Breslow",
+                                     "Breslow (negative)",
+                                     "Breslow (positive)",
+                                     "SN tumour burden",  
                                    row.names(final.BS.table.MSM.5.refit)[nrow(final.BS.table.MSM.5.refit)])
 
 # save tables
@@ -396,12 +418,15 @@ for (arm in c("Positive", "Negative")){
   cindex.stratified <- rep(0, m)
   cindex.se.stratified <- rep(0, m)
   for (i in 1:m){
-    subset.imputed.training.data <- as.data.frame(mice::complete(imputed.training.data,i)[last.imputed.training.data.set$SNstatus==arm,])
-    rc <- Hmisc::rcorr.cens(-predict(f.mi.stratified,newdata=subset.imputed.training.data, type="lp"), S.5.subset)
-    cindex.stratified[i]<-rc["C Index"]
-    cindex.se.stratified[i]<-rc["S.D."]/2
+    subset.imputed.training.data <- as.data.frame(mice::complete(imputed.training.data, i)[last.imputed.training.data.set$SNstatus==arm,])
+    rc <- Hmisc::rcorr.cens(-predict(f.mi.stratified,
+                                     newdata=subset.imputed.training.data, 
+                                     type="lp"), 
+                            S.5.subset)
+    cindex.stratified[i] <- rc["C Index"]
+    cindex.se.stratified[i] <- rc["S.D."]/2
   }
-  cindex.mi.stratified<-Rubin.combine(cindex.stratified,cindex.se.stratified)
+  cindex.mi.stratified <- Rubin.combine(cindex.stratified, cindex.se.stratified)
 
   assign(paste0("CIndex.BS.Rec.5.", arm),
          c(sprintf("%.2f", cindex.mi.stratified$est),

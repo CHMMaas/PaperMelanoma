@@ -397,43 +397,6 @@ source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quo
 prepare.data(type=&quot;training&quot;)
 prepare.data(type=&quot;validation&quot;)</code></pre>
 </div>
-<div id="kaplan-meier-plots" class="section level3">
-<h3>Kaplan-Meier plots</h3>
-<pre class="r"><code>load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;))
-png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.training.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
-survminer::ggsurvplot(survival::survfit(S.Rec.training ~ Center, data=last.imputed.training.data.set), 
-                      legend.title=&quot;&quot;,
-                      conf.int=TRUE, risk.table=TRUE)+
-  ggplot2::guides(colour=guide_legend(nrow=2))
-grDevices::dev.off()</code></pre>
-<pre><code>## png 
-##   2</code></pre>
-<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.training.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
-survminer::ggsurvplot(survival::survfit(S.MSM.training ~ Center, data=last.imputed.training.data.set), 
-                      legend.title=&quot;&quot;,
-                      conf.int=TRUE, risk.table=TRUE)+
-  ggplot2::guides(colour=guide_legend(nrow=2))
-grDevices::dev.off()</code></pre>
-<pre><code>## png 
-##   2</code></pre>
-<pre class="r"><code>load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;))
-png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.validation.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
-survminer::ggsurvplot(survival::survfit(S.Rec.validation ~ 1, data=last.imputed.validation.data.set), 
-                      legend.title=&quot;&quot;,
-                      legend.labs=&quot;Center=Australia&quot;,
-                      conf.int=TRUE, risk.table=TRUE)
-grDevices::dev.off()</code></pre>
-<pre><code>## png 
-##   2</code></pre>
-<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.validation.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
-survminer::ggsurvplot(survival::survfit(S.MSM.validation ~ 1, data=last.imputed.validation.data.set), 
-                      legend.title=&quot;&quot;,
-                      legend.labs=&quot;Center=Australia&quot;,
-                      conf.int=TRUE, risk.table=TRUE)
-grDevices::dev.off()</code></pre>
-<pre><code>## png 
-##   2</code></pre>
-</div>
 </div>
 <div id="median-time-to-recurrence-and-follow-up-time" class="section level1">
 <h1>Median time to recurrence and follow-up time</h1>
@@ -446,23 +409,25 @@ grDevices::dev.off()</code></pre>
     median.time.total &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM==&quot;Death by melanoma&quot;)~1, data=data[data$Center!=&quot;Australia&quot;,], reverse=TRUE))
     median.time &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM==&quot;Death by melanoma&quot;)~Center, data=data, reverse=TRUE))
   }
-  
   # save in tab.time
-  tab.time &lt;- c(&quot;Total Development&quot;, paste(sprintf(&quot;%.2f&quot;, median.time.total$quantiles.survival[3, &quot;quantile&quot;]),
-                   paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, median.time.total$quantiles.survival[4, &quot;quantile&quot;]), &quot;; &quot;,
-                          sprintf(&quot;%.2f&quot;, median.time.total$quantiles.survival[2, &quot;quantile&quot;]), &quot;]&quot;)))
+  tab.time &lt;- c(&quot;Total Development&quot;, paste(sprintf(&quot;%.2f&quot;, median.time.total$quantile[3]),
+                   paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, median.time.total$quantile[4]), &quot;; &quot;,
+                          sprintf(&quot;%.2f&quot;, median.time.total$quantile[2]), &quot;]&quot;)))
   
   # time per center
   for (center in c(&quot;Amsterdam&quot;, &quot;Berlin&quot;, &quot;Rotterdam&quot;, &quot;Warsaw&quot;, &quot;Australia&quot;)){
-    med.table &lt;- eval(parse(text=paste0(&quot;median.time$`Center=&quot;, center, &quot;`&quot;)))
-    med &lt;- med.table[3,&quot;quantile&quot;]
-    lower &lt;- med.table[4,&quot;quantile&quot;]
-    upper &lt;- med.table[2,&quot;quantile&quot;]
+    sel.center &lt;- eval(parse(text=paste0(&quot;median.time$Center==\&quot;&quot;, center, &quot;\&quot;&quot;)))
+    q.center &lt;- median.time$quantile[sel.center]
+    med &lt;- q.center[3]
+    lower &lt;- q.center[4]
+    upper &lt;- q.center[2]
     tab.time &lt;- rbind(tab.time, c(center, paste(sprintf(&quot;%.2f&quot;, med), paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, lower), &quot;; &quot;, sprintf(&quot;%.2f&quot;, upper), &quot;]&quot;))))
   }
   
   return(tab.time)
 }
+load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;))
+load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;))
 med.Rec &lt;- median.time(data=rbind(training.data.to.be.imputed[, c(&quot;logRec.time&quot;, &quot;Recurrence&quot;, &quot;Center&quot;)], 
                        validation.data.to.be.imputed[, c(&quot;logRec.time&quot;, &quot;Recurrence&quot;, &quot;Center&quot;)]), type=&quot;Rec&quot;)
 med.FU &lt;- median.time(data=rbind(training.data.to.be.imputed[, c(&quot;logFU.time&quot;, &quot;MSM&quot;, &quot;Center&quot;)], 
@@ -479,33 +444,33 @@ write.table(cbind(c(&quot;Recurrence time&quot;, &quot;Follow-up time&quot;),
   # all patients, Recurrence
   S.Rec &lt;- eval(parse(text=paste0(&quot;S.Rec.&quot;, type)))
   SF.Rec.all &lt;- survival::survfit(S.Rec~1, data=data.to.be.imputed)
-  Rec.all &lt;- 100*(1-SF.Rec.all$surv[SF.Rec.all$time==max(SF.Rec.all$time[SF.Rec.all$time&lt;=horizon])])
+  RFS.all &lt;- 100*SF.Rec.all$surv[SF.Rec.all$time==max(SF.Rec.all$time[SF.Rec.all$time&lt;=horizon])]
   n.Rec.all &lt;- sum(SF.Rec.all$n.event[SF.Rec.all$time&lt;=horizon])
   
   # only negative patients, Recurrence
   SF.Rec.neg &lt;-survival::survfit(S.Rec[data.to.be.imputed$SNstatus==&quot;Negative&quot;]~1, data=data.to.be.imputed)
-  Rec.neg &lt;- 100*(1-SF.Rec.neg$surv[SF.Rec.neg$time==max(SF.Rec.neg$time[SF.Rec.neg$time&lt;=horizon])])
+  RFS.neg &lt;- 100*SF.Rec.neg$surv[SF.Rec.neg$time==max(SF.Rec.neg$time[SF.Rec.neg$time&lt;=horizon])]
   n.Rec.neg &lt;- sum(SF.Rec.neg$n.event[SF.Rec.neg$time&lt;=horizon])
     
   # only positive patients, Recurrence
   SF.Rec.pos &lt;- survival::survfit(S.Rec[data.to.be.imputed$SNstatus==&quot;Positive&quot;]~1, data=data.to.be.imputed)
-  Rec.pos &lt;- 100*(1-SF.Rec.pos$surv[SF.Rec.pos$time==max(SF.Rec.pos$time[SF.Rec.pos$time&lt;=horizon])])
+  RFS.pos &lt;- 100*SF.Rec.pos$surv[SF.Rec.pos$time==max(SF.Rec.pos$time[SF.Rec.pos$time&lt;=horizon])]
   n.Rec.pos &lt;- sum(SF.Rec.pos$n.event[SF.Rec.pos$time&lt;=horizon])
   
   # all patients, MSM
   S.MSM &lt;- eval(parse(text=paste0(&quot;S.MSM.&quot;, type)))
   SF.MSM.all &lt;- survival::survfit(S.MSM~1, data=data.to.be.imputed)
-  MSM.all &lt;- 100*(1-SF.MSM.all$surv[SF.MSM.all$time==max(SF.MSM.all$time[SF.MSM.all$time&lt;=horizon])])
+  MSS.all &lt;- 100*SF.MSM.all$surv[SF.MSM.all$time==max(SF.MSM.all$time[SF.MSM.all$time&lt;=horizon])]
   n.MSM.all &lt;- sum(SF.MSM.all$n.event[SF.MSM.all$time&lt;=horizon])
   
   # negative patients, MSM
   SF.MSM.neg &lt;- survival::survfit(S.MSM[data.to.be.imputed$SNstatus==&quot;Negative&quot;]~1, data=data.to.be.imputed)
-  MSM.neg &lt;- 100*(1-SF.MSM.neg$surv[SF.MSM.neg$time==max(SF.MSM.neg$time[SF.MSM.neg$time&lt;=horizon])])
+  MSS.neg &lt;- 100*SF.MSM.neg$surv[SF.MSM.neg$time==max(SF.MSM.neg$time[SF.MSM.neg$time&lt;=horizon])]
   n.MSM.neg &lt;- sum(SF.MSM.neg$n.event[SF.MSM.neg$time&lt;=horizon])
   
   # positive patients, MSM
   SF.MSM.pos &lt;- survival::survfit(S.MSM[data.to.be.imputed$SNstatus==&quot;Positive&quot;]~1, data=data.to.be.imputed)
-  MSM.pos &lt;- 100*(1-SF.MSM.pos$surv[SF.MSM.pos$time==max(SF.MSM.pos$time[SF.MSM.pos$time&lt;=horizon])])
+  MSS.pos &lt;- 100*SF.MSM.pos$surv[SF.MSM.pos$time==max(SF.MSM.pos$time[SF.MSM.pos$time&lt;=horizon])]
   n.MSM.pos &lt;- sum(SF.MSM.pos$n.event[SF.MSM.pos$time&lt;=horizon])
   
   # merge in one table
@@ -516,8 +481,8 @@ write.table(cbind(c(&quot;Recurrence time&quot;, &quot;Follow-up time&quot;),
                               n.Rec=c(n.Rec.all, n.Rec.pos, n.Rec.neg),
                               n.MSM=c(n.MSM.all, n.MSM.pos, n.MSM.neg),
                               e2=rep(&quot;&quot;, 3),
-                              Rec=sprintf(&quot;%.1f&quot;, c(Rec.all, Rec.neg, Rec.pos)),
-                              MSM=sprintf(&quot;%.1f&quot;, c(MSM.all, MSM.neg, MSM.pos)))
+                              RFS=sprintf(&quot;%.1f&quot;, c(RFS.all, RFS.neg, RFS.pos)),
+                              MSS=sprintf(&quot;%.1f&quot;, c(MSS.all, MSS.neg, MSS.pos)))
   row.names(Rec.MSM.table) &lt;- c(&quot;All&quot;, &quot;Negative&quot;, &quot;Positive&quot;)
   
   return(Rec.MSM.table)
@@ -557,6 +522,56 @@ utils::write.table(cbind(train.table, rep(&quot;&quot;, 3), val.table),
 ## Number of patients with follow-up for MSM after 5 years: 1678 in training  data 
 ## Number of patients with follow-up for Rec after 5 years: 1651 in validation  data 
 ## Number of patients with follow-up for MSM after 5 years: 2022 in validation  data</code></pre>
+<div id="kaplan-meier-plots" class="section level3">
+<h3>Kaplan-Meier plots</h3>
+<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.training.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
+survminer::ggsurvplot(survival::survfit(S.Rec.5.training ~ Center, data=last.imputed.training.data.set), 
+                      legend.title=&quot;&quot;,
+                      legend.labs=c(&quot;Rotterdam&quot;, &quot;Berlin&quot;, &quot;Warsaw&quot;, &quot;Amsterdam&quot;),
+                      title=&quot;Development&quot;,
+                      ylab=&quot;Recurrence-free survival probability&quot;,
+                      xlab=&quot;Time in years&quot;,
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()</code></pre>
+<pre><code>## png 
+##   2</code></pre>
+<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.training.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
+survminer::ggsurvplot(survival::survfit(S.MSM.5.training ~ Center, data=last.imputed.training.data.set), 
+                      legend.title=&quot;&quot;,
+                      legend.labs=c(&quot;Rotterdam&quot;, &quot;Berlin&quot;, &quot;Warsaw&quot;, &quot;Amsterdam&quot;),
+                      title=&quot;Development&quot;,
+                      ylab=&quot;Melanoma-specific survival probability&quot;,
+                      xlab=&quot;Time in years&quot;,
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()</code></pre>
+<pre><code>## png 
+##   2</code></pre>
+<pre class="r"><code>load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;))
+png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.validation.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
+survminer::ggsurvplot(survival::survfit(S.Rec.5.validation ~ 1, data=last.imputed.validation.data.set), 
+                      legend.title=&quot;&quot;,
+                      legend.labs=&quot;Australia&quot;,
+                      title=&quot;Validation&quot;,
+                      ylab=&quot;Recurrence-free survival probability&quot;,
+                      xlab=&quot;Time in years&quot;,
+                      conf.int=TRUE, risk.table=TRUE)
+grDevices::dev.off()</code></pre>
+<pre><code>## png 
+##   2</code></pre>
+<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.validation.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
+survminer::ggsurvplot(survival::survfit(S.MSM.5.validation ~ 1, data=last.imputed.validation.data.set), 
+                      legend.title=&quot;&quot;,
+                      legend.labs=&quot;Australia&quot;,
+                      title=&quot;Validation&quot;,
+                      ylab=&quot;Melanoma-specific survival probability&quot;,
+                      xlab=&quot;Time in years&quot;,
+                      conf.int=TRUE, risk.table=TRUE)
+grDevices::dev.off()</code></pre>
+<pre><code>## png 
+##   2</code></pre>
+</div>
 </div>
 
 

@@ -485,7 +485,7 @@ table(sel.val.data$Status, sel.val.data$dead)</code></pre>
 <div id="mitosis" class="section level4">
 <h4>Mitosis</h4>
 <p>Define Mitosis as Yes/No</p>
-<pre class="r"><code>sel.val.data$Mitosis &lt;- as.numeric(!is.na(sel.val.data$Mitosis))</code></pre>
+<pre class="r"><code>sel.val.data$Mitosis &lt;- as.numeric(sel.val.data$Mitosis)</code></pre>
 </div>
 <div id="delete-unused-levels" class="section level4">
 <h4>Delete unused levels</h4>
@@ -496,7 +496,6 @@ sel.val.data$Center &lt;- factor(sel.val.data$Center, labels = c(&quot;Australia
 <div id="set-levels" class="section level4">
 <h4>Set levels</h4>
 <pre class="r"><code>sel.val.data$Ulceration &lt;- factor(sel.val.data$Ulceration, labels=c(&quot;No&quot;, &quot;Yes&quot;))
-sel.val.data$Mitosis &lt;- factor(sel.val.data$Mitosis, labels=c(&quot;Yes&quot;, &quot;No&quot;))
 
 sel.val.data$multiple.fields &lt;- factor(sel.val.data$multiple.fields, labels=c(&quot;Multiple SN fields&quot;, &quot;Other&quot;))
 
@@ -509,8 +508,7 @@ sel.val.data$MSM &lt;- factor(sel.val.data$MSM, labels=c(&quot;Other&quot;, &quo
 <pre class="r"><code>variables.to.be.imputed &lt;- c(&quot;Center&quot;, &quot;SNstatus&quot;, &quot;Sex&quot;, &quot;Age.SN&quot;, &quot;Ulceration&quot;,
                              &quot;Loc_CAT&quot;, &quot;Histology&quot;, &quot;Breslow&quot;, &quot;multiple.fields&quot;,
                              &quot;Tot_SNs_neg&quot;, &quot;Tot_SNs_pos&quot;, &quot;Rdamcrit&quot;, &quot;Dewar&quot;,
-                             &quot;Mitosis&quot;,
-                             &quot;Recurrence&quot;, &quot;dead&quot;, &quot;MSM&quot;)
+                             &quot;Mitosis&quot;, &quot;Recurrence&quot;, &quot;dead&quot;, &quot;MSM&quot;)
 validation.data.to.be.imputed &lt;- sel.val.data[, variables.to.be.imputed]</code></pre>
 <p>Save distributions of all variables, necessary for Harrell
 summaries</p>
@@ -524,6 +522,7 @@ missings.table(validation.data.to.be.imputed)</code></pre>
 <pre><code>##                   m
 ## Histology       628
 ## Ulceration      279
+## Mitosis         206
 ## Dewar           173
 ## Rdamcrit        153
 ## Center            0
@@ -535,7 +534,6 @@ missings.table(validation.data.to.be.imputed)</code></pre>
 ## multiple.fields   0
 ## Tot_SNs_neg       0
 ## Tot_SNs_pos       0
-## Mitosis           0
 ## Recurrence        0
 ## dead              0
 ## MSM               0

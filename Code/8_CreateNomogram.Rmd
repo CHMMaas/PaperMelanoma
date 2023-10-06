@@ -59,9 +59,9 @@ nom <- rms::nomogram(f.mi.BS.Rec.5, maxscale=10,
                 lp=TRUE, fun.at=fun.event(lp=lp.range, h0=h0.Rec))
 attributes(nom)$names[attributes(nom)$names=="Age.SN"]<-"Age"
 attributes(nom)$names[attributes(nom)$names=="Loc_CAT"]<-"Location"
-attributes(nom)$names[attributes(nom)$names=="Rdamcrit"]<-"Tumor burden"
-attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Positive)"]<-"Breslow + positive SN"
-attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Negative)"]<-"Breslow + negative SN"
+attributes(nom)$names[attributes(nom)$names=="Rdamcrit"]<-"Tumour burden"
+attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Positive)"]<-"Breslow (positive SN)"
+attributes(nom)$names[attributes(nom)$names=="Breslow (SNstatus=Negative)"]<-"Breslow (negative SN)"
 # save width: 1000, height: 800
 par(mar = rep(0, 4))
 plot(nom, total.sep.page=TRUE, col.grid=gray(c(0.8, 0.95)))

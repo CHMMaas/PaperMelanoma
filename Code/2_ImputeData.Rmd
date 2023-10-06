@@ -40,7 +40,10 @@ impute.missing.values <- function(type=NULL, m=1, new.imputation=FALSE){
          file=paste0("Z:/Project Melanoom/PaperMelanoma/Data/", type, "/imputed.", type, ".data.Rdata"), compress=TRUE)
   }
   load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/", type, "/imputed.", type, ".data.Rdata"))
-  save(list=c(paste0("dd.", type), paste0(type, ".data.to.be.imputed"), "m", paste0("imputed.", type, ".data")),
+  save(list=c(paste0("dd.", type), 
+              paste0(type, ".data.to.be.imputed"), 
+              "m", 
+              paste0("imputed.", type, ".data")),
        file=paste0("Z:/Project Melanoom/PaperMelanoma/Data/", type, "/", type, ".data.Rdata"), compress=TRUE)
 }
 ```

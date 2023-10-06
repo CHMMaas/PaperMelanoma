@@ -141,7 +141,7 @@ sel.val.data$MSM <- as.numeric(sel.val.data$Status=="Dead, melanoma       ")
 #### Mitosis
 Define Mitosis as Yes/No
 ```{r, eval=TRUE}
-sel.val.data$Mitosis <- as.numeric(!is.na(sel.val.data$Mitosis))
+sel.val.data$Mitosis <- as.numeric(sel.val.data$Mitosis)
 ```
 
 #### Delete unused levels
@@ -154,7 +154,6 @@ sel.val.data$Center <- factor(sel.val.data$Center, labels = c("Australia"))
 #### Set levels
 ```{r, eval=TRUE}
 sel.val.data$Ulceration <- factor(sel.val.data$Ulceration, labels=c("No", "Yes"))
-sel.val.data$Mitosis <- factor(sel.val.data$Mitosis, labels=c("Yes", "No"))
 
 sel.val.data$multiple.fields <- factor(sel.val.data$multiple.fields, labels=c("Multiple SN fields", "Other"))
 
@@ -166,8 +165,7 @@ sel.val.data$MSM <- factor(sel.val.data$MSM, labels=c("Other", "Death by melanom
 variables.to.be.imputed <- c("Center", "SNstatus", "Sex", "Age.SN", "Ulceration",
                              "Loc_CAT", "Histology", "Breslow", "multiple.fields",
                              "Tot_SNs_neg", "Tot_SNs_pos", "Rdamcrit", "Dewar",
-                             "Mitosis",
-                             "Recurrence", "dead", "MSM")
+                             "Mitosis", "Recurrence", "dead", "MSM")
 validation.data.to.be.imputed <- sel.val.data[, variables.to.be.imputed]
 ```
 

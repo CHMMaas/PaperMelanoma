@@ -14,7 +14,13 @@ library(knitr)
 
 load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata")
 load("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata")
-descr.table <- arsenal::tableby(Center ~ SNstatus
+validation.data.to.be.imputed$Mitosis <- validation.data.to.be.imputed$Mitosis>0
+validation.data.to.be.imputed$Mitosis <- factor(validation.data.to.be.imputed$Mitosis, labels=c("No", "Yes"))
+pooled.data.to.be.imputed <- rbind(training.data.to.be.imputed, validation.data.to.be.imputed)
+pooled.data.to.be.imputed$Continent <- c(rep("Europe", nrow(training.data.to.be.imputed)), 
+                                         rep("Australie", nrow(validation.data.to.be.imputed)))
+
+descr.table <- arsenal::tableby(Continent ~ SNstatus
                                 +Sex
                                 +Age.SN
                                 +arsenal::includeNA(Ulceration)
@@ -22,16 +28,47 @@ descr.table <- arsenal::tableby(Center ~ SNstatus
                                 +arsenal::includeNA(Histology)
                                 +Breslow
                                 +multiple.fields
-                                +Tot_SNs_neg
-                                +Tot_SNs_pos
-                                +Rdamcrit
-                                +arsenal::includeNA(Dewar)
                                 +arsenal::includeNA(Mitosis)
                                 +Recurrence
                                 +dead
                                 +MSM
                                 +logRec.time
-                                +logFU.time, data=rbind(training.data.to.be.imputed, validation.data.to.be.imputed), # training.data.to.be.imputed,
+                                +logFU.time, 
+                                data=pooled.data.to.be.imputed,
+                                total.pos="before",
+                                digits = 1,
+                                test = F,
+                                total = F,
+                                numeric.test = "kwt", cat.test = "chisq",
+                                numeric.stats = c("meansd", "medianq1q3", "range", "Nmiss2"),
+                                cat.stats = c("countpct"),
+                                stats.labels = list(
+                                  meansd = "Mean (SD)",
+                                  medianq1q3 = "Median (Q1, Q3)",
+                                  range = "Min - Max",
+                                  Nmiss2 = "Missing"
+                                ))
+
+descr.table.pos <- arsenal::tableby(Continent ~ Tot_SNs_pos
+                                +Rdamcrit
+                                +arsenal::includeNA(Dewar),
+                                data=pooled.data.to.be.imputed[pooled.data.to.be.imputed$SNstatus=="Positive",],
+                                total.pos="before",
+                                digits = 1,
+                                test = F,
+                                total = T,
+                                numeric.test = "kwt", cat.test = "chisq",
+                                numeric.stats = c("meansd", "medianq1q3", "range", "Nmiss2"),
+                                cat.stats = c("countpct"),
+                                stats.labels = list(
+                                  meansd = "Mean (SD)",
+                                  medianq1q3 = "Median (Q1, Q3)",
+                                  range = "Min - Max",
+                                  Nmiss2 = "Missing"
+                                ))
+
+descr.table.neg <- arsenal::tableby(Continent ~ Tot_SNs_neg,
+                                data=pooled.data.to.be.imputed[pooled.data.to.be.imputed$SNstatus=="Negative",],
                                 total.pos="before",
                                 digits = 1,
                                 test = F,
@@ -62,4 +99,10 @@ my_labels <- list(
 Table 1. Descriptive statistics.
 ```{r echo=FALSE}
 knitr::kable(summary(descr.table, labelTranslations=my_labels))
+
+# only negative
+knitr::kable(summary(descr.table.neg, labelTranslations=my_labels))
+
+# only positive
+knitr::kable(summary(descr.table.pos, labelTranslations=my_labels))
 ```

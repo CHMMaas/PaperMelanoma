@@ -53,38 +53,6 @@ prepare.data <- function(type){
 prepare.data(type="training")
 prepare.data(type="validation")
 ```
-
-### Kaplan-Meier plots
-```{r, eval=TRUE}
-load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData"))
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.training.png"), width=16, height=16, units="cm", res=300)
-survminer::ggsurvplot(survival::survfit(S.Rec.training ~ Center, data=last.imputed.training.data.set), 
-                      legend.title="",
-                      conf.int=TRUE, risk.table=TRUE)+
-  ggplot2::guides(colour=guide_legend(nrow=2))
-grDevices::dev.off()
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.training.png"), width=16, height=16, units="cm", res=300)
-survminer::ggsurvplot(survival::survfit(S.MSM.training ~ Center, data=last.imputed.training.data.set), 
-                      legend.title="",
-                      conf.int=TRUE, risk.table=TRUE)+
-  ggplot2::guides(colour=guide_legend(nrow=2))
-grDevices::dev.off()
-
-load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData"))
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.validation.png"), width=16, height=16, units="cm", res=300)
-survminer::ggsurvplot(survival::survfit(S.Rec.validation ~ 1, data=last.imputed.validation.data.set), 
-                      legend.title="",
-                      legend.labs="Center=Australia",
-                      conf.int=TRUE, risk.table=TRUE)
-grDevices::dev.off()
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.validation.png"), width=16, height=16, units="cm", res=300)
-survminer::ggsurvplot(survival::survfit(S.MSM.validation ~ 1, data=last.imputed.validation.data.set), 
-                      legend.title="",
-                      legend.labs="Center=Australia",
-                      conf.int=TRUE, risk.table=TRUE)
-grDevices::dev.off()
-```
-
 # Median time to recurrence and follow-up time
 ```{r, eval=TRUE}
 median.time <- function(data=NA, type=NA){
@@ -96,23 +64,25 @@ median.time <- function(data=NA, type=NA){
     median.time.total <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM=="Death by melanoma")~1, data=data[data$Center!="Australia",], reverse=TRUE))
     median.time <- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM=="Death by melanoma")~Center, data=data, reverse=TRUE))
   }
-  
   # save in tab.time
-  tab.time <- c("Total Development", paste(sprintf("%.2f", median.time.total$quantiles.survival[3, "quantile"]),
-                   paste0("[", sprintf("%.2f", median.time.total$quantiles.survival[4, "quantile"]), "; ",
-                          sprintf("%.2f", median.time.total$quantiles.survival[2, "quantile"]), "]")))
+  tab.time <- c("Total Development", paste(sprintf("%.2f", median.time.total$quantile[3]),
+                   paste0("[", sprintf("%.2f", median.time.total$quantile[4]), "; ",
+                          sprintf("%.2f", median.time.total$quantile[2]), "]")))
   
   # time per center
   for (center in c("Amsterdam", "Berlin", "Rotterdam", "Warsaw", "Australia")){
-    med.table <- eval(parse(text=paste0("median.time$`Center=", center, "`")))
-    med <- med.table[3,"quantile"]
-    lower <- med.table[4,"quantile"]
-    upper <- med.table[2,"quantile"]
+    sel.center <- eval(parse(text=paste0("median.time$Center==\"", center, "\"")))
+    q.center <- median.time$quantile[sel.center]
+    med <- q.center[3]
+    lower <- q.center[4]
+    upper <- q.center[2]
     tab.time <- rbind(tab.time, c(center, paste(sprintf("%.2f", med), paste0("[", sprintf("%.2f", lower), "; ", sprintf("%.2f", upper), "]"))))
   }
   
   return(tab.time)
 }
+load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData"))
+load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData"))
 med.Rec <- median.time(data=rbind(training.data.to.be.imputed[, c("logRec.time", "Recurrence", "Center")], 
                        validation.data.to.be.imputed[, c("logRec.time", "Recurrence", "Center")]), type="Rec")
 med.FU <- median.time(data=rbind(training.data.to.be.imputed[, c("logFU.time", "MSM", "Center")], 
@@ -130,33 +100,33 @@ Rec.MSM.table <- function(horizon=5, type=NULL, data.to.be.imputed=NULL){
   # all patients, Recurrence
   S.Rec <- eval(parse(text=paste0("S.Rec.", type)))
   SF.Rec.all <- survival::survfit(S.Rec~1, data=data.to.be.imputed)
-  Rec.all <- 100*(1-SF.Rec.all$surv[SF.Rec.all$time==max(SF.Rec.all$time[SF.Rec.all$time<=horizon])])
+  RFS.all <- 100*SF.Rec.all$surv[SF.Rec.all$time==max(SF.Rec.all$time[SF.Rec.all$time<=horizon])]
   n.Rec.all <- sum(SF.Rec.all$n.event[SF.Rec.all$time<=horizon])
   
   # only negative patients, Recurrence
   SF.Rec.neg <-survival::survfit(S.Rec[data.to.be.imputed$SNstatus=="Negative"]~1, data=data.to.be.imputed)
-  Rec.neg <- 100*(1-SF.Rec.neg$surv[SF.Rec.neg$time==max(SF.Rec.neg$time[SF.Rec.neg$time<=horizon])])
+  RFS.neg <- 100*SF.Rec.neg$surv[SF.Rec.neg$time==max(SF.Rec.neg$time[SF.Rec.neg$time<=horizon])]
   n.Rec.neg <- sum(SF.Rec.neg$n.event[SF.Rec.neg$time<=horizon])
     
   # only positive patients, Recurrence
   SF.Rec.pos <- survival::survfit(S.Rec[data.to.be.imputed$SNstatus=="Positive"]~1, data=data.to.be.imputed)
-  Rec.pos <- 100*(1-SF.Rec.pos$surv[SF.Rec.pos$time==max(SF.Rec.pos$time[SF.Rec.pos$time<=horizon])])
+  RFS.pos <- 100*SF.Rec.pos$surv[SF.Rec.pos$time==max(SF.Rec.pos$time[SF.Rec.pos$time<=horizon])]
   n.Rec.pos <- sum(SF.Rec.pos$n.event[SF.Rec.pos$time<=horizon])
   
   # all patients, MSM
   S.MSM <- eval(parse(text=paste0("S.MSM.", type)))
   SF.MSM.all <- survival::survfit(S.MSM~1, data=data.to.be.imputed)
-  MSM.all <- 100*(1-SF.MSM.all$surv[SF.MSM.all$time==max(SF.MSM.all$time[SF.MSM.all$time<=horizon])])
+  MSS.all <- 100*SF.MSM.all$surv[SF.MSM.all$time==max(SF.MSM.all$time[SF.MSM.all$time<=horizon])]
   n.MSM.all <- sum(SF.MSM.all$n.event[SF.MSM.all$time<=horizon])
   
   # negative patients, MSM
   SF.MSM.neg <- survival::survfit(S.MSM[data.to.be.imputed$SNstatus=="Negative"]~1, data=data.to.be.imputed)
-  MSM.neg <- 100*(1-SF.MSM.neg$surv[SF.MSM.neg$time==max(SF.MSM.neg$time[SF.MSM.neg$time<=horizon])])
+  MSS.neg <- 100*SF.MSM.neg$surv[SF.MSM.neg$time==max(SF.MSM.neg$time[SF.MSM.neg$time<=horizon])]
   n.MSM.neg <- sum(SF.MSM.neg$n.event[SF.MSM.neg$time<=horizon])
   
   # positive patients, MSM
   SF.MSM.pos <- survival::survfit(S.MSM[data.to.be.imputed$SNstatus=="Positive"]~1, data=data.to.be.imputed)
-  MSM.pos <- 100*(1-SF.MSM.pos$surv[SF.MSM.pos$time==max(SF.MSM.pos$time[SF.MSM.pos$time<=horizon])])
+  MSS.pos <- 100*SF.MSM.pos$surv[SF.MSM.pos$time==max(SF.MSM.pos$time[SF.MSM.pos$time<=horizon])]
   n.MSM.pos <- sum(SF.MSM.pos$n.event[SF.MSM.pos$time<=horizon])
   
   # merge in one table
@@ -167,8 +137,8 @@ Rec.MSM.table <- function(horizon=5, type=NULL, data.to.be.imputed=NULL){
                               n.Rec=c(n.Rec.all, n.Rec.pos, n.Rec.neg),
                               n.MSM=c(n.MSM.all, n.MSM.pos, n.MSM.neg),
                               e2=rep("", 3),
-                              Rec=sprintf("%.1f", c(Rec.all, Rec.neg, Rec.pos)),
-                              MSM=sprintf("%.1f", c(MSM.all, MSM.neg, MSM.pos)))
+                              RFS=sprintf("%.1f", c(RFS.all, RFS.neg, RFS.pos)),
+                              MSS=sprintf("%.1f", c(MSS.all, MSS.neg, MSS.pos)))
   row.names(Rec.MSM.table) <- c("All", "Negative", "Positive")
   
   return(Rec.MSM.table)
@@ -205,4 +175,47 @@ for (type in c("training",  "validation")){
               paste0("S.MSM.5.", type)),
      file=paste0("Z:/Project Melanoom/PaperMelanoma/Data/", type, "/", type, ".data.Rdata"), compress=TRUE)
 }
+```
+### Kaplan-Meier plots
+```{r, eval=TRUE}
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.training.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.Rec.5.training ~ Center, data=last.imputed.training.data.set), 
+                      legend.title="",
+                      legend.labs=c("Rotterdam", "Berlin", "Warsaw", "Amsterdam"),
+                      title="Development",
+                      ylab="Recurrence-free survival probability",
+                      xlab="Time in years",
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.training.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.MSM.5.training ~ Center, data=last.imputed.training.data.set), 
+                      legend.title="",
+                      legend.labs=c("Rotterdam", "Berlin", "Warsaw", "Amsterdam"),
+                      title="Development",
+                      ylab="Melanoma-specific survival probability",
+                      xlab="Time in years",
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()
+
+load(paste0("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData"))
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.validation.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.Rec.5.validation ~ 1, data=last.imputed.validation.data.set), 
+                      legend.title="",
+                      legend.labs="Australia",
+                      title="Validation",
+                      ylab="Recurrence-free survival probability",
+                      xlab="Time in years",
+                      conf.int=TRUE, risk.table=TRUE)
+grDevices::dev.off()
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.validation.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.MSM.5.validation ~ 1, data=last.imputed.validation.data.set), 
+                      legend.title="",
+                      legend.labs="Australia",
+                      title="Validation",
+                      ylab="Melanoma-specific survival probability",
+                      xlab="Time in years",
+                      conf.int=TRUE, risk.table=TRUE)
+grDevices::dev.off()
 ```
