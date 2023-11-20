@@ -462,9 +462,10 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
       }
     }
   }
-}
-
-# combine calibration plots into one
+}</code></pre>
+<pre><code>## Warning in fitter(X, Y, strata = Strata, offset = offset, weights = weights, :
+## Loglik converged before variable 1 ; coefficient may be infinite.</code></pre>
+<pre class="r"><code># combine calibration plots into one
 for (select.value in c(&quot;All&quot;, &quot;Positive&quot;, &quot;Negative&quot;)){ 
   for (y in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/&quot;, y, &quot;.&quot;, select.value, &quot;.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)

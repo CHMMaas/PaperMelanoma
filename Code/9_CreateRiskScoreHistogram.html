@@ -396,7 +396,7 @@ lp.MSM &lt;- rowMeans(lp.MSM.all)
 # TODO: Is this correct?
 lp.MSM.all[3,]</code></pre>
 <pre><code>##       lp.i       lp.i       lp.i       lp.i       lp.i 
-## -0.2186917 -0.2186917 -0.2186917  0.2493302 -0.2186917</code></pre>
+## -0.2294193 -0.2294193 -0.2294193  0.2413084 -0.2294193</code></pre>
 <pre class="r"><code># lp range MSM
 rc.MSM &lt;- MSM.cal.fact*rc.Rec
 int.MSM &lt;- MSM.cal.fact*int.Rec
@@ -416,7 +416,7 @@ lp.Rec &lt;- predict(f.mi.BS.Rec.5,newdata=data.frame(SNstatus=last.imputed.trai
                                                          Breslow=Breslow.trunc,
                                                          Rdamcrit=last.imputed.training.data.set$Rdamcrit))
 mean(lp.Rec)</code></pre>
-<pre><code>## [1] -0.01740896</code></pre>
+<pre><code>## [1] -0.01612013</code></pre>
 <pre class="r"><code>score.Rec &lt;- round((lp.Rec-int.Rec)/rc.Rec,0)
 max.breaks &lt;- max.range+1
 h.Rec &lt;- hist(score.Rec,plot=FALSE,breaks=0:max.breaks,right=FALSE, beside=TRUE)</code></pre>
@@ -425,20 +425,20 @@ h.Rec &lt;- hist(score.Rec,plot=FALSE,breaks=0:max.breaks,right=FALSE, beside=TR
 <pre class="r"><code># score table
 data.frame(table(score.Rec)/length(score.Rec))</code></pre>
 <pre><code>##    score.Rec         Freq
-## 1          4 0.0012281995
-## 2          5 0.0022107590
-## 3          6 0.0108081552
-## 4          7 0.0464259396
-## 5          8 0.1451731761
+## 1          4 0.0009825596
+## 2          5 0.0014738394
+## 3          6 0.0076148366
+## 4          7 0.0427413412
+## 5          8 0.1296978629
 ## 6          9 0.1788258413
-## 7         10 0.1589290101
-## 8         11 0.1211004667
-## 9         12 0.1242937853
-## 10        13 0.1019405551
-## 11        14 0.0682878900
-## 12        15 0.0334070253
-## 13        16 0.0071235569
-## 14        17 0.0002456399</code></pre>
+## 7         10 0.1532792926
+## 8         11 0.1230655859
+## 9         12 0.1238025055
+## 10        13 0.1053795136
+## 11        14 0.0768852862
+## 12        15 0.0405305822
+## 13        16 0.0137558339
+## 14        17 0.0019651191</code></pre>
 </div>
 <div id="plot-of-risk-score-distribution" class="section level1">
 <h1>Plot of risk score distribution</h1>
@@ -465,11 +465,11 @@ grDevices::dev.off()</code></pre>
 <pre><code>## png 
 ##   2</code></pre>
 <pre><code>##      points.range          
-## [1,]            0  0.2  0.1
-## [2,]            8  6.7  2.6
-## [3,]            9 10.1  4.2
-## [4,]           11 22.1 10.6
-## [5,]           12 31.8 16.6</code></pre>
+## [1,]            0  0.3  0.1
+## [2,]            8  7.4  2.5
+## [3,]            9 10.9  4.0
+## [4,]           11 22.8  9.8
+## [5,]           12 32.1 15.2</code></pre>
 </div>
 <div id="save-for-rshiny-app" class="section level1">
 <h1>Save for Rshiny app</h1>

@@ -96,7 +96,7 @@ plot(h.plot,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,
 par(new = TRUE)
 plot(points.range,p.Rec*100,type="b",lwd=1,xlim=x.lim,ylim=y.lim,pch=15, xlab="Risk score",ylab="Predicted 5-year risk (%)")
 points(points.range,p.MSM*100,type="b",lwd=1,xlim=x.lim,ylim=y.lim,pch=16)
-legend(x=0,y=100,legend=c("Recurrence","Melanoma-specific mortality"),pch=c(15,16),cex=.9,bg="white")
+legend(x=0,y=100,legend=c("Recurrence or death","Melanoma-specific mortality"),pch=c(15,16),cex=.9,bg="white")
 grDevices::dev.off()
 ```
 
@@ -131,7 +131,7 @@ plot <- ggplot(data=data.frame(), aes(x=0:max.range, y=0:100))+
   geom_bar(data=last.imputed.training.data.set, 
            aes(x=score.Rec, y=(..count..)/sum(..count..)*400, fill=SNstatus))+
   geom_line(aes(x=points.range, y=p.Rec*100))+
-  geom_point(aes(x=points.range, y=p.Rec*100, alpha="Recurrence"), shape=15)+
+  geom_point(aes(x=points.range, y=p.Rec*100, alpha="Recurrence or death"), shape=15)+
   geom_line(aes(x=points.range, y=p.MSM*100))+
   geom_point(aes(x=points.range, y=p.MSM*100, alpha="Melanoma-specific mortality"), shape=19)+
   scale_y_continuous(limits=c(0, 100), minor_breaks=seq(0, 100, 5),
@@ -143,7 +143,7 @@ plot <- ggplot(data=data.frame(), aes(x=0:max.range, y=0:100))+
                       labels=c("Negative SN status", "Positive SN status"))+
   scale_alpha_manual(name=NULL, 
                      values=c(15, 19),
-                     breaks=c("Recurrence", "Melanoma-specific mortality"),
+                     breaks=c("Recurrence or death", "Melanoma-specific mortality"),
                      guide=guide_legend(override.aes=list(linetype=c(0, 1), 
                                                           shape=c(15, 19), 
                                                           color="black")))+

@@ -380,17 +380,20 @@ source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quo
   imputed.data &lt;- eval(parse(text=paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)))
   last.imputed.data.set &lt;- mice::complete(imputed.data, m)
   
-  assign(paste0(&quot;S.Rec.&quot;, type), survival::Surv(exp(last.imputed.data.set$logRec.time), last.imputed.data.set$Recurrence==&quot;recurred&quot;))
-  assign(paste0(&quot;S.MSM.&quot;, type), survival::Surv(exp(last.imputed.data.set$logFU.time), last.imputed.data.set$MSM==&quot;Death by melanoma&quot;))
+  Rec.event.composite &lt;- ifelse(last.imputed.data.set$Recurrence==&quot;recurred&quot;, 1, 0) # last.imputed.data.set$dead==&quot;Yes&quot;
+  assign(paste0(&quot;S.Rec.&quot;, type), survival::Surv(exp(last.imputed.data.set$logRec.time), 
+                                                Rec.event.composite))
+  assign(paste0(&quot;S.MSM.&quot;, type), survival::Surv(exp(last.imputed.data.set$logFU.time), 
+                                                last.imputed.data.set$MSM==&quot;Death by melanoma&quot;))
   
   assign(paste0(&quot;imputed.&quot;, type, &quot;.data&quot;), imputed.data)
   assign(paste0(&quot;last.imputed.&quot;, type, &quot;.data.set&quot;), last.imputed.data.set)
   
-  save(list=c(paste0(&quot;dd.&quot;, type), &quot;m&quot;, 
-              paste0(type, &quot;.data.to.be.imputed&quot;), 
-              paste0(&quot;imputed.&quot;, type, &quot;.data&quot;), 
-              paste0(&quot;last.imputed.&quot;, type, &quot;.data.set&quot;), 
-              paste0(&quot;S.Rec.&quot;, type), 
+  save(list=c(paste0(&quot;dd.&quot;, type), &quot;m&quot;,
+              paste0(type, &quot;.data.to.be.imputed&quot;),
+              paste0(&quot;imputed.&quot;, type, &quot;.data&quot;),
+              paste0(&quot;last.imputed.&quot;, type, &quot;.data.set&quot;),
+              paste0(&quot;S.Rec.&quot;, type),
               paste0(&quot;S.MSM.&quot;, type)),
        file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
 }
@@ -403,8 +406,9 @@ prepare.data(type=&quot;validation&quot;)</code></pre>
 <pre class="r"><code>median.time &lt;- function(data=NA, type=NA){
   # time in total
   if (type==&quot;Rec&quot;){
-    median.time.total &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logRec.time), Recurrence==&quot;recurred&quot;)~1, data=data[data$Center!=&quot;Australia&quot;,], reverse=TRUE))
-    median.time &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logRec.time), Recurrence==&quot;recurred&quot;)~Center, data=data, reverse=TRUE))
+    median.time.total &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logRec.time), 
+                                                                        ifelse(Recurrence==&quot;recurred&quot; , 1, 0))~1, data=data[data$Center!=&quot;Australia&quot;,], reverse=TRUE)) # | dead==&quot;Yes&quot;
+    median.time &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logRec.time), ifelse(Recurrence==&quot;recurred&quot; , 1, 0))~Center, data=data, reverse=TRUE)) # | dead==&quot;Yes&quot;
   } else if (type==&quot;FU&quot;){
     median.time.total &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM==&quot;Death by melanoma&quot;)~1, data=data[data$Center!=&quot;Australia&quot;,], reverse=TRUE))
     median.time &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM==&quot;Death by melanoma&quot;)~Center, data=data, reverse=TRUE))
@@ -428,8 +432,8 @@ prepare.data(type=&quot;validation&quot;)</code></pre>
 }
 load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;))
 load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;))
-med.Rec &lt;- median.time(data=rbind(training.data.to.be.imputed[, c(&quot;logRec.time&quot;, &quot;Recurrence&quot;, &quot;Center&quot;)], 
-                       validation.data.to.be.imputed[, c(&quot;logRec.time&quot;, &quot;Recurrence&quot;, &quot;Center&quot;)]), type=&quot;Rec&quot;)
+med.Rec &lt;- median.time(data=rbind(training.data.to.be.imputed[, c(&quot;logRec.time&quot;, &quot;Recurrence&quot;, &quot;dead&quot;, &quot;Center&quot;)], 
+                       validation.data.to.be.imputed[, c(&quot;logRec.time&quot;, &quot;Recurrence&quot;, &quot;dead&quot;, &quot;Center&quot;)]), type=&quot;Rec&quot;)
 med.FU &lt;- median.time(data=rbind(training.data.to.be.imputed[, c(&quot;logFU.time&quot;, &quot;MSM&quot;, &quot;Center&quot;)], 
                        validation.data.to.be.imputed[, c(&quot;logFU.time&quot;, &quot;MSM&quot;, &quot;Center&quot;)]), type=&quot;FU&quot;)
 # save to .txt
@@ -440,49 +444,77 @@ write.table(cbind(c(&quot;Recurrence time&quot;, &quot;Follow-up time&quot;),
 </div>
 <div id="kaplan-meier-estimates-of-recurrence-and-msm-at-5-years" class="section level1">
 <h1>Kaplan-Meier estimates of recurrence and MSM at 5 years</h1>
-<pre class="r"><code>Rec.MSM.table &lt;- function(horizon=5, type=NULL, data.to.be.imputed=NULL){
+<pre class="r"><code>est.CI.n &lt;- function(KM=NULL, horizon=5){
+  t &lt;- max(KM$time[KM$time&lt;=horizon])
+  est &lt;- 100*KM$surv[KM$time==t]
+  est.LCI &lt;- 100*KM$lower[KM$time==t]
+  est.UCI &lt;- 100*KM$upper[KM$time==t]
+  n &lt;- sum(KM$n.event[KM$time&lt;=horizon])
+  return(list(t=t, est=est, est.LCI=est.LCI, est.UCI=est.UCI, n=n))
+}
+
+Rec.MSM.table &lt;- function(horizon=5, type=NULL, data.to.be.imputed=NULL){
+  # select last imputed data set
+  imputed.data &lt;- eval(parse(text=paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)))
+  last.imputed.data.set &lt;- mice::complete(imputed.data, m)
+  
   # all patients, Recurrence
   S.Rec &lt;- eval(parse(text=paste0(&quot;S.Rec.&quot;, type)))
-  SF.Rec.all &lt;- survival::survfit(S.Rec~1, data=data.to.be.imputed)
-  RFS.all &lt;- 100*SF.Rec.all$surv[SF.Rec.all$time==max(SF.Rec.all$time[SF.Rec.all$time&lt;=horizon])]
-  n.Rec.all &lt;- sum(SF.Rec.all$n.event[SF.Rec.all$time&lt;=horizon])
+  KM.Rec.all &lt;- survival::survfit(S.Rec~1, data=data.to.be.imputed)
+  out.Rec.all &lt;- est.CI.n(KM=KM.Rec.all, horizon=horizon)
   
   # only negative patients, Recurrence
-  SF.Rec.neg &lt;-survival::survfit(S.Rec[data.to.be.imputed$SNstatus==&quot;Negative&quot;]~1, data=data.to.be.imputed)
-  RFS.neg &lt;- 100*SF.Rec.neg$surv[SF.Rec.neg$time==max(SF.Rec.neg$time[SF.Rec.neg$time&lt;=horizon])]
-  n.Rec.neg &lt;- sum(SF.Rec.neg$n.event[SF.Rec.neg$time&lt;=horizon])
-    
+  KM.Rec.neg &lt;-survival::survfit(S.Rec[data.to.be.imputed$SNstatus==&quot;Negative&quot;]~1, data=data.to.be.imputed)
+  out.Rec.neg &lt;- est.CI.n(KM=KM.Rec.neg, horizon=horizon)
+  
   # only positive patients, Recurrence
-  SF.Rec.pos &lt;- survival::survfit(S.Rec[data.to.be.imputed$SNstatus==&quot;Positive&quot;]~1, data=data.to.be.imputed)
-  RFS.pos &lt;- 100*SF.Rec.pos$surv[SF.Rec.pos$time==max(SF.Rec.pos$time[SF.Rec.pos$time&lt;=horizon])]
-  n.Rec.pos &lt;- sum(SF.Rec.pos$n.event[SF.Rec.pos$time&lt;=horizon])
+  KM.Rec.pos &lt;- survival::survfit(S.Rec[data.to.be.imputed$SNstatus==&quot;Positive&quot;]~1, data=data.to.be.imputed)
+  out.Rec.pos &lt;- est.CI.n(KM=KM.Rec.pos, horizon=horizon)
   
   # all patients, MSM
   S.MSM &lt;- eval(parse(text=paste0(&quot;S.MSM.&quot;, type)))
-  SF.MSM.all &lt;- survival::survfit(S.MSM~1, data=data.to.be.imputed)
-  MSS.all &lt;- 100*SF.MSM.all$surv[SF.MSM.all$time==max(SF.MSM.all$time[SF.MSM.all$time&lt;=horizon])]
-  n.MSM.all &lt;- sum(SF.MSM.all$n.event[SF.MSM.all$time&lt;=horizon])
+  KM.MSM.all &lt;- survival::survfit(S.MSM~1, data=data.to.be.imputed)
+  out.MSM.all &lt;- est.CI.n(KM=KM.MSM.all, horizon=horizon)
   
   # negative patients, MSM
-  SF.MSM.neg &lt;- survival::survfit(S.MSM[data.to.be.imputed$SNstatus==&quot;Negative&quot;]~1, data=data.to.be.imputed)
-  MSS.neg &lt;- 100*SF.MSM.neg$surv[SF.MSM.neg$time==max(SF.MSM.neg$time[SF.MSM.neg$time&lt;=horizon])]
-  n.MSM.neg &lt;- sum(SF.MSM.neg$n.event[SF.MSM.neg$time&lt;=horizon])
+  KM.MSM.neg &lt;- survival::survfit(S.MSM[data.to.be.imputed$SNstatus==&quot;Negative&quot;]~1, data=data.to.be.imputed)
+  out.MSM.neg &lt;- est.CI.n(KM=KM.MSM.neg, horizon=horizon)
   
   # positive patients, MSM
-  SF.MSM.pos &lt;- survival::survfit(S.MSM[data.to.be.imputed$SNstatus==&quot;Positive&quot;]~1, data=data.to.be.imputed)
-  MSS.pos &lt;- 100*SF.MSM.pos$surv[SF.MSM.pos$time==max(SF.MSM.pos$time[SF.MSM.pos$time&lt;=horizon])]
-  n.MSM.pos &lt;- sum(SF.MSM.pos$n.event[SF.MSM.pos$time&lt;=horizon])
+  KM.MSM.pos &lt;- survival::survfit(S.MSM[data.to.be.imputed$SNstatus==&quot;Positive&quot;]~1, data=data.to.be.imputed)
+  out.MSM.pos &lt;- est.CI.n(KM=KM.MSM.pos, horizon=horizon)
   
   # merge in one table
   Rec.MSM.table &lt;- data.frame(n=c(nrow(data.to.be.imputed),
                                   sum(data.to.be.imputed$SNstatus==&quot;Negative&quot;),
                                   sum(data.to.be.imputed$SNstatus==&quot;Positive&quot;)),
                               e1=rep(&quot;&quot;, 3),
-                              n.Rec=c(n.Rec.all, n.Rec.pos, n.Rec.neg),
-                              n.MSM=c(n.MSM.all, n.MSM.pos, n.MSM.neg),
+                              n.Rec=c(out.Rec.all$n, 
+                                      out.Rec.neg$n, 
+                                      out.Rec.pos$n),
+                              n.MSM=c(out.MSM.all$n, 
+                                      out.MSM.neg$n, 
+                                      out.MSM.pos$n),
                               e2=rep(&quot;&quot;, 3),
-                              RFS=sprintf(&quot;%.1f&quot;, c(RFS.all, RFS.neg, RFS.pos)),
-                              MSS=sprintf(&quot;%.1f&quot;, c(MSS.all, MSS.neg, MSS.pos)))
+                              Rec=sprintf(&quot;%.1f&quot;, c(out.Rec.all$est,
+                                                    out.Rec.neg$est,
+                                                    out.Rec.pos$est)),
+                              Rec.LCI=sprintf(&quot;%.1f&quot;, c(out.Rec.all$est.LCI,
+                                                        out.Rec.neg$est.LCI,
+                                                        out.Rec.pos$est.LCI)),
+                              Rec.UCI=sprintf(&quot;%.1f&quot;, c(out.Rec.all$est.UCI,
+                                                        out.Rec.neg$est.UCI,
+                                                        out.Rec.pos$est.UCI)),
+                              e3=rep(&quot;&quot;, 3),
+                              MSM=sprintf(&quot;%.1f&quot;, c(out.MSM.all$est,
+                                                    out.MSM.neg$est,
+                                                    out.MSM.pos$est)),
+                              MSM.LCI=sprintf(&quot;%.1f&quot;, c(out.MSM.all$est.LCI,
+                                                        out.MSM.neg$est.LCI,
+                                                        out.MSM.pos$est.LCI)),
+                              MSM.UCI=sprintf(&quot;%.1f&quot;, c(out.MSM.all$est.UCI, 
+                                                        out.MSM.neg$est.UCI, 
+                                                        out.MSM.pos$est.UCI)))
   row.names(Rec.MSM.table) &lt;- c(&quot;All&quot;, &quot;Negative&quot;, &quot;Positive&quot;)
   
   return(Rec.MSM.table)
@@ -508,13 +540,13 @@ utils::write.table(cbind(train.table, rep(&quot;&quot;, 3), val.table),
     
     assign(paste0(&quot;S.&quot;, outcome, &quot;.5.&quot;, type), S.5)
   }
-  save(list=c(paste0(&quot;dd.&quot;, type), &quot;m&quot;, &quot;horizon&quot;, 
+  save(list=c(paste0(&quot;dd.&quot;, type), &quot;m&quot;, &quot;horizon&quot;,
               paste0(type, &quot;.data.to.be.imputed&quot;),
-              paste0(&quot;imputed.&quot;, type, &quot;.data&quot;), 
+              paste0(&quot;imputed.&quot;, type, &quot;.data&quot;),
               paste0(&quot;last.imputed.&quot;, type, &quot;.data.set&quot;),
-              paste0(&quot;S.Rec.&quot;, type), 
+              paste0(&quot;S.Rec.&quot;, type),
               paste0(&quot;S.MSM.&quot;, type),
-              paste0(&quot;S.Rec.5.&quot;, type), 
+              paste0(&quot;S.Rec.5.&quot;, type),
               paste0(&quot;S.MSM.5.&quot;, type)),
      file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
 }</code></pre>

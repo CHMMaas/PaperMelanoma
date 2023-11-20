@@ -392,7 +392,11 @@ library(compareC)         # compare AJCC to model</code></pre>
     for (patient in 1:nrow(imputation.i)){
       breslow.patient &lt;- imputation.i[patient, &quot;Breslow&quot;]
       ulceration.patient &lt;- as.character(imputation.i[patient, &quot;Ulceration&quot;])
-      mitosis.patient &lt;- as.character(imputation.i[patient, &quot;Mitosis&quot;])
+      if (type==&quot;training&quot;){
+        mitosis.patient &lt;- as.character(imputation.i[patient, &quot;Mitosis&quot;])
+      } else{
+        mitosis.patient &lt;- ifelse(imputation.i[patient, &quot;Mitosis&quot;]&lt;1, &quot;Yes&quot;, &quot;No&quot;)
+      }
       nodes.patient &lt;- imputation.i[patient, &quot;Tot_SNs_pos&quot;]
   
       snstatus.patient &lt;- imputation.i[patient, &quot;SNstatus&quot;]
@@ -653,11 +657,7 @@ library(compareC)         # compare AJCC to model</code></pre>
 load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
 train.AJCC &lt;- calculate.AJCC.7.8(imputed.data=imputed.training.data, S.Rec.5=S.Rec.5.training, type=&quot;training&quot;)
 load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;)
-validation.data.to.be.imputed$Mitosis &lt;- validation.data.to.be.imputed$Mitosis&lt;1
-validation.data.to.be.imputed$Mitosis &lt;- factor(validation.data.to.be.imputed$Mitosis, labels=c(&quot;No&quot;, &quot;Yes&quot;))
 validation.AJCC &lt;- calculate.AJCC.7.8(imputed.data=imputed.validation.data, S.Rec.5=S.Rec.5.validation, type=&quot;validation&quot;)</code></pre>
-<pre><code>## Warning in cbind(c(&quot;1.1&quot;, &quot;1.2&quot;, &quot;2.1&quot;, &quot;2.2&quot;, &quot;2.3&quot;, &quot;3.1&quot;, &quot;3.2&quot;, &quot;3.3&quot;, :
-## number of rows of result is not a multiple of vector length (arg 2)</code></pre>
 </div>
 <div id="compare-c-index-of-ajcc-and-developed-model" class="section level1">
 <h1>Compare C-index of AJCC and developed model</h1>
