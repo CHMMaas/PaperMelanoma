@@ -351,7 +351,7 @@ display: none;
 
 <h1 class="title toc-ignore">Create calibration plots</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">January 2023</h4>
+<h4 class="date">November 2023</h4>
 
 </div>
 
@@ -372,9 +372,9 @@ library(survival)
 library(rms)
 library(mice)
 library(grDevices)
-source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quot;)
 # remotes::install_github(&quot;CHMMaas/PredictionTools&quot;)
-library(PredictionTools)  # to plot calibration</code></pre>
+library(PredictionTools)  # to plot calibration
+source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quot;)</code></pre>
 </div>
 </div>
 <div id="cross-validation-recurrence-5-years" class="section level1">
@@ -462,10 +462,9 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
       }
     }
   }
-}</code></pre>
-<pre><code>## Warning in fitter(X, Y, strata = Strata, offset = offset, weights = weights, :
-## Loglik converged before variable 1 ; coefficient may be infinite.</code></pre>
-<pre class="r"><code># combine calibration plots into one
+}
+
+# combine calibration plots into one
 for (select.value in c(&quot;All&quot;, &quot;Positive&quot;, &quot;Negative&quot;)){ 
   for (y in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/&quot;, y, &quot;.&quot;, select.value, &quot;.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)

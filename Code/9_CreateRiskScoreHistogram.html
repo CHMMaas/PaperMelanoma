@@ -351,7 +351,7 @@ display: none;
 
 <h1 class="title toc-ignore">Create histogram with risk scores</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">January 2023</h4>
+<h4 class="date">November 2023</h4>
 
 </div>
 
@@ -396,11 +396,11 @@ lp.MSM &lt;- rowMeans(lp.MSM.all)
 # TODO: Is this correct?
 lp.MSM.all[3,]</code></pre>
 <pre><code>##       lp.i       lp.i       lp.i       lp.i       lp.i 
-## -0.2294193 -0.2294193 -0.2294193  0.2413084 -0.2294193</code></pre>
+##  0.2537875 -0.2248408  0.2537875  0.2537875 -0.2248408</code></pre>
 <pre class="r"><code># lp range MSM
 rc.MSM &lt;- MSM.cal.fact*rc.Rec
 int.MSM &lt;- MSM.cal.fact*int.Rec
-max.range &lt;- 16
+max.range &lt;- 17
 points.range &lt;- 0:max.range
 lp.points.Rec.5 &lt;- int.Rec+rc.Rec*points.range
 lp.points.MSM.5 &lt;- int.MSM+rc.MSM*points.range
@@ -410,35 +410,40 @@ Breslow.trunc &lt;- last.imputed.training.data.set$Breslow
 Breslow.trunc[last.imputed.training.data.set$Breslow&lt;0.1] &lt;- .1
 Breslow.trunc[last.imputed.training.data.set$Breslow&gt;7] &lt;- 7
 lp.Rec &lt;- predict(f.mi.BS.Rec.5,newdata=data.frame(SNstatus=last.imputed.training.data.set$SNstatus,
-                                                         Age.SN=last.imputed.training.data.set$Age.SN,
-                                                         Ulceration=last.imputed.training.data.set$Ulceration,
-                                                         Loc_CAT=last.imputed.training.data.set$Loc_CAT,
-                                                         Breslow=Breslow.trunc,
-                                                         Rdamcrit=last.imputed.training.data.set$Rdamcrit))
+                           Age.SN=last.imputed.training.data.set$Age.SN,
+                           Ulceration=last.imputed.training.data.set$Ulceration,
+                           Loc_CAT=last.imputed.training.data.set$Loc_CAT,
+                           Breslow=Breslow.trunc,
+                           Rdamcrit=last.imputed.training.data.set$Rdamcrit))
 mean(lp.Rec)</code></pre>
-<pre><code>## [1] -0.01612013</code></pre>
-<pre class="r"><code>score.Rec &lt;- round((lp.Rec-int.Rec)/rc.Rec,0)
+<pre><code>## [1] -0.01583318</code></pre>
+<pre class="r"><code>score.Rec &lt;- round((lp.Rec-int.Rec)/rc.Rec, 0)
 max.breaks &lt;- max.range+1
-h.Rec &lt;- hist(score.Rec,plot=FALSE,breaks=0:max.breaks,right=FALSE, beside=TRUE)</code></pre>
+h.Rec &lt;- hist(score.Rec, 
+              plot=FALSE,
+              breaks=0:max.breaks,
+              right=FALSE, 
+              beside=TRUE)</code></pre>
 <pre><code>## Warning in hist.default(score.Rec, plot = FALSE, breaks = 0:max.breaks, :
 ## argument &#39;...&#39; is not made use of</code></pre>
 <pre class="r"><code># score table
 data.frame(table(score.Rec)/length(score.Rec))</code></pre>
 <pre><code>##    score.Rec         Freq
-## 1          4 0.0009825596
-## 2          5 0.0014738394
-## 3          6 0.0076148366
-## 4          7 0.0427413412
-## 5          8 0.1296978629
-## 6          9 0.1788258413
-## 7         10 0.1532792926
-## 8         11 0.1230655859
-## 9         12 0.1238025055
-## 10        13 0.1053795136
-## 11        14 0.0768852862
-## 12        15 0.0405305822
-## 13        16 0.0137558339
-## 14        17 0.0019651191</code></pre>
+## 1          4 0.0007369197
+## 2          5 0.0009825596
+## 3          6 0.0051584377
+## 4          7 0.0287398674
+## 5          8 0.0953082781
+## 6          9 0.1775976419
+## 7         10 0.1665438467
+## 8         11 0.1277327438
+## 9         12 0.1245394252
+## 10        13 0.1129943503
+## 11        14 0.0840088430
+## 12        15 0.0469172194
+## 13        16 0.0235814296
+## 14        17 0.0049127978
+## 15        18 0.0002456399</code></pre>
 </div>
 <div id="plot-of-risk-score-distribution" class="section level1">
 <h1>Plot of risk score distribution</h1>
@@ -460,31 +465,37 @@ plot(h.plot,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,
 par(new = TRUE)
 plot(points.range,p.Rec*100,type=&quot;b&quot;,lwd=1,xlim=x.lim,ylim=y.lim,pch=15, xlab=&quot;Risk score&quot;,ylab=&quot;Predicted 5-year risk (%)&quot;)
 points(points.range,p.MSM*100,type=&quot;b&quot;,lwd=1,xlim=x.lim,ylim=y.lim,pch=16)
-legend(x=0,y=100,legend=c(&quot;Recurrence&quot;,&quot;Melanoma-specific mortality&quot;),pch=c(15,16),cex=.9,bg=&quot;white&quot;)
+legend(x=0,y=100,legend=c(&quot;Recurrence or death&quot;,&quot;Melanoma-specific mortality&quot;),pch=c(15,16),cex=.9,bg=&quot;white&quot;)
 grDevices::dev.off()</code></pre>
 <pre><code>## png 
 ##   2</code></pre>
 <pre><code>##      points.range          
 ## [1,]            0  0.3  0.1
-## [2,]            8  7.4  2.5
-## [3,]            9 10.9  4.0
-## [4,]           11 22.8  9.8
-## [5,]           12 32.1 15.2</code></pre>
+## [2,]            8  6.5  2.2
+## [3,]            9  9.5  3.5
+## [4,]           11 20.3  8.6
+## [5,]           12 28.9 13.3</code></pre>
 </div>
 <div id="save-for-rshiny-app" class="section level1">
 <h1>Save for Rshiny app</h1>
 <pre class="r"><code>coef.Rec &lt;- stats::coef(f.mi.BS.Rec.5)
 center.Rec &lt;- f.mi.BS.Rec.5$center
 
-save(h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec, MSM.cal.fact,
-     file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata&quot;), compress=TRUE)
-save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;, &quot;m&quot;, &quot;imputed.training.data&quot;, 
-            &quot;last.imputed.training.data.set&quot;, &quot;horizon&quot;, &quot;S.Rec.5.training&quot;, &quot;S.MSM.5.training&quot;,
-            &quot;f.mi.full.Rec.5&quot;, &quot;f.mi.BS.Rec.5&quot;, &quot;f.mi.full.MSM.5.refit&quot;, &quot;f.mi.BS.MSM.5.refit&quot;, &quot;MSM.cal.fact&quot;, &quot;c.Breslow&quot;, 
-            &quot;form.full.Rec.5&quot;, &quot;form.BS.Rec.5&quot;, &quot;form.full.MSM.5.refit&quot;, &quot;form.BS.MSM.5.refit&quot;, 
+save(rc.Rec, int.Rec, f.mi.BS.Rec.5, MSM.cal.fact, max.range,
+     file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/model.Rdata&quot;, 
+     compress=TRUE)
+
+save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;, &quot;m&quot;, 
+            &quot;imputed.training.data&quot;, &quot;last.imputed.training.data.set&quot;, 
+            &quot;horizon&quot;, &quot;S.Rec.5.training&quot;, &quot;S.MSM.5.training&quot;,
+            &quot;f.mi.full.Rec.5&quot;, &quot;f.mi.BS.Rec.5&quot;, 
+            &quot;f.mi.full.MSM.5.refit&quot;, &quot;f.mi.BS.MSM.5.refit&quot;, 
+            &quot;MSM.cal.fact&quot;, &quot;c.Breslow&quot;, &quot;optimism&quot;,
+            &quot;form.full.Rec.5&quot;, &quot;form.BS.Rec.5&quot;, 
+            &quot;form.full.MSM.5.refit&quot;, &quot;form.BS.MSM.5.refit&quot;, 
             &quot;rc.Rec&quot;, &quot;int.Rec&quot;, &quot;h0.Rec&quot;, &quot;lp.points.Rec.5&quot;,
             &quot;rc.MSM&quot;, &quot;rc.Rec&quot;, &quot;h0.MSM&quot;, &quot;lp.points.MSM.5&quot;,
-            &quot;lp.Rec&quot;, &quot;lp.MSM&quot;, &quot;max.breaks&quot;, &quot;h.Rec&quot;, 
+            &quot;lp.Rec&quot;, &quot;lp.MSM&quot;, &quot;max.breaks&quot;, &quot;h.Rec&quot;,
             &quot;h.plot&quot;, &quot;y.lim.hist&quot;, &quot;x.lim&quot;, &quot;coef.Rec&quot;, &quot;center.Rec&quot;),
      file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;, compress=TRUE)</code></pre>
 </div>
@@ -498,7 +509,7 @@ plot &lt;- ggplot(data=data.frame(), aes(x=0:max.range, y=0:100))+
   geom_bar(data=last.imputed.training.data.set, 
            aes(x=score.Rec, y=(..count..)/sum(..count..)*400, fill=SNstatus))+
   geom_line(aes(x=points.range, y=p.Rec*100))+
-  geom_point(aes(x=points.range, y=p.Rec*100, alpha=&quot;Recurrence&quot;), shape=15)+
+  geom_point(aes(x=points.range, y=p.Rec*100, alpha=&quot;Recurrence or death&quot;), shape=15)+
   geom_line(aes(x=points.range, y=p.MSM*100))+
   geom_point(aes(x=points.range, y=p.MSM*100, alpha=&quot;Melanoma-specific mortality&quot;), shape=19)+
   scale_y_continuous(limits=c(0, 100), minor_breaks=seq(0, 100, 5),
@@ -510,7 +521,7 @@ plot &lt;- ggplot(data=data.frame(), aes(x=0:max.range, y=0:100))+
                       labels=c(&quot;Negative SN status&quot;, &quot;Positive SN status&quot;))+
   scale_alpha_manual(name=NULL, 
                      values=c(15, 19),
-                     breaks=c(&quot;Recurrence&quot;, &quot;Melanoma-specific mortality&quot;),
+                     breaks=c(&quot;Recurrence or death&quot;, &quot;Melanoma-specific mortality&quot;),
                      guide=guide_legend(override.aes=list(linetype=c(0, 1), 
                                                           shape=c(15, 19), 
                                                           color=&quot;black&quot;)))+

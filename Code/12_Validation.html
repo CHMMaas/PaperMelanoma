@@ -12,7 +12,7 @@
 <meta name="author" content="Carolien C.H.M. Maas" />
 
 
-<title>Create histogram with risk scores</title>
+<title>Validate model</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -349,9 +349,9 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Create histogram with risk scores</h1>
+<h1 class="title toc-ignore">Validate model</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">January 2023</h4>
+<h4 class="date">November 2023</h4>
 
 </div>
 
@@ -375,10 +375,7 @@ source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quo
 </div>
 <div id="training-data" class="section level1">
 <h1>Training data</h1>
-<pre class="r"><code># load model
-load(&quot;Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata&quot;)
-
-# load data
+<pre class="r"><code># load data
 load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
 
 # predictions on training data
@@ -388,31 +385,9 @@ for (i in 1:m){
   lp.train.i &lt;- predict(f.mi.BS.Rec.5,
                       newdata=mice::complete(imputed.training.data, i),
                       type=&quot;lp&quot;)
-  print(head(lp.train.i))
   p.Rec.5.training[, i] &lt;- fun.event(h0=h0.Rec, lp=lp.train.i)
   p.MSM.5.training[, i] &lt;- fun.event(h0=h0.MSM, lp=MSM.cal.fact*lp.train.i)
 }</code></pre>
-<pre><code>##          1          2          3          4          5          6 
-## -0.4083784 -0.7170910 -0.2294193 -0.6309319 -0.5243890  0.5437015 
-##          1          2          3          4          5          6 
-## -0.4083784 -0.7170910 -0.2294193 -0.6309319 -0.5243890  0.5437015 
-##           1           2           3           4           5           6 
-## -0.40837838 -0.71709103 -0.22941933 -0.63093192 -0.05366125  0.54370149 
-##          1          2          3          4          5          6 
-## -0.4083784 -0.7170910  0.2413084 -0.6309319 -0.5243890  0.5437015 
-##           1           2           3           4           5           6 
-##  0.06234936 -0.71709103 -0.22941933 -0.63093192 -0.05366125  0.54370149</code></pre>
-<pre class="r"><code>print(coef(f.mi.BS.Rec.5))</code></pre>
-<pre><code>##           SNstatus=Positive                      Age.SN 
-##                  1.06830180                  0.01370477 
-##              Ulceration=Yes                 Loc_CAT=leg 
-##                  0.47072774                  0.11152393 
-##               Loc_CAT=trunk         Loc_CAT=head &amp; neck 
-##                  0.25084373                  0.61059465 
-##                     Breslow                    Rdamcrit 
-##                  0.82226865                  0.18733219 
-## SNstatus=Positive * Breslow 
-##                 -0.41730593</code></pre>
 </div>
 <div id="validation-data" class="section level1">
 <h1>Validation data</h1>
@@ -439,21 +414,27 @@ for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.All.png&quot;))
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p, S,
-                                 g=5,main=&quot;All patients&quot;, time=NULL,lim=c(0,1),dist=TRUE)
+                                 g=5, main=&quot;All patients&quot;, time=NULL, 
+                                 lim=c(0,1), dist=TRUE,
+                                 optimism.C=ifelse(data.type==&quot;training&quot;, optimism, 0))
     grDevices::dev.off()
     
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Positive.png&quot;))
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus==&quot;Positive&quot;,],
                                  S[data$SNstatus==&quot;Positive&quot;,],
-                                 g=5,main=&quot;Patients with positive SN&quot;, time=NULL,lim=c(0,1),dist=TRUE)
+                                 g=5, main=&quot;Patients with positive SN&quot;, 
+                                 time=NULL, lim=c(0,1), dist=TRUE,
+                                 optimism.C=ifelse(data.type==&quot;training&quot;, optimism, 0))
     grDevices::dev.off()
     
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Negative.png&quot;))
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus==&quot;Negative&quot;,],
                                  S[data$SNstatus==&quot;Negative&quot;,],
-                                 g=5,main=&quot;Patients with negative SN&quot;, time=NULL,lim=c(0,1),dist=TRUE)
+                                 g=5, main=&quot;Patients with negative SN&quot;, 
+                                 time=NULL, lim=c(0,1), dist=TRUE,
+                                 optimism.C=ifelse(data.type==&quot;training&quot;, optimism, 0))
     grDevices::dev.off()
     
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Neg.Pos.png&quot;), 

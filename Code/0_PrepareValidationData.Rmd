@@ -1,7 +1,7 @@
 ---
 title: "Prepare Validation Data"
 author: "Carolien C.H.M. Maas"
-date: "January 2023"
+date: "November 2023"
 output: html_document
 ---
 
@@ -115,26 +115,39 @@ sel.val.data$FU.time <- (sel.val.data$Last_FU-sel.val.data$SNdate)/(24*60*60)/36
 
 Define recurrence time in years
 ```{r, eval=TRUE}
-sel.val.data$Rec.time <- (sel.val.data$Date_1st_Rec-sel.val.data$SNdate)/(24*60*60)/365.25
+sel.val.data$Recurrence.time <- (sel.val.data$Date_1st_Rec-sel.val.data$SNdate)/(24*60*60)/365.25
 ```
 
 Check: no patients with Rec date before SN date
 ```{r, eval=TRUE}
-sum(!(!(sel.val.data$Rec.time<0&!is.na(sel.val.data$Rec.time))))
+sum(!(!(sel.val.data$Recurrence.time<0&!is.na(sel.val.data$Recurrence.time))))
 ```
-
-Set recurrence time equal to follow-up time for those without recurrence
-```{r, eval=TRUE}
-sel.val.data$Rec.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)]<-sel.val.data$FU.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)]
-
-sel.val.data$Rec.time[sel.val.data$Recurrence=="recurrence"&is.na(sel.val.data$Date_1st_Rec)]<-NA
-table(sel.val.data$Status, sel.val.data$Recurrence)
-```
-
-#### Melanoma specific mortality (MSM)
+# Define death by any cause
 ```{r, eval=TRUE}
 sel.val.data$dead <- as.numeric(stringr::str_detect(sel.val.data$Status, "Dead"))
 sel.val.data$dead <- factor(sel.val.data$dead, labels=c("No", "Yes"))
+``` 
+<!-- Set recurrence time equal to follow-up time for those without recurrence -->
+<!-- ```{r, eval=TRUE} -->
+<!-- sel.val.data$Recurrence.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)]<-sel.val.data$FU.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)] -->
+
+<!-- sel.val.data$Recurrence.time[sel.val.data$Recurrence=="recurrence"&is.na(sel.val.data$Date_1st_Rec)]<-NA -->
+<!-- table(sel.val.data$Status, sel.val.data$Recurrence) -->
+<!-- ``` -->
+Create composite Recurrence
+```{r, eval=TRUE}
+# event = 1 if recurrence or death, whichever occurs first
+sel.val.data$Rec.composite <- ifelse(sel.val.data$Recurrence=="recurred" | sel.val.data$dead=="Yes", 1, 0)
+
+# if patient has recurrence, set time to Recurrence.time
+# if patient has no recurrence, but died, set time to FU.time
+# if patient has no recurrence, and did not die, set to FU.time
+sel.val.data$Rec.composite.time <- ifelse(sel.val.data$Recurrence=="recurred", 
+       sel.val.data$Recurrence.time,
+       sel.val.data$FU.time)
+```
+#### Melanoma specific mortality (MSM)
+```{r, eval=TRUE}
 table(sel.val.data$Status, sel.val.data$dead)
 sel.val.data$MSM <- as.numeric(sel.val.data$Status=="Dead, melanoma       ")
 ```
@@ -160,13 +173,22 @@ sel.val.data$multiple.fields <- factor(sel.val.data$multiple.fields, labels=c("M
 sel.val.data$MSM <- factor(sel.val.data$MSM, labels=c("Other", "Death by melanoma"))
 ```
 
+Relation between outcome and covariates
+```{r, eval=TRUE}
+sel.val.data$logRec.composite.time <- log(sel.val.data$Rec.composite.time+1/365.25)
+sel.val.data$logFU.time <- log(sel.val.data$FU.time+1/365.25)
+```
+
 # Multiple imputation
 ```{r, eval=TRUE}
 variables.to.be.imputed <- c("Center", "SNstatus", "Sex", "Age.SN", "Ulceration",
                              "Loc_CAT", "Histology", "Breslow", "multiple.fields",
                              "Tot_SNs_neg", "Tot_SNs_pos", "Rdamcrit", "Dewar",
-                             "Mitosis", "Recurrence", "dead", "MSM")
+                             "Mitosis", "Status",
+                             "Rec.composite", "logRec.composite.time", 
+                             "MSM", "logFU.time")
 validation.data.to.be.imputed <- sel.val.data[, variables.to.be.imputed]
+missings.table(validation.data.to.be.imputed)
 ```
 
 Save distributions of all variables, necessary for Harrell summaries
@@ -174,12 +196,5 @@ Save distributions of all variables, necessary for Harrell summaries
 dd.validation<-rms::datadist(validation.data.to.be.imputed)
 options(datadist="dd.validation")
 options(digits=8)
-```
-
-Relation between outcome and covariates
-```{r, eval=TRUE}
-validation.data.to.be.imputed$logRec.time <- log(sel.val.data$Rec.time+1/365.25)
-validation.data.to.be.imputed$logFU.time <- log(sel.val.data$FU.time+1/365.25)
-missings.table(validation.data.to.be.imputed)
 save(list=c("dd.validation", "validation.data.to.be.imputed"),file="Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata", compress=TRUE)
 ```

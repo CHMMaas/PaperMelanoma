@@ -1,7 +1,7 @@
 ---
 title: "Prepare Training Data"
 author: "Carolien C.H.M. Maas"
-date: "January 2023"
+date: "November 2023"
 output: html_document
 ---
 
@@ -94,7 +94,7 @@ sum(!is.na(sel.train.data$Tot_SNs_neg)&sel.train.data$Tot_SNs_neg>0&sel.train.da
 ```
 
 #### SN tumour burden
-11 patients with positive SN have SN tumour burden of exactly 1
+11 patients with positive SN have SN tumour burden (maximum diameter) of exactly 1
 ```{r, eval=TRUE}
 sum(sel.train.data$Rdamcrit==1&sel.train.data$SNstatus=="Positive"&!is.na(sel.train.data$Rdamcrit))
 ```
@@ -124,33 +124,42 @@ sel.train.data$FU.time <- (sel.train.data$Last_FU-sel.train.data$SNdate)/(24*60*
 
 Define recurrence time in years
 ```{r, eval=TRUE}
-sel.train.data$Rec.time <- (sel.train.data$Date_1st_Rec-sel.train.data$SNdate)/(24*60*60)/365.25
+sel.train.data$Recurrence.time <- (sel.train.data$Date_1st_Rec-sel.train.data$SNdate)/(24*60*60)/365.25
 ```
 
 Omit five patients with Rec date before SN date
 ```{r, eval=TRUE}
 old.n <- nrow(sel.train.data)
-sel.train.data <- sel.train.data[!(sel.train.data$Rec.time<0&!is.na(sel.train.data$Rec.time)),]
+sel.train.data <- sel.train.data[!(sel.train.data$Recurrence.time<0&!is.na(sel.train.data$Recurrence.time)),]
 cat("Number of patients excluded:", old.n-nrow(sel.train.data), "\n")
 ```
-
-Set recurrence time equal to follow-up time for those without recurrence
-```{r, eval=TRUE}
-sel.train.data$Rec.time[sel.train.data$Recurrence=="no recurrence"|is.na(sel.train.data$SNdate)]<-sel.train.data$FU.time[sel.train.data$Recurrence=="no recurrence"|is.na(sel.train.data$SNdate)]
-table(sel.train.data$Status, sel.train.data$Recurrence)
-```
-
-Impute recurrence time for 45 patients with missing Rec.time but Recurrence=="recurred"
+Impute recurrence time for 45 patients with missing Recurrence.time but Recurrence=="recurred"
 ```{r, eval=TRUE}
 cat("Number of patients dead with recurrence without Date_1st_Rec:", sum(is.na(sel.train.data$Date_1st_Rec)&sel.train.data$Recurrence=="recurred"&sel.train.data$dead=="Yes"), "\n")
 cat("Number of patients alive with recurrence without Date_1st_Rec:", sum(is.na(sel.train.data$Date_1st_Rec)&sel.train.data$Recurrence=="recurred"&sel.train.data$dead=="No"))
 ```
+Create composite Recurrence
+```{r, eval=TRUE}
+# event = 1 if recurrence or death, whichever occurs first
+sel.train.data$Rec.composite <- ifelse(sel.train.data$Recurrence=="recurred" | sel.train.data$dead=="Yes", 1, 0)
 
+# if patient has recurrence, set time to Recurrence.time
+# if patient has no recurrence, but died, set time to FU.time
+# if patient has no recurrence, and did not die, set to FU.time
+sel.train.data$Rec.composite.time <- ifelse(sel.train.data$Recurrence=="recurred", 
+       sel.train.data$Recurrence.time,
+       sel.train.data$FU.time)
+```
 #### Melanoma specific mortality (MSM)
 ```{r, eval=TRUE}
 # 504 patients died due to melanoma, 102 patients died from other causes
 table(sel.train.data$Status, sel.train.data$dead)
 sel.train.data$MSM <- 1*(sel.train.data$Status=="DOD")
+```
+#### Relation between outcome and covariates
+```{r, eval=TRUE}
+sel.train.data$logRec.composite.time <- log(sel.train.data$Rec.composite.time+1/365.25)
+sel.train.data$logFU.time <- log(sel.train.data$FU.time+1/365.25)
 ```
 
 #### Mitosis
@@ -173,17 +182,22 @@ sel.train.data$Mitosis[sel.train.data$Mitosis=="Unknown"] <- NA
 sel.train.data <- droplevels(sel.train.data)
 
 # set levels for multiple.fields
-sel.train.data$multiple.fields <- factor(sel.train.data$multiple.fields, labels=c("Other", "Multiple SN fields"))
-sel.train.data$MSM <- factor(sel.train.data$MSM, labels=c("Other", "Death by melanoma"))
+sel.train.data$multiple.fields <- factor(sel.train.data$multiple.fields, 
+                                         labels=c("Other", "Multiple SN fields"))
+sel.train.data$MSM <- factor(sel.train.data$MSM, 
+                             labels=c("Other", "Death by melanoma"))
 ```
 
-# Multiple imputation
+# Prepare Multiple imputation
 ```{r, eval=TRUE}
 variables.to.be.imputed <- c("Center", "SNstatus", "Sex", "Age.SN", "Ulceration",
                              "Loc_CAT", "Histology", "Breslow", "multiple.fields",
                              "Tot_SNs_neg", "Tot_SNs_pos", "Rdamcrit", "Dewar",
-                             "Mitosis", "Status", "Recurrence", "dead", "MSM")
+                             "Mitosis", "Status", 
+                             "Rec.composite", "logRec.composite.time",
+                             "MSM", "logFU.time")
 training.data.to.be.imputed <- sel.train.data[, variables.to.be.imputed]
+missings.table(training.data.to.be.imputed)
 ```
 
 Save distributions of all variables, necessary for Harrell summaries
@@ -191,12 +205,8 @@ Save distributions of all variables, necessary for Harrell summaries
 dd.training<-rms::datadist(training.data.to.be.imputed)
 options(datadist="dd.training")
 options(digits=8)
+save(list=c("dd.training", "training.data.to.be.imputed"),
+     file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", 
+     compress=TRUE)
 ```
 
-Relation between outcome and covariates
-```{r, eval=TRUE}
-training.data.to.be.imputed$logRec.time <- log(sel.train.data$Rec.time+1/365.25)
-training.data.to.be.imputed$logFU.time <- log(sel.train.data$FU.time+1/365.25)
-missings.table(training.data.to.be.imputed)
-# save(list=c("dd.training", "training.data.to.be.imputed"),file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
-```

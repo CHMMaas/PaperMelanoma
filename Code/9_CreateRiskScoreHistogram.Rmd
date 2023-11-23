@@ -1,7 +1,7 @@
 ---
 title: "Create histogram with risk scores"
 author: "Carolien C.H.M. Maas"
-date: "January 2023"
+date: "November 2023"
 output: html_document
 ---
 
@@ -52,7 +52,7 @@ lp.MSM.all[3,]
 # lp range MSM
 rc.MSM <- MSM.cal.fact*rc.Rec
 int.MSM <- MSM.cal.fact*int.Rec
-max.range <- 16
+max.range <- 17
 points.range <- 0:max.range
 lp.points.Rec.5 <- int.Rec+rc.Rec*points.range
 lp.points.MSM.5 <- int.MSM+rc.MSM*points.range
@@ -62,15 +62,19 @@ Breslow.trunc <- last.imputed.training.data.set$Breslow
 Breslow.trunc[last.imputed.training.data.set$Breslow<0.1] <- .1
 Breslow.trunc[last.imputed.training.data.set$Breslow>7] <- 7
 lp.Rec <- predict(f.mi.BS.Rec.5,newdata=data.frame(SNstatus=last.imputed.training.data.set$SNstatus,
-                                                         Age.SN=last.imputed.training.data.set$Age.SN,
-                                                         Ulceration=last.imputed.training.data.set$Ulceration,
-                                                         Loc_CAT=last.imputed.training.data.set$Loc_CAT,
-                                                         Breslow=Breslow.trunc,
-                                                         Rdamcrit=last.imputed.training.data.set$Rdamcrit))
+                           Age.SN=last.imputed.training.data.set$Age.SN,
+                           Ulceration=last.imputed.training.data.set$Ulceration,
+                           Loc_CAT=last.imputed.training.data.set$Loc_CAT,
+                           Breslow=Breslow.trunc,
+                           Rdamcrit=last.imputed.training.data.set$Rdamcrit))
 mean(lp.Rec)
-score.Rec <- round((lp.Rec-int.Rec)/rc.Rec,0)
+score.Rec <- round((lp.Rec-int.Rec)/rc.Rec, 0)
 max.breaks <- max.range+1
-h.Rec <- hist(score.Rec,plot=FALSE,breaks=0:max.breaks,right=FALSE, beside=TRUE)
+h.Rec <- hist(score.Rec, 
+              plot=FALSE,
+              breaks=0:max.breaks,
+              right=FALSE, 
+              beside=TRUE)
 
 # score table
 data.frame(table(score.Rec)/length(score.Rec))
@@ -109,15 +113,21 @@ cbind(points.range, round(p.Rec*100, 1), round(p.MSM*100, 1))[c(1, 9, 10, 12, 13
 coef.Rec <- stats::coef(f.mi.BS.Rec.5)
 center.Rec <- f.mi.BS.Rec.5$center
 
-save(h0.Rec, h0.MSM, coef.Rec, c.Breslow, center.Rec, MSM.cal.fact,
-     file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata"), compress=TRUE)
-save(list=c("dd.training", "training.data.to.be.imputed", "m", "imputed.training.data", 
-            "last.imputed.training.data.set", "horizon", "S.Rec.5.training", "S.MSM.5.training",
-            "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", 
-            "form.full.Rec.5", "form.BS.Rec.5", "form.full.MSM.5.refit", "form.BS.MSM.5.refit", 
+save(rc.Rec, int.Rec, f.mi.BS.Rec.5, MSM.cal.fact, max.range,
+     file="Z:/Project Melanoom/PaperMelanoma/Results/model.Rdata", 
+     compress=TRUE)
+
+save(list=c("dd.training", "training.data.to.be.imputed", "m", 
+            "imputed.training.data", "last.imputed.training.data.set", 
+            "horizon", "S.Rec.5.training", "S.MSM.5.training",
+            "f.mi.full.Rec.5", "f.mi.BS.Rec.5", 
+            "f.mi.full.MSM.5.refit", "f.mi.BS.MSM.5.refit", 
+            "MSM.cal.fact", "c.Breslow", "optimism",
+            "form.full.Rec.5", "form.BS.Rec.5", 
+            "form.full.MSM.5.refit", "form.BS.MSM.5.refit", 
             "rc.Rec", "int.Rec", "h0.Rec", "lp.points.Rec.5",
             "rc.MSM", "rc.Rec", "h0.MSM", "lp.points.MSM.5",
-            "lp.Rec", "lp.MSM", "max.breaks", "h.Rec", 
+            "lp.Rec", "lp.MSM", "max.breaks", "h.Rec",
             "h.plot", "y.lim.hist", "x.lim", "coef.Rec", "center.Rec"),
      file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
 ```

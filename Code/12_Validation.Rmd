@@ -1,7 +1,7 @@
 ---
-title: "Create histogram with risk scores"
+title: "Validate model"
 author: "Carolien C.H.M. Maas"
-date: "January 2023"
+date: "November 2023"
 output: html_document
 ---
 
@@ -28,9 +28,6 @@ source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
 
 # Training data
 ```{r, eval=TRUE}
-# load model
-load("Z:/Project Melanoom/PaperMelanoma/Results/h0.Rec.MSM.Rdata")
-
 # load data
 load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData")
 
@@ -41,11 +38,9 @@ for (i in 1:m){
   lp.train.i <- predict(f.mi.BS.Rec.5,
                       newdata=mice::complete(imputed.training.data, i),
                       type="lp")
-  print(head(lp.train.i))
   p.Rec.5.training[, i] <- fun.event(h0=h0.Rec, lp=lp.train.i)
   p.MSM.5.training[, i] <- fun.event(h0=h0.MSM, lp=MSM.cal.fact*lp.train.i)
 }
-print(coef(f.mi.BS.Rec.5))
 ```
 
 # Validation data
@@ -76,21 +71,27 @@ for (data.type in c("training", "validation")){
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".All.png"))
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p, S,
-                                 g=5,main="All patients", time=NULL,lim=c(0,1),dist=TRUE)
+                                 g=5, main="All patients", time=NULL, 
+                                 lim=c(0,1), dist=TRUE,
+                                 optimism.C=ifelse(data.type=="training", optimism, 0))
     grDevices::dev.off()
     
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Positive.png"))
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus=="Positive",],
                                  S[data$SNstatus=="Positive",],
-                                 g=5,main="Patients with positive SN", time=NULL,lim=c(0,1),dist=TRUE)
+                                 g=5, main="Patients with positive SN", 
+                                 time=NULL, lim=c(0,1), dist=TRUE,
+                                 optimism.C=ifelse(data.type=="training", optimism, 0))
     grDevices::dev.off()
     
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Negative.png"))
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus=="Negative",],
                                  S[data$SNstatus=="Negative",],
-                                 g=5,main="Patients with negative SN", time=NULL,lim=c(0,1),dist=TRUE)
+                                 g=5, main="Patients with negative SN", 
+                                 time=NULL, lim=c(0,1), dist=TRUE,
+                                 optimism.C=ifelse(data.type=="training", optimism, 0))
     grDevices::dev.off()
     
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Neg.Pos.png"), 

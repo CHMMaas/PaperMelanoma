@@ -351,7 +351,7 @@ display: none;
 
 <h1 class="title toc-ignore">Descriptive statistics</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">January 2023</h4>
+<h4 class="date">November 2023</h4>
 
 </div>
 
@@ -380,9 +380,8 @@ source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quo
   imputed.data &lt;- eval(parse(text=paste0(&quot;imputed.&quot;, type, &quot;.data&quot;)))
   last.imputed.data.set &lt;- mice::complete(imputed.data, m)
   
-  Rec.event.composite &lt;- ifelse(last.imputed.data.set$Recurrence==&quot;recurred&quot;, 1, 0) # last.imputed.data.set$dead==&quot;Yes&quot;
-  assign(paste0(&quot;S.Rec.&quot;, type), survival::Surv(exp(last.imputed.data.set$logRec.time), 
-                                                Rec.event.composite))
+  assign(paste0(&quot;S.Rec.&quot;, type), survival::Surv(exp(last.imputed.data.set$logRec.composite.time), 
+                                                last.imputed.data.set$Rec.composite))
   assign(paste0(&quot;S.MSM.&quot;, type), survival::Surv(exp(last.imputed.data.set$logFU.time), 
                                                 last.imputed.data.set$MSM==&quot;Death by melanoma&quot;))
   
@@ -406,17 +405,24 @@ prepare.data(type=&quot;validation&quot;)</code></pre>
 <pre class="r"><code>median.time &lt;- function(data=NA, type=NA){
   # time in total
   if (type==&quot;Rec&quot;){
-    median.time.total &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logRec.time), 
-                                                                        ifelse(Recurrence==&quot;recurred&quot; , 1, 0))~1, data=data[data$Center!=&quot;Australia&quot;,], reverse=TRUE)) # | dead==&quot;Yes&quot;
-    median.time &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logRec.time), ifelse(Recurrence==&quot;recurred&quot; , 1, 0))~Center, data=data, reverse=TRUE)) # | dead==&quot;Yes&quot;
+    median.time.total &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logRec.composite.time), 
+                                                                        Rec.composite)~1, data=data[data$Center!=&quot;Australia&quot;,], reverse=TRUE))
+    median.time &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logRec.composite.time), 
+                                                                  Rec.composite)~Center, data=data, reverse=TRUE))
   } else if (type==&quot;FU&quot;){
-    median.time.total &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM==&quot;Death by melanoma&quot;)~1, data=data[data$Center!=&quot;Australia&quot;,], reverse=TRUE))
-    median.time &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), MSM==&quot;Death by melanoma&quot;)~Center, data=data, reverse=TRUE))
+    median.time.total &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), 
+                                                                        MSM==&quot;Death by melanoma&quot;)~1, 
+                                                          data=data[data$Center!=&quot;Australia&quot;,], 
+                                                          reverse=TRUE))
+    median.time &lt;- stats::quantile(prodlim::prodlim(prodlim::Hist(exp(logFU.time), 
+                                                                  MSM==&quot;Death by melanoma&quot;)~Center, 
+                                                    data=data, 
+                                                    reverse=TRUE))
   }
   # save in tab.time
-  tab.time &lt;- c(&quot;Total Development&quot;, paste(sprintf(&quot;%.2f&quot;, median.time.total$quantile[3]),
-                   paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, median.time.total$quantile[4]), &quot;; &quot;,
-                          sprintf(&quot;%.2f&quot;, median.time.total$quantile[2]), &quot;]&quot;)))
+  tab.time &lt;- c(&quot;Total Development&quot;, paste(sprintf(&quot;%.1f&quot;, median.time.total$quantile[3]),
+                   paste0(&quot;[&quot;, sprintf(&quot;%.1f&quot;, median.time.total$quantile[4]), &quot;; &quot;,
+                          sprintf(&quot;%.1f&quot;, median.time.total$quantile[2]), &quot;]&quot;)))
   
   # time per center
   for (center in c(&quot;Amsterdam&quot;, &quot;Berlin&quot;, &quot;Rotterdam&quot;, &quot;Warsaw&quot;, &quot;Australia&quot;)){
@@ -425,15 +431,15 @@ prepare.data(type=&quot;validation&quot;)</code></pre>
     med &lt;- q.center[3]
     lower &lt;- q.center[4]
     upper &lt;- q.center[2]
-    tab.time &lt;- rbind(tab.time, c(center, paste(sprintf(&quot;%.2f&quot;, med), paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, lower), &quot;; &quot;, sprintf(&quot;%.2f&quot;, upper), &quot;]&quot;))))
+    tab.time &lt;- rbind(tab.time, c(center, paste(sprintf(&quot;%.1f&quot;, med), paste0(&quot;[&quot;, sprintf(&quot;%.1f&quot;, lower), &quot;; &quot;, sprintf(&quot;%.1f&quot;, upper), &quot;]&quot;))))
   }
   
   return(tab.time)
 }
 load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;))
 load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;))
-med.Rec &lt;- median.time(data=rbind(training.data.to.be.imputed[, c(&quot;logRec.time&quot;, &quot;Recurrence&quot;, &quot;dead&quot;, &quot;Center&quot;)], 
-                       validation.data.to.be.imputed[, c(&quot;logRec.time&quot;, &quot;Recurrence&quot;, &quot;dead&quot;, &quot;Center&quot;)]), type=&quot;Rec&quot;)
+med.Rec &lt;- median.time(data=rbind(training.data.to.be.imputed[, c(&quot;logRec.composite.time&quot;, &quot;Rec.composite&quot;, &quot;Center&quot;)], 
+                       validation.data.to.be.imputed[, c(&quot;logRec.composite.time&quot;, &quot;Rec.composite&quot;, &quot;Center&quot;)]), type=&quot;Rec&quot;)
 med.FU &lt;- median.time(data=rbind(training.data.to.be.imputed[, c(&quot;logFU.time&quot;, &quot;MSM&quot;, &quot;Center&quot;)], 
                        validation.data.to.be.imputed[, c(&quot;logFU.time&quot;, &quot;MSM&quot;, &quot;Center&quot;)]), type=&quot;FU&quot;)
 # save to .txt
@@ -520,8 +526,10 @@ Rec.MSM.table &lt;- function(horizon=5, type=NULL, data.to.be.imputed=NULL){
   return(Rec.MSM.table)
 }
 horizon &lt;- 5
-train.table &lt;- Rec.MSM.table(horizon=horizon, type=&quot;training&quot;, data.to.be.imputed=training.data.to.be.imputed)
-val.table &lt;- Rec.MSM.table(horizon=horizon, type=&quot;validation&quot;, data.to.be.imputed=validation.data.to.be.imputed)
+train.table &lt;- Rec.MSM.table(horizon=horizon, type=&quot;training&quot;, 
+                             data.to.be.imputed=training.data.to.be.imputed)
+val.table &lt;- Rec.MSM.table(horizon=horizon, type=&quot;validation&quot;, 
+                           data.to.be.imputed=validation.data.to.be.imputed)
 
 utils::write.table(cbind(train.table, rep(&quot;&quot;, 3), val.table),
                    file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Rec.MSM.table.txt&quot;),
@@ -550,17 +558,27 @@ utils::write.table(cbind(train.table, rep(&quot;&quot;, 3), val.table),
               paste0(&quot;S.MSM.5.&quot;, type)),
      file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/&quot;, type, &quot;/&quot;, type, &quot;.data.Rdata&quot;), compress=TRUE)
 }</code></pre>
-<pre><code>## Number of patients with follow-up for Rec after 5 years: 1497 in training  data 
+<pre><code>## Number of patients with follow-up for Rec after 5 years: 1500 in training  data 
 ## Number of patients with follow-up for MSM after 5 years: 1678 in training  data 
 ## Number of patients with follow-up for Rec after 5 years: 1651 in validation  data 
 ## Number of patients with follow-up for MSM after 5 years: 2022 in validation  data</code></pre>
 <div id="kaplan-meier-plots" class="section level3">
 <h3>Kaplan-Meier plots</h3>
-<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.training.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
-survminer::ggsurvplot(survival::survfit(S.Rec.5.training ~ Center, data=last.imputed.training.data.set), 
+<pre class="r"><code>pooled.data &lt;- rbind(last.imputed.training.data.set, last.imputed.validation.data.set)</code></pre>
+<pre><code>## Warning in `[&lt;-.factor`(`*tmp*`, ri, value = c(1, 6, 12, 2, 4, 3, 1, 3, :
+## invalid factor level, NA generated</code></pre>
+<pre class="r"><code>S.Rec.pooled &lt;- survival::Surv(exp(pooled.data$logRec.composite.time),
+                               pooled.data$Rec.composite)
+S.Rec.5.pooled &lt;- S.Rec.pooled
+S.Rec.5.pooled[S.Rec.pooled[,1]&gt;5, 1] &lt;- 5 # set time to 5
+S.Rec.5.pooled[S.Rec.pooled[,1]&gt;5, 2] &lt;- 0 # set censoring
+
+png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.composite.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
+survminer::ggsurvplot(survival::survfit(S.Rec.5.pooled ~ Center, 
+                                        data=pooled.data), 
                       legend.title=&quot;&quot;,
-                      legend.labs=c(&quot;Rotterdam&quot;, &quot;Berlin&quot;, &quot;Warsaw&quot;, &quot;Amsterdam&quot;),
-                      title=&quot;Development&quot;,
+                      legend.labs=c(&quot;Rotterdam&quot;, &quot;Berlin&quot;, &quot;Warsaw&quot;, &quot;Amsterdam&quot;, &quot;Australia&quot;),
+                      title=&quot;Recurrence-free survival&quot;,
                       ylab=&quot;Recurrence-free survival probability&quot;,
                       xlab=&quot;Time in years&quot;,
                       conf.int=TRUE, risk.table=TRUE)+
@@ -568,38 +586,22 @@ survminer::ggsurvplot(survival::survfit(S.Rec.5.training ~ Center, data=last.imp
 grDevices::dev.off()</code></pre>
 <pre><code>## png 
 ##   2</code></pre>
-<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.training.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
-survminer::ggsurvplot(survival::survfit(S.MSM.5.training ~ Center, data=last.imputed.training.data.set), 
+<pre class="r"><code>S.MSM.pooled &lt;- survival::Surv(exp(pooled.data$logFU.time),
+                               pooled.data$MSM==&quot;Death by melanoma&quot;)
+S.MSM.5.pooled &lt;- S.MSM.pooled
+S.MSM.5.pooled[S.MSM.pooled[,1]&gt;5, 1] &lt;- 5 # set time to 5
+S.MSM.5.pooled[S.MSM.pooled[,1]&gt;5, 2] &lt;- 0 # set censoring
+
+png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
+survminer::ggsurvplot(survival::survfit(S.MSM.5.pooled ~ Center, 
+                                        data=pooled.data), 
                       legend.title=&quot;&quot;,
-                      legend.labs=c(&quot;Rotterdam&quot;, &quot;Berlin&quot;, &quot;Warsaw&quot;, &quot;Amsterdam&quot;),
-                      title=&quot;Development&quot;,
+                      legend.labs=c(&quot;Rotterdam&quot;, &quot;Berlin&quot;, &quot;Warsaw&quot;, &quot;Amsterdam&quot;, &quot;Australia&quot;),
+                      title=&quot;Melanoma-specific survival&quot;,
                       ylab=&quot;Melanoma-specific survival probability&quot;,
                       xlab=&quot;Time in years&quot;,
                       conf.int=TRUE, risk.table=TRUE)+
   ggplot2::guides(colour=guide_legend(nrow=2))
-grDevices::dev.off()</code></pre>
-<pre><code>## png 
-##   2</code></pre>
-<pre class="r"><code>load(paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;))
-png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.validation.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
-survminer::ggsurvplot(survival::survfit(S.Rec.5.validation ~ 1, data=last.imputed.validation.data.set), 
-                      legend.title=&quot;&quot;,
-                      legend.labs=&quot;Australia&quot;,
-                      title=&quot;Validation&quot;,
-                      ylab=&quot;Recurrence-free survival probability&quot;,
-                      xlab=&quot;Time in years&quot;,
-                      conf.int=TRUE, risk.table=TRUE)
-grDevices::dev.off()</code></pre>
-<pre><code>## png 
-##   2</code></pre>
-<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.validation.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
-survminer::ggsurvplot(survival::survfit(S.MSM.5.validation ~ 1, data=last.imputed.validation.data.set), 
-                      legend.title=&quot;&quot;,
-                      legend.labs=&quot;Australia&quot;,
-                      title=&quot;Validation&quot;,
-                      ylab=&quot;Melanoma-specific survival probability&quot;,
-                      xlab=&quot;Time in years&quot;,
-                      conf.int=TRUE, risk.table=TRUE)
 grDevices::dev.off()</code></pre>
 <pre><code>## png 
 ##   2</code></pre>

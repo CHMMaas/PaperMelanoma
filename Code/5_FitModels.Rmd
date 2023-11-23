@@ -1,7 +1,7 @@
 ---
 title: "Fit models and plots"
 author: "Carolien C.H.M. Maas"
-date: "January 2023"
+date: "November 2023"
 output: html_document
 ---
 
@@ -160,7 +160,7 @@ for (i in 1:m){
   MSM.cal.fact.all <- c(MSM.cal.fact.all, stats::coef(f.mi.i))
   MSM.cal.fact.SE <- c(MSM.cal.fact.SE, sqrt(diag(vcov(f.mi.i))))
 }
-MSM.cal.fact.combined<-Rubin.combine(MSM.cal.fact.all, MSM.cal.fact.SE)
+MSM.cal.fact.combined <- Rubin.combine(MSM.cal.fact.all, MSM.cal.fact.SE)
 MSM.cal.fact <- MSM.cal.fact.combined$est
 
 utils::write.table(paste0(sprintf("%.2f", MSM.cal.fact), " [",
@@ -229,5 +229,6 @@ for (i in 1:m){
   p.MSM.5.redev[, i] <- 1-exp(-h0.MSM.redev*exp(lp.val.i))
 }
 PredictionTools::val.surv.mi(p.MSM.5.redev, S.MSM.5.training, g=5,
-                             main="All patients",time=NULL,lim=c(0,1),dist=TRUE)
+                             main="All patients", time=NULL, lim=c(0, 1),
+                             dist=TRUE)
 ```

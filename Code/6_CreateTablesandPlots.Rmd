@@ -1,7 +1,7 @@
 ---
 title: "Create Tables"
 author: "Carolien C.H.M. Maas"
-date: "January 2023"
+date: "November 2023"
 output: html_document
 ---
 
@@ -27,6 +27,7 @@ library(prodlim)
 library(rms)
 library(Hmisc)
 library(png)
+# remotes::install_github("CHMMaas/PredictionTools")
 library(PredictionTools)
 source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
 ```
@@ -60,7 +61,8 @@ for (model in c("Rec.5", "MSM.5.refit")){
                      matrix(NA, nrow=6, ncol=3)) # Tot_SNs_pos, Rdamcrit, Combined, Parenchymal, Multifocal, Extensive
   # add CI
   neg.table <- cbind(sprintf("%.2f", neg.table[, 1]),
-                     paste0("[", sprintf("%.2f", neg.table[, 2]), "; ", sprintf("%.2f", neg.table[, 3]), "]"))
+                     paste0("[", sprintf("%.2f", neg.table[, 2]), "; ", 
+                            sprintf("%.2f", neg.table[, 3]), "]"))
 
   # Positive results
   pos.results <- summary(f.mi.full, SNstatus="Positive", Loc_CAT="arm", Tot_SNs_pos=c(0, 1))
@@ -201,11 +203,12 @@ cindex.orig<-NULL
 opt<-NULL
 cindex.B<-NULL
 for (i in 1:m){
-  v<-validate(f.mi.full.Rec.5$fits[[i]],method="boot",bw=TRUE,rule="p",sls=0.05,B=100,pr=FALSE,type="individual")
-  slope<-c(slope,v["Slope","test"]) # slope of test
-  cindex.orig<-c(cindex.orig,(v["Dxy","index.orig"]+1)/2) # original C-index
-  opt<-c(opt,v["Dxy","optimism"]/2) # optimism C-index
-  cindex.B<-c(cindex.B,(v["Dxy","index.corrected"]+1)/2) # index corrected C-index
+  v <- validate(f.mi.full.Rec.5$fits[[i]], method="boot", bw=TRUE, rule="p",
+                sls=0.05, B=100, pr=FALSE, type="individual")
+  slope <- c(slope, v["Slope","test"]) # slope of test
+  cindex.orig <- c(cindex.orig, (v["Dxy","index.orig"]+1)/2) # original C-index
+  opt <- c(opt, v["Dxy","optimism"]/2) # optimism C-index
+  cindex.B <- c(cindex.B, (v["Dxy","index.corrected"]+1)/2) # index corrected C-index
 }
 ```
 
@@ -320,7 +323,8 @@ for (type in c("full", "BS")){
 # Save dataframes of result Tables
 ```{r, eval=TRUE}
 # replace NA by blank
-for (df in c("final.full.table.Rec.5", "final.full.table.MSM.5.refit", "final.BS.table.Rec.5", "final.BS.table.MSM.5.refit")){
+for (df in c("final.full.table.Rec.5", "final.full.table.MSM.5.refit", 
+             "final.BS.table.Rec.5", "final.BS.table.MSM.5.refit")){
   final.df <- eval(parse(text=df))
   final.df[final.df=="[NA; NA]"] <- NA
   final.df[final.df=="NA"] <- NA
@@ -439,4 +443,13 @@ CIndex.Rec.Table
 utils::write.table(CIndex.Rec.Table,
               file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/CIndex.train.txt"),
               row.names=FALSE, col.names=FALSE, sep=",")
+
+save(list=c("dd.training", "training.data.to.be.imputed", "m", 
+            "imputed.training.data", "last.imputed.training.data.set", 
+            "horizon", "S.Rec.5.training", "S.MSM.5.training",
+            "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", 
+            "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", "optimism",
+            "form.full.Rec.5", "form.BS.Rec.5", 
+            "form.full.MSM.5.refit", "form.BS.MSM.5.refit"),
+     file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
 ```

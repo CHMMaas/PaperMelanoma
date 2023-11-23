@@ -351,7 +351,7 @@ display: none;
 
 <h1 class="title toc-ignore">Prepare Training Data</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">January 2023</h4>
+<h4 class="date">November 2023</h4>
 
 </div>
 
@@ -428,7 +428,8 @@ sel.train.data$multiple.fields &lt;- ifelse(!is.na(sel.train.data$nr_SNs_Field_2
 </div>
 <div id="sn-tumour-burden" class="section level4">
 <h4>SN tumour burden</h4>
-<p>11 patients with positive SN have SN tumour burden of exactly 1</p>
+<p>11 patients with positive SN have SN tumour burden (maximum diameter)
+of exactly 1</p>
 <pre class="r"><code>sum(sel.train.data$Rdamcrit==1&amp;sel.train.data$SNstatus==&quot;Positive&quot;&amp;!is.na(sel.train.data$Rdamcrit))</code></pre>
 <pre><code>## [1] 11</code></pre>
 <p>Set Rdamcrit of negative SN patients equal to 0</p>
@@ -448,29 +449,28 @@ sel.train.data$multiple.fields &lt;- ifelse(!is.na(sel.train.data$nr_SNs_Field_2
 <p>Define time since diagnosis in years (follow-up time)</p>
 <pre class="r"><code>sel.train.data$FU.time &lt;- (sel.train.data$Last_FU-sel.train.data$SNdate)/(24*60*60)/365.25</code></pre>
 <p>Define recurrence time in years</p>
-<pre class="r"><code>sel.train.data$Rec.time &lt;- (sel.train.data$Date_1st_Rec-sel.train.data$SNdate)/(24*60*60)/365.25</code></pre>
+<pre class="r"><code>sel.train.data$Recurrence.time &lt;- (sel.train.data$Date_1st_Rec-sel.train.data$SNdate)/(24*60*60)/365.25</code></pre>
 <p>Omit five patients with Rec date before SN date</p>
 <pre class="r"><code>old.n &lt;- nrow(sel.train.data)
-sel.train.data &lt;- sel.train.data[!(sel.train.data$Rec.time&lt;0&amp;!is.na(sel.train.data$Rec.time)),]
+sel.train.data &lt;- sel.train.data[!(sel.train.data$Recurrence.time&lt;0&amp;!is.na(sel.train.data$Recurrence.time)),]
 cat(&quot;Number of patients excluded:&quot;, old.n-nrow(sel.train.data), &quot;\n&quot;)</code></pre>
 <pre><code>## Number of patients excluded: 5</code></pre>
-<p>Set recurrence time equal to follow-up time for those without
-recurrence</p>
-<pre class="r"><code>sel.train.data$Rec.time[sel.train.data$Recurrence==&quot;no recurrence&quot;|is.na(sel.train.data$SNdate)]&lt;-sel.train.data$FU.time[sel.train.data$Recurrence==&quot;no recurrence&quot;|is.na(sel.train.data$SNdate)]
-table(sel.train.data$Status, sel.train.data$Recurrence)</code></pre>
-<pre><code>##          
-##           no recurrence recurred
-##   NED              3116      187
-##   AWD                 2      160
-##   DOD                 3      501
-##   DOC                88       14
-##   unknown             0        0</code></pre>
-<p>Impute recurrence time for 45 patients with missing Rec.time but
-Recurrence==“recurred”</p>
+<p>Impute recurrence time for 45 patients with missing Recurrence.time
+but Recurrence==“recurred”</p>
 <pre class="r"><code>cat(&quot;Number of patients dead with recurrence without Date_1st_Rec:&quot;, sum(is.na(sel.train.data$Date_1st_Rec)&amp;sel.train.data$Recurrence==&quot;recurred&quot;&amp;sel.train.data$dead==&quot;Yes&quot;), &quot;\n&quot;)</code></pre>
 <pre><code>## Number of patients dead with recurrence without Date_1st_Rec: 43</code></pre>
 <pre class="r"><code>cat(&quot;Number of patients alive with recurrence without Date_1st_Rec:&quot;, sum(is.na(sel.train.data$Date_1st_Rec)&amp;sel.train.data$Recurrence==&quot;recurred&quot;&amp;sel.train.data$dead==&quot;No&quot;))</code></pre>
 <pre><code>## Number of patients alive with recurrence without Date_1st_Rec: 2</code></pre>
+<p>Create composite Recurrence</p>
+<pre class="r"><code># event = 1 if recurrence or death, whichever occurs first
+sel.train.data$Rec.composite &lt;- ifelse(sel.train.data$Recurrence==&quot;recurred&quot; | sel.train.data$dead==&quot;Yes&quot;, 1, 0)
+
+# if patient has recurrence, set time to Recurrence.time
+# if patient has no recurrence, but died, set time to FU.time
+# if patient has no recurrence, and did not die, set to FU.time
+sel.train.data$Rec.composite.time &lt;- ifelse(sel.train.data$Recurrence==&quot;recurred&quot;, 
+       sel.train.data$Recurrence.time,
+       sel.train.data$FU.time)</code></pre>
 </div>
 <div id="melanoma-specific-mortality-msm" class="section level4">
 <h4>Melanoma specific mortality (MSM)</h4>
@@ -484,6 +484,11 @@ table(sel.train.data$Status, sel.train.data$dead)</code></pre>
 ##   DOC        0  102
 ##   unknown    0    0</code></pre>
 <pre class="r"><code>sel.train.data$MSM &lt;- 1*(sel.train.data$Status==&quot;DOD&quot;)</code></pre>
+</div>
+<div id="relation-between-outcome-and-covariates" class="section level4">
+<h4>Relation between outcome and covariates</h4>
+<pre class="r"><code>sel.train.data$logRec.composite.time &lt;- log(sel.train.data$Rec.composite.time+1/365.25)
+sel.train.data$logFU.time &lt;- log(sel.train.data$FU.time+1/365.25)</code></pre>
 </div>
 <div id="mitosis" class="section level4">
 <h4>Mitosis</h4>
@@ -503,49 +508,51 @@ sel.train.data$Mitosis[sel.train.data$Mitosis==&quot;Unknown&quot;] &lt;- NA</co
 <pre class="r"><code>sel.train.data &lt;- droplevels(sel.train.data)
 
 # set levels for multiple.fields
-sel.train.data$multiple.fields &lt;- factor(sel.train.data$multiple.fields, labels=c(&quot;Other&quot;, &quot;Multiple SN fields&quot;))
-sel.train.data$MSM &lt;- factor(sel.train.data$MSM, labels=c(&quot;Other&quot;, &quot;Death by melanoma&quot;))</code></pre>
+sel.train.data$multiple.fields &lt;- factor(sel.train.data$multiple.fields, 
+                                         labels=c(&quot;Other&quot;, &quot;Multiple SN fields&quot;))
+sel.train.data$MSM &lt;- factor(sel.train.data$MSM, 
+                             labels=c(&quot;Other&quot;, &quot;Death by melanoma&quot;))</code></pre>
 </div>
 </div>
 </div>
-<div id="multiple-imputation" class="section level1">
-<h1>Multiple imputation</h1>
+<div id="prepare-multiple-imputation" class="section level1">
+<h1>Prepare Multiple imputation</h1>
 <pre class="r"><code>variables.to.be.imputed &lt;- c(&quot;Center&quot;, &quot;SNstatus&quot;, &quot;Sex&quot;, &quot;Age.SN&quot;, &quot;Ulceration&quot;,
                              &quot;Loc_CAT&quot;, &quot;Histology&quot;, &quot;Breslow&quot;, &quot;multiple.fields&quot;,
                              &quot;Tot_SNs_neg&quot;, &quot;Tot_SNs_pos&quot;, &quot;Rdamcrit&quot;, &quot;Dewar&quot;,
-                             &quot;Mitosis&quot;,
-                             &quot;Recurrence&quot;, &quot;dead&quot;, &quot;MSM&quot;)
-training.data.to.be.imputed &lt;- sel.train.data[, variables.to.be.imputed]</code></pre>
+                             &quot;Mitosis&quot;, &quot;Status&quot;, 
+                             &quot;Rec.composite&quot;, &quot;logRec.composite.time&quot;,
+                             &quot;MSM&quot;, &quot;logFU.time&quot;)
+training.data.to.be.imputed &lt;- sel.train.data[, variables.to.be.imputed]
+missings.table(training.data.to.be.imputed)</code></pre>
+<pre><code>##                          m
+## Mitosis               3895
+## Histology              353
+## Dewar                  303
+## Rdamcrit               301
+## Tot_SNs_neg            162
+## Ulceration             141
+## Loc_CAT                138
+## Breslow                 59
+## logRec.composite.time   45
+## Tot_SNs_pos              1
+## Center                   0
+## SNstatus                 0
+## Sex                      0
+## Age.SN                   0
+## multiple.fields          0
+## Status                   0
+## Rec.composite            0
+## MSM                      0
+## logFU.time               0</code></pre>
 <p>Save distributions of all variables, necessary for Harrell
 summaries</p>
 <pre class="r"><code>dd.training&lt;-rms::datadist(training.data.to.be.imputed)
 options(datadist=&quot;dd.training&quot;)
-options(digits=8)</code></pre>
-<p>Relation between outcome and covariates</p>
-<pre class="r"><code>training.data.to.be.imputed$logRec.time &lt;- log(sel.train.data$Rec.time+1/365.25)
-training.data.to.be.imputed$logFU.time &lt;- log(sel.train.data$FU.time+1/365.25)
-missings.table(training.data.to.be.imputed)</code></pre>
-<pre><code>##                    m
-## Mitosis         3895
-## Histology        353
-## Dewar            303
-## Rdamcrit         301
-## Tot_SNs_neg      162
-## Ulceration       141
-## Loc_CAT          138
-## Breslow           59
-## logRec.time       45
-## Tot_SNs_pos        1
-## Center             0
-## SNstatus           0
-## Sex                0
-## Age.SN             0
-## multiple.fields    0
-## Recurrence         0
-## dead               0
-## MSM                0
-## logFU.time         0</code></pre>
-<pre class="r"><code>save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;),file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;, compress=TRUE)</code></pre>
+options(digits=8)
+save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;),
+     file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;, 
+     compress=TRUE)</code></pre>
 </div>
 
 

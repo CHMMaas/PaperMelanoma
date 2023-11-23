@@ -351,7 +351,7 @@ display: none;
 
 <h1 class="title toc-ignore">Prepare Validation Data</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">January 2023</h4>
+<h4 class="date">November 2023</h4>
 
 </div>
 
@@ -448,30 +448,36 @@ sel.val.data$Recurrence &lt;- factor(sel.val.data$Recurrence, labels=c(&quot;no 
 <pre class="r"><code>sel.val.data$FU.time &lt;- (sel.val.data$Last_FU-sel.val.data$SNdate)/(24*60*60)/365.25
 # median: 4.1629021</code></pre>
 <p>Define recurrence time in years</p>
-<pre class="r"><code>sel.val.data$Rec.time &lt;- (sel.val.data$Date_1st_Rec-sel.val.data$SNdate)/(24*60*60)/365.25</code></pre>
+<pre class="r"><code>sel.val.data$Recurrence.time &lt;- (sel.val.data$Date_1st_Rec-sel.val.data$SNdate)/(24*60*60)/365.25</code></pre>
 <p>Check: no patients with Rec date before SN date</p>
-<pre class="r"><code>sum(!(!(sel.val.data$Rec.time&lt;0&amp;!is.na(sel.val.data$Rec.time))))</code></pre>
+<pre class="r"><code>sum(!(!(sel.val.data$Recurrence.time&lt;0&amp;!is.na(sel.val.data$Recurrence.time))))</code></pre>
 <pre><code>## [1] 0</code></pre>
-<p>Set recurrence time equal to follow-up time for those without
-recurrence</p>
-<pre class="r"><code>sel.val.data$Rec.time[sel.val.data$Recurrence==&quot;no recurrence&quot;|is.na(sel.val.data$SNdate)]&lt;-sel.val.data$FU.time[sel.val.data$Recurrence==&quot;no recurrence&quot;|is.na(sel.val.data$SNdate)]
-
-sel.val.data$Rec.time[sel.val.data$Recurrence==&quot;recurrence&quot;&amp;is.na(sel.val.data$Date_1st_Rec)]&lt;-NA
-table(sel.val.data$Status, sel.val.data$Recurrence)</code></pre>
-<pre><code>##                        
-##                         no recurrence recurred
-##   Alive NSR                      3127      315
-##   Alive with Melanoma              12      139
-##   Alive, status unknown            43       21
-##   Dead, cause unknown             195       67
-##   Dead, melanoma                   46      719
-##   Dead, not melanoma              105       33</code></pre>
 </div>
+</div>
+</div>
+<div id="define-death-by-any-cause" class="section level1">
+<h1>Define death by any cause</h1>
+<pre class="r"><code>sel.val.data$dead &lt;- as.numeric(stringr::str_detect(sel.val.data$Status, &quot;Dead&quot;))
+sel.val.data$dead &lt;- factor(sel.val.data$dead, labels=c(&quot;No&quot;, &quot;Yes&quot;))</code></pre>
+<!-- Set recurrence time equal to follow-up time for those without recurrence -->
+<!-- ```{r, eval=TRUE} -->
+<!-- sel.val.data$Recurrence.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)]<-sel.val.data$FU.time[sel.val.data$Recurrence=="no recurrence"|is.na(sel.val.data$SNdate)] -->
+<!-- sel.val.data$Recurrence.time[sel.val.data$Recurrence=="recurrence"&is.na(sel.val.data$Date_1st_Rec)]<-NA -->
+<!-- table(sel.val.data$Status, sel.val.data$Recurrence) -->
+<!-- ``` -->
+<p>Create composite Recurrence</p>
+<pre class="r"><code># event = 1 if recurrence or death, whichever occurs first
+sel.val.data$Rec.composite &lt;- ifelse(sel.val.data$Recurrence==&quot;recurred&quot; | sel.val.data$dead==&quot;Yes&quot;, 1, 0)
+
+# if patient has recurrence, set time to Recurrence.time
+# if patient has no recurrence, but died, set time to FU.time
+# if patient has no recurrence, and did not die, set to FU.time
+sel.val.data$Rec.composite.time &lt;- ifelse(sel.val.data$Recurrence==&quot;recurred&quot;, 
+       sel.val.data$Recurrence.time,
+       sel.val.data$FU.time)</code></pre>
 <div id="melanoma-specific-mortality-msm" class="section level4">
 <h4>Melanoma specific mortality (MSM)</h4>
-<pre class="r"><code>sel.val.data$dead &lt;- as.numeric(stringr::str_detect(sel.val.data$Status, &quot;Dead&quot;))
-sel.val.data$dead &lt;- factor(sel.val.data$dead, labels=c(&quot;No&quot;, &quot;Yes&quot;))
-table(sel.val.data$Status, sel.val.data$dead)</code></pre>
+<pre class="r"><code>table(sel.val.data$Status, sel.val.data$dead)</code></pre>
 <pre><code>##                        
 ##                           No  Yes
 ##   Alive NSR             3442    0
@@ -500,7 +506,9 @@ sel.val.data$Center &lt;- factor(sel.val.data$Center, labels = c(&quot;Australia
 sel.val.data$multiple.fields &lt;- factor(sel.val.data$multiple.fields, labels=c(&quot;Multiple SN fields&quot;, &quot;Other&quot;))
 
 sel.val.data$MSM &lt;- factor(sel.val.data$MSM, labels=c(&quot;Other&quot;, &quot;Death by melanoma&quot;))</code></pre>
-</div>
+<p>Relation between outcome and covariates</p>
+<pre class="r"><code>sel.val.data$logRec.composite.time &lt;- log(sel.val.data$Rec.composite.time+1/365.25)
+sel.val.data$logFU.time &lt;- log(sel.val.data$FU.time+1/365.25)</code></pre>
 </div>
 </div>
 <div id="multiple-imputation" class="section level1">
@@ -508,38 +516,37 @@ sel.val.data$MSM &lt;- factor(sel.val.data$MSM, labels=c(&quot;Other&quot;, &quo
 <pre class="r"><code>variables.to.be.imputed &lt;- c(&quot;Center&quot;, &quot;SNstatus&quot;, &quot;Sex&quot;, &quot;Age.SN&quot;, &quot;Ulceration&quot;,
                              &quot;Loc_CAT&quot;, &quot;Histology&quot;, &quot;Breslow&quot;, &quot;multiple.fields&quot;,
                              &quot;Tot_SNs_neg&quot;, &quot;Tot_SNs_pos&quot;, &quot;Rdamcrit&quot;, &quot;Dewar&quot;,
-                             &quot;Mitosis&quot;, &quot;Recurrence&quot;, &quot;dead&quot;, &quot;MSM&quot;)
-validation.data.to.be.imputed &lt;- sel.val.data[, variables.to.be.imputed]</code></pre>
+                             &quot;Mitosis&quot;, &quot;Status&quot;,
+                             &quot;Rec.composite&quot;, &quot;logRec.composite.time&quot;, 
+                             &quot;MSM&quot;, &quot;logFU.time&quot;)
+validation.data.to.be.imputed &lt;- sel.val.data[, variables.to.be.imputed]
+missings.table(validation.data.to.be.imputed)</code></pre>
+<pre><code>##                         m
+## Histology             628
+## Ulceration            279
+## Mitosis               206
+## Dewar                 173
+## Rdamcrit              153
+## Center                  0
+## SNstatus                0
+## Sex                     0
+## Age.SN                  0
+## Loc_CAT                 0
+## Breslow                 0
+## multiple.fields         0
+## Tot_SNs_neg             0
+## Tot_SNs_pos             0
+## Status                  0
+## Rec.composite           0
+## logRec.composite.time   0
+## MSM                     0
+## logFU.time              0</code></pre>
 <p>Save distributions of all variables, necessary for Harrell
 summaries</p>
 <pre class="r"><code>dd.validation&lt;-rms::datadist(validation.data.to.be.imputed)
 options(datadist=&quot;dd.validation&quot;)
-options(digits=8)</code></pre>
-<p>Relation between outcome and covariates</p>
-<pre class="r"><code>validation.data.to.be.imputed$logRec.time &lt;- log(sel.val.data$Rec.time+1/365.25)
-validation.data.to.be.imputed$logFU.time &lt;- log(sel.val.data$FU.time+1/365.25)
-missings.table(validation.data.to.be.imputed)</code></pre>
-<pre><code>##                   m
-## Histology       628
-## Ulceration      279
-## Mitosis         206
-## Dewar           173
-## Rdamcrit        153
-## Center            0
-## SNstatus          0
-## Sex               0
-## Age.SN            0
-## Loc_CAT           0
-## Breslow           0
-## multiple.fields   0
-## Tot_SNs_neg       0
-## Tot_SNs_pos       0
-## Recurrence        0
-## dead              0
-## MSM               0
-## logRec.time       0
-## logFU.time        0</code></pre>
-<pre class="r"><code>save(list=c(&quot;dd.validation&quot;, &quot;validation.data.to.be.imputed&quot;),file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata&quot;, compress=TRUE)</code></pre>
+options(digits=8)
+save(list=c(&quot;dd.validation&quot;, &quot;validation.data.to.be.imputed&quot;),file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata&quot;, compress=TRUE)</code></pre>
 </div>
 
 

@@ -352,7 +352,7 @@ display: none;
 <h1 class="title toc-ignore">Impute missing values of training and
 validation data using multiple imputation</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
-<h4 class="date">January 2023</h4>
+<h4 class="date">November 2023</h4>
 
 </div>
 
@@ -398,54 +398,543 @@ m &lt;- 5
 new.imputation &lt;- TRUE
 # Impute: Ulceration, Loc_CAT, Histology, Breslow, Tot_SNs_neg, Tot_SNs_pos, Rdamcrit, Dewar, Mitosis, logRec.time
 impute.missing.values(type=&quot;training&quot;, m=m, new.imputation=new.imputation)</code></pre>
-<pre><code>## Warning: Number of logged events: 25</code></pre>
-<pre><code>##          Center        SNstatus             Sex          Age.SN      Ulceration 
-##              &quot;&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot;        &quot;logreg&quot; 
-##         Loc_CAT       Histology         Breslow multiple.fields     Tot_SNs_neg 
-##       &quot;polyreg&quot;       &quot;polyreg&quot;           &quot;pmm&quot;              &quot;&quot;           &quot;pmm&quot; 
-##     Tot_SNs_pos        Rdamcrit           Dewar         Mitosis      Recurrence 
-##           &quot;pmm&quot;           &quot;pmm&quot;       &quot;polyreg&quot;        &quot;logreg&quot;              &quot;&quot; 
-##            dead             MSM     logRec.time      logFU.time 
-##              &quot;&quot;              &quot;&quot;           &quot;pmm&quot;              &quot;&quot; 
-##    it im     dep   meth                        out
-## 1   1  1 Mitosis logreg CenterBerlin, CenterWarsaw
-## 2   1  2 Mitosis logreg CenterBerlin, CenterWarsaw
-## 3   1  3 Mitosis logreg CenterBerlin, CenterWarsaw
-## 4   1  4 Mitosis logreg CenterBerlin, CenterWarsaw
-## 5   1  5 Mitosis logreg CenterBerlin, CenterWarsaw
-## 6   2  1 Mitosis logreg CenterBerlin, CenterWarsaw
-## 7   2  2 Mitosis logreg CenterBerlin, CenterWarsaw
-## 8   2  3 Mitosis logreg CenterBerlin, CenterWarsaw
-## 9   2  4 Mitosis logreg CenterBerlin, CenterWarsaw
-## 10  2  5 Mitosis logreg CenterBerlin, CenterWarsaw
-## 11  3  1 Mitosis logreg CenterBerlin, CenterWarsaw
-## 12  3  2 Mitosis logreg CenterBerlin, CenterWarsaw
-## 13  3  3 Mitosis logreg CenterBerlin, CenterWarsaw
-## 14  3  4 Mitosis logreg CenterBerlin, CenterWarsaw
-## 15  3  5 Mitosis logreg CenterBerlin, CenterWarsaw
-## 16  4  1 Mitosis logreg CenterBerlin, CenterWarsaw
-## 17  4  2 Mitosis logreg CenterBerlin, CenterWarsaw
-## 18  4  3 Mitosis logreg CenterBerlin, CenterWarsaw
-## 19  4  4 Mitosis logreg CenterBerlin, CenterWarsaw
-## 20  4  5 Mitosis logreg CenterBerlin, CenterWarsaw
-## 21  5  1 Mitosis logreg CenterBerlin, CenterWarsaw
-## 22  5  2 Mitosis logreg CenterBerlin, CenterWarsaw
-## 23  5  3 Mitosis logreg CenterBerlin, CenterWarsaw
-## 24  5  4 Mitosis logreg CenterBerlin, CenterWarsaw
-## 25  5  5 Mitosis logreg CenterBerlin, CenterWarsaw</code></pre>
+<pre><code>## Warning: Number of logged events: 250</code></pre>
+<pre><code>##                Center              SNstatus                   Sex 
+##                    &quot;&quot;                    &quot;&quot;                    &quot;&quot; 
+##                Age.SN            Ulceration               Loc_CAT 
+##                    &quot;&quot;              &quot;logreg&quot;             &quot;polyreg&quot; 
+##             Histology               Breslow       multiple.fields 
+##             &quot;polyreg&quot;                 &quot;pmm&quot;                    &quot;&quot; 
+##           Tot_SNs_neg           Tot_SNs_pos              Rdamcrit 
+##                 &quot;pmm&quot;                 &quot;pmm&quot;                 &quot;pmm&quot; 
+##                 Dewar               Mitosis                Status 
+##             &quot;polyreg&quot;              &quot;logreg&quot;                    &quot;&quot; 
+##         Rec.composite logRec.composite.time                   MSM 
+##                    &quot;&quot;                 &quot;pmm&quot;                    &quot;&quot; 
+##            logFU.time 
+##                    &quot;&quot; 
+##     it im                   dep    meth
+## 1    1  1            Ulceration  logreg
+## 2    1  1               Loc_CAT polyreg
+## 3    1  1             Histology polyreg
+## 4    1  1               Breslow     pmm
+## 5    1  1           Tot_SNs_neg     pmm
+## 6    1  1           Tot_SNs_pos     pmm
+## 7    1  1              Rdamcrit     pmm
+## 8    1  1                 Dewar polyreg
+## 9    1  1               Mitosis  logreg
+## 10   1  1 logRec.composite.time     pmm
+## 11   1  2            Ulceration  logreg
+## 12   1  2               Loc_CAT polyreg
+## 13   1  2             Histology polyreg
+## 14   1  2               Breslow     pmm
+## 15   1  2           Tot_SNs_neg     pmm
+## 16   1  2           Tot_SNs_pos     pmm
+## 17   1  2              Rdamcrit     pmm
+## 18   1  2                 Dewar polyreg
+## 19   1  2               Mitosis  logreg
+## 20   1  2 logRec.composite.time     pmm
+## 21   1  3            Ulceration  logreg
+## 22   1  3               Loc_CAT polyreg
+## 23   1  3             Histology polyreg
+## 24   1  3               Breslow     pmm
+## 25   1  3           Tot_SNs_neg     pmm
+## 26   1  3           Tot_SNs_pos     pmm
+## 27   1  3              Rdamcrit     pmm
+## 28   1  3                 Dewar polyreg
+## 29   1  3               Mitosis  logreg
+## 30   1  3 logRec.composite.time     pmm
+## 31   1  4            Ulceration  logreg
+## 32   1  4               Loc_CAT polyreg
+## 33   1  4             Histology polyreg
+## 34   1  4               Breslow     pmm
+## 35   1  4           Tot_SNs_neg     pmm
+## 36   1  4           Tot_SNs_pos     pmm
+## 37   1  4              Rdamcrit     pmm
+## 38   1  4                 Dewar polyreg
+## 39   1  4               Mitosis  logreg
+## 40   1  4 logRec.composite.time     pmm
+## 41   1  5            Ulceration  logreg
+## 42   1  5               Loc_CAT polyreg
+## 43   1  5             Histology polyreg
+## 44   1  5               Breslow     pmm
+## 45   1  5           Tot_SNs_neg     pmm
+## 46   1  5           Tot_SNs_pos     pmm
+## 47   1  5              Rdamcrit     pmm
+## 48   1  5                 Dewar polyreg
+## 49   1  5               Mitosis  logreg
+## 50   1  5 logRec.composite.time     pmm
+## 51   2  1            Ulceration  logreg
+## 52   2  1               Loc_CAT polyreg
+## 53   2  1             Histology polyreg
+## 54   2  1               Breslow     pmm
+## 55   2  1           Tot_SNs_neg     pmm
+## 56   2  1           Tot_SNs_pos     pmm
+## 57   2  1              Rdamcrit     pmm
+## 58   2  1                 Dewar polyreg
+## 59   2  1               Mitosis  logreg
+## 60   2  1 logRec.composite.time     pmm
+## 61   2  2            Ulceration  logreg
+## 62   2  2               Loc_CAT polyreg
+## 63   2  2             Histology polyreg
+## 64   2  2               Breslow     pmm
+## 65   2  2           Tot_SNs_neg     pmm
+## 66   2  2           Tot_SNs_pos     pmm
+## 67   2  2              Rdamcrit     pmm
+## 68   2  2                 Dewar polyreg
+## 69   2  2               Mitosis  logreg
+## 70   2  2 logRec.composite.time     pmm
+## 71   2  3            Ulceration  logreg
+## 72   2  3               Loc_CAT polyreg
+## 73   2  3             Histology polyreg
+## 74   2  3               Breslow     pmm
+## 75   2  3           Tot_SNs_neg     pmm
+## 76   2  3           Tot_SNs_pos     pmm
+## 77   2  3              Rdamcrit     pmm
+## 78   2  3                 Dewar polyreg
+## 79   2  3               Mitosis  logreg
+## 80   2  3 logRec.composite.time     pmm
+## 81   2  4            Ulceration  logreg
+## 82   2  4               Loc_CAT polyreg
+## 83   2  4             Histology polyreg
+## 84   2  4               Breslow     pmm
+## 85   2  4           Tot_SNs_neg     pmm
+## 86   2  4           Tot_SNs_pos     pmm
+## 87   2  4              Rdamcrit     pmm
+## 88   2  4                 Dewar polyreg
+## 89   2  4               Mitosis  logreg
+## 90   2  4 logRec.composite.time     pmm
+## 91   2  5            Ulceration  logreg
+## 92   2  5               Loc_CAT polyreg
+## 93   2  5             Histology polyreg
+## 94   2  5               Breslow     pmm
+## 95   2  5           Tot_SNs_neg     pmm
+## 96   2  5           Tot_SNs_pos     pmm
+## 97   2  5              Rdamcrit     pmm
+## 98   2  5                 Dewar polyreg
+## 99   2  5               Mitosis  logreg
+## 100  2  5 logRec.composite.time     pmm
+## 101  3  1            Ulceration  logreg
+## 102  3  1               Loc_CAT polyreg
+## 103  3  1             Histology polyreg
+## 104  3  1               Breslow     pmm
+## 105  3  1           Tot_SNs_neg     pmm
+## 106  3  1           Tot_SNs_pos     pmm
+## 107  3  1              Rdamcrit     pmm
+## 108  3  1                 Dewar polyreg
+## 109  3  1               Mitosis  logreg
+## 110  3  1 logRec.composite.time     pmm
+## 111  3  2            Ulceration  logreg
+## 112  3  2               Loc_CAT polyreg
+## 113  3  2             Histology polyreg
+## 114  3  2               Breslow     pmm
+## 115  3  2           Tot_SNs_neg     pmm
+## 116  3  2           Tot_SNs_pos     pmm
+## 117  3  2              Rdamcrit     pmm
+## 118  3  2                 Dewar polyreg
+## 119  3  2               Mitosis  logreg
+## 120  3  2 logRec.composite.time     pmm
+## 121  3  3            Ulceration  logreg
+## 122  3  3               Loc_CAT polyreg
+## 123  3  3             Histology polyreg
+## 124  3  3               Breslow     pmm
+## 125  3  3           Tot_SNs_neg     pmm
+## 126  3  3           Tot_SNs_pos     pmm
+## 127  3  3              Rdamcrit     pmm
+## 128  3  3                 Dewar polyreg
+## 129  3  3               Mitosis  logreg
+## 130  3  3 logRec.composite.time     pmm
+## 131  3  4            Ulceration  logreg
+## 132  3  4               Loc_CAT polyreg
+## 133  3  4             Histology polyreg
+## 134  3  4               Breslow     pmm
+## 135  3  4           Tot_SNs_neg     pmm
+## 136  3  4           Tot_SNs_pos     pmm
+## 137  3  4              Rdamcrit     pmm
+## 138  3  4                 Dewar polyreg
+## 139  3  4               Mitosis  logreg
+## 140  3  4 logRec.composite.time     pmm
+## 141  3  5            Ulceration  logreg
+## 142  3  5               Loc_CAT polyreg
+## 143  3  5             Histology polyreg
+## 144  3  5               Breslow     pmm
+## 145  3  5           Tot_SNs_neg     pmm
+## 146  3  5           Tot_SNs_pos     pmm
+## 147  3  5              Rdamcrit     pmm
+## 148  3  5                 Dewar polyreg
+## 149  3  5               Mitosis  logreg
+## 150  3  5 logRec.composite.time     pmm
+## 151  4  1            Ulceration  logreg
+## 152  4  1               Loc_CAT polyreg
+## 153  4  1             Histology polyreg
+## 154  4  1               Breslow     pmm
+## 155  4  1           Tot_SNs_neg     pmm
+## 156  4  1           Tot_SNs_pos     pmm
+## 157  4  1              Rdamcrit     pmm
+## 158  4  1                 Dewar polyreg
+## 159  4  1               Mitosis  logreg
+## 160  4  1 logRec.composite.time     pmm
+## 161  4  2            Ulceration  logreg
+## 162  4  2               Loc_CAT polyreg
+## 163  4  2             Histology polyreg
+## 164  4  2               Breslow     pmm
+## 165  4  2           Tot_SNs_neg     pmm
+## 166  4  2           Tot_SNs_pos     pmm
+## 167  4  2              Rdamcrit     pmm
+## 168  4  2                 Dewar polyreg
+## 169  4  2               Mitosis  logreg
+## 170  4  2 logRec.composite.time     pmm
+## 171  4  3            Ulceration  logreg
+## 172  4  3               Loc_CAT polyreg
+## 173  4  3             Histology polyreg
+## 174  4  3               Breslow     pmm
+## 175  4  3           Tot_SNs_neg     pmm
+## 176  4  3           Tot_SNs_pos     pmm
+## 177  4  3              Rdamcrit     pmm
+## 178  4  3                 Dewar polyreg
+## 179  4  3               Mitosis  logreg
+## 180  4  3 logRec.composite.time     pmm
+## 181  4  4            Ulceration  logreg
+## 182  4  4               Loc_CAT polyreg
+## 183  4  4             Histology polyreg
+## 184  4  4               Breslow     pmm
+## 185  4  4           Tot_SNs_neg     pmm
+## 186  4  4           Tot_SNs_pos     pmm
+## 187  4  4              Rdamcrit     pmm
+## 188  4  4                 Dewar polyreg
+## 189  4  4               Mitosis  logreg
+## 190  4  4 logRec.composite.time     pmm
+## 191  4  5            Ulceration  logreg
+## 192  4  5               Loc_CAT polyreg
+## 193  4  5             Histology polyreg
+## 194  4  5               Breslow     pmm
+## 195  4  5           Tot_SNs_neg     pmm
+## 196  4  5           Tot_SNs_pos     pmm
+## 197  4  5              Rdamcrit     pmm
+## 198  4  5                 Dewar polyreg
+## 199  4  5               Mitosis  logreg
+## 200  4  5 logRec.composite.time     pmm
+## 201  5  1            Ulceration  logreg
+## 202  5  1               Loc_CAT polyreg
+## 203  5  1             Histology polyreg
+## 204  5  1               Breslow     pmm
+## 205  5  1           Tot_SNs_neg     pmm
+## 206  5  1           Tot_SNs_pos     pmm
+## 207  5  1              Rdamcrit     pmm
+## 208  5  1                 Dewar polyreg
+## 209  5  1               Mitosis  logreg
+## 210  5  1 logRec.composite.time     pmm
+## 211  5  2            Ulceration  logreg
+## 212  5  2               Loc_CAT polyreg
+## 213  5  2             Histology polyreg
+## 214  5  2               Breslow     pmm
+## 215  5  2           Tot_SNs_neg     pmm
+## 216  5  2           Tot_SNs_pos     pmm
+## 217  5  2              Rdamcrit     pmm
+## 218  5  2                 Dewar polyreg
+## 219  5  2               Mitosis  logreg
+## 220  5  2 logRec.composite.time     pmm
+## 221  5  3            Ulceration  logreg
+## 222  5  3               Loc_CAT polyreg
+## 223  5  3             Histology polyreg
+## 224  5  3               Breslow     pmm
+## 225  5  3           Tot_SNs_neg     pmm
+## 226  5  3           Tot_SNs_pos     pmm
+## 227  5  3              Rdamcrit     pmm
+## 228  5  3                 Dewar polyreg
+## 229  5  3               Mitosis  logreg
+## 230  5  3 logRec.composite.time     pmm
+## 231  5  4            Ulceration  logreg
+## 232  5  4               Loc_CAT polyreg
+## 233  5  4             Histology polyreg
+## 234  5  4               Breslow     pmm
+## 235  5  4           Tot_SNs_neg     pmm
+## 236  5  4           Tot_SNs_pos     pmm
+## 237  5  4              Rdamcrit     pmm
+## 238  5  4                 Dewar polyreg
+## 239  5  4               Mitosis  logreg
+## 240  5  4 logRec.composite.time     pmm
+## 241  5  5            Ulceration  logreg
+## 242  5  5               Loc_CAT polyreg
+## 243  5  5             Histology polyreg
+## 244  5  5               Breslow     pmm
+## 245  5  5           Tot_SNs_neg     pmm
+## 246  5  5           Tot_SNs_pos     pmm
+## 247  5  5              Rdamcrit     pmm
+## 248  5  5                 Dewar polyreg
+## 249  5  5               Mitosis  logreg
+## 250  5  5 logRec.composite.time     pmm
+##                                                  out
+## 1                                          StatusDOD
+## 2                                          StatusDOD
+## 3                               MSMDeath by melanoma
+## 4                                          StatusDOD
+## 5                               MSMDeath by melanoma
+## 6                                          StatusDOD
+## 7                               MSMDeath by melanoma
+## 8                                          StatusDOD
+## 9              CenterBerlin, CenterWarsaw, StatusDOD
+## 10                                         StatusDOD
+## 11                              MSMDeath by melanoma
+## 12                                         StatusDOD
+## 13                                         StatusDOD
+## 14                                         StatusDOD
+## 15                                         StatusDOD
+## 16                              MSMDeath by melanoma
+## 17                              MSMDeath by melanoma
+## 18                              MSMDeath by melanoma
+## 19             CenterBerlin, CenterWarsaw, StatusDOD
+## 20                                         StatusDOD
+## 21                                         StatusDOD
+## 22                                         StatusDOD
+## 23                              MSMDeath by melanoma
+## 24                              MSMDeath by melanoma
+## 25                                         StatusDOD
+## 26                                         StatusDOD
+## 27                                         StatusDOD
+## 28                                         StatusDOD
+## 29  CenterBerlin, CenterWarsaw, MSMDeath by melanoma
+## 30                                         StatusDOD
+## 31                                         StatusDOD
+## 32                              MSMDeath by melanoma
+## 33                                         StatusDOD
+## 34                                         StatusDOD
+## 35                              MSMDeath by melanoma
+## 36                                         StatusDOD
+## 37                              MSMDeath by melanoma
+## 38                                         StatusDOD
+## 39  CenterBerlin, CenterWarsaw, MSMDeath by melanoma
+## 40                                         StatusDOD
+## 41                              MSMDeath by melanoma
+## 42                                         StatusDOD
+## 43                                         StatusDOD
+## 44                              MSMDeath by melanoma
+## 45                                         StatusDOD
+## 46                                         StatusDOD
+## 47                                         StatusDOD
+## 48                              MSMDeath by melanoma
+## 49  CenterBerlin, CenterWarsaw, MSMDeath by melanoma
+## 50                              MSMDeath by melanoma
+## 51                                         StatusDOD
+## 52                                         StatusDOD
+## 53                                         StatusDOD
+## 54                                         StatusDOD
+## 55                              MSMDeath by melanoma
+## 56                              MSMDeath by melanoma
+## 57                              MSMDeath by melanoma
+## 58                                         StatusDOD
+## 59  CenterBerlin, CenterWarsaw, MSMDeath by melanoma
+## 60                                         StatusDOD
+## 61                                         StatusDOD
+## 62                              MSMDeath by melanoma
+## 63                              MSMDeath by melanoma
+## 64                              MSMDeath by melanoma
+## 65                                         StatusDOD
+## 66                              MSMDeath by melanoma
+## 67                                         StatusDOD
+## 68                                         StatusDOD
+## 69             CenterBerlin, CenterWarsaw, StatusDOD
+## 70                              MSMDeath by melanoma
+## 71                                         StatusDOD
+## 72                                         StatusDOD
+## 73                                         StatusDOD
+## 74                                         StatusDOD
+## 75                                         StatusDOD
+## 76                                         StatusDOD
+## 77                              MSMDeath by melanoma
+## 78                                         StatusDOD
+## 79             CenterBerlin, CenterWarsaw, StatusDOD
+## 80                              MSMDeath by melanoma
+## 81                              MSMDeath by melanoma
+## 82                              MSMDeath by melanoma
+## 83                                         StatusDOD
+## 84                              MSMDeath by melanoma
+## 85                              MSMDeath by melanoma
+## 86                                         StatusDOD
+## 87                                         StatusDOD
+## 88                                         StatusDOD
+## 89             CenterBerlin, CenterWarsaw, StatusDOD
+## 90                                         StatusDOD
+## 91                              MSMDeath by melanoma
+## 92                                         StatusDOD
+## 93                                         StatusDOD
+## 94                                         StatusDOD
+## 95                                         StatusDOD
+## 96                                         StatusDOD
+## 97                              MSMDeath by melanoma
+## 98                              MSMDeath by melanoma
+## 99             CenterBerlin, CenterWarsaw, StatusDOD
+## 100                             MSMDeath by melanoma
+## 101                             MSMDeath by melanoma
+## 102                             MSMDeath by melanoma
+## 103                             MSMDeath by melanoma
+## 104                             MSMDeath by melanoma
+## 105                                        StatusDOD
+## 106                             MSMDeath by melanoma
+## 107                                        StatusDOD
+## 108                             MSMDeath by melanoma
+## 109            CenterBerlin, CenterWarsaw, StatusDOD
+## 110                             MSMDeath by melanoma
+## 111                             MSMDeath by melanoma
+## 112                             MSMDeath by melanoma
+## 113                                        StatusDOD
+## 114                             MSMDeath by melanoma
+## 115                             MSMDeath by melanoma
+## 116                             MSMDeath by melanoma
+## 117                             MSMDeath by melanoma
+## 118                             MSMDeath by melanoma
+## 119 CenterBerlin, CenterWarsaw, MSMDeath by melanoma
+## 120                                        StatusDOD
+## 121                                        StatusDOD
+## 122                             MSMDeath by melanoma
+## 123                             MSMDeath by melanoma
+## 124                             MSMDeath by melanoma
+## 125                             MSMDeath by melanoma
+## 126                             MSMDeath by melanoma
+## 127                                        StatusDOD
+## 128                             MSMDeath by melanoma
+## 129            CenterBerlin, CenterWarsaw, StatusDOD
+## 130                             MSMDeath by melanoma
+## 131                             MSMDeath by melanoma
+## 132                             MSMDeath by melanoma
+## 133                                        StatusDOD
+## 134                                        StatusDOD
+## 135                             MSMDeath by melanoma
+## 136                             MSMDeath by melanoma
+## 137                             MSMDeath by melanoma
+## 138                                        StatusDOD
+## 139            CenterBerlin, CenterWarsaw, StatusDOD
+## 140                             MSMDeath by melanoma
+## 141                             MSMDeath by melanoma
+## 142                                        StatusDOD
+## 143                                        StatusDOD
+## 144                                        StatusDOD
+## 145                                        StatusDOD
+## 146                                        StatusDOD
+## 147                             MSMDeath by melanoma
+## 148                                        StatusDOD
+## 149            CenterBerlin, CenterWarsaw, StatusDOD
+## 150                                        StatusDOD
+## 151                                        StatusDOD
+## 152                             MSMDeath by melanoma
+## 153                                        StatusDOD
+## 154                             MSMDeath by melanoma
+## 155                                        StatusDOD
+## 156                             MSMDeath by melanoma
+## 157                                        StatusDOD
+## 158                                        StatusDOD
+## 159            CenterBerlin, CenterWarsaw, StatusDOD
+## 160                             MSMDeath by melanoma
+## 161                                        StatusDOD
+## 162                                        StatusDOD
+## 163                                        StatusDOD
+## 164                                        StatusDOD
+## 165                                        StatusDOD
+## 166                             MSMDeath by melanoma
+## 167                                        StatusDOD
+## 168                             MSMDeath by melanoma
+## 169 CenterBerlin, CenterWarsaw, MSMDeath by melanoma
+## 170                                        StatusDOD
+## 171                             MSMDeath by melanoma
+## 172                             MSMDeath by melanoma
+## 173                                        StatusDOD
+## 174                             MSMDeath by melanoma
+## 175                             MSMDeath by melanoma
+## 176                                        StatusDOD
+## 177                             MSMDeath by melanoma
+## 178                             MSMDeath by melanoma
+## 179            CenterBerlin, CenterWarsaw, StatusDOD
+## 180                                        StatusDOD
+## 181                                        StatusDOD
+## 182                                        StatusDOD
+## 183                                        StatusDOD
+## 184                                        StatusDOD
+## 185                                        StatusDOD
+## 186                             MSMDeath by melanoma
+## 187                                        StatusDOD
+## 188                                        StatusDOD
+## 189            CenterBerlin, CenterWarsaw, StatusDOD
+## 190                             MSMDeath by melanoma
+## 191                             MSMDeath by melanoma
+## 192                                        StatusDOD
+## 193                                        StatusDOD
+## 194                             MSMDeath by melanoma
+## 195                                        StatusDOD
+## 196                                        StatusDOD
+## 197                             MSMDeath by melanoma
+## 198                             MSMDeath by melanoma
+## 199            CenterBerlin, CenterWarsaw, StatusDOD
+## 200                                        StatusDOD
+## 201                                        StatusDOD
+## 202                             MSMDeath by melanoma
+## 203                             MSMDeath by melanoma
+## 204                             MSMDeath by melanoma
+## 205                                        StatusDOD
+## 206                                        StatusDOD
+## 207                                        StatusDOD
+## 208                                        StatusDOD
+## 209            CenterBerlin, CenterWarsaw, StatusDOD
+## 210                             MSMDeath by melanoma
+## 211                                        StatusDOD
+## 212                                        StatusDOD
+## 213                                        StatusDOD
+## 214                                        StatusDOD
+## 215                                        StatusDOD
+## 216                                        StatusDOD
+## 217                             MSMDeath by melanoma
+## 218                                        StatusDOD
+## 219            CenterBerlin, CenterWarsaw, StatusDOD
+## 220                             MSMDeath by melanoma
+## 221                             MSMDeath by melanoma
+## 222                                        StatusDOD
+## 223                             MSMDeath by melanoma
+## 224                             MSMDeath by melanoma
+## 225                                        StatusDOD
+## 226                                        StatusDOD
+## 227                                        StatusDOD
+## 228                                        StatusDOD
+## 229 CenterBerlin, CenterWarsaw, MSMDeath by melanoma
+## 230                             MSMDeath by melanoma
+## 231                                        StatusDOD
+## 232                             MSMDeath by melanoma
+## 233                                        StatusDOD
+## 234                                        StatusDOD
+## 235                             MSMDeath by melanoma
+## 236                                        StatusDOD
+## 237                                        StatusDOD
+## 238                             MSMDeath by melanoma
+## 239 CenterBerlin, CenterWarsaw, MSMDeath by melanoma
+## 240                                        StatusDOD
+## 241                                        StatusDOD
+## 242                                        StatusDOD
+## 243                             MSMDeath by melanoma
+## 244                             MSMDeath by melanoma
+## 245                                        StatusDOD
+## 246                                        StatusDOD
+## 247                             MSMDeath by melanoma
+## 248                                        StatusDOD
+## 249 CenterBerlin, CenterWarsaw, MSMDeath by melanoma
+## 250                                        StatusDOD</code></pre>
 <pre class="r"><code># Impute: Ulceration, Histology, Rdamcrit, Dewar, logRec.time
 impute.missing.values(type=&quot;validation&quot;, m=m, new.imputation=new.imputation)</code></pre>
-<pre><code>## Warning: Number of logged events: 1</code></pre>
-<pre><code>##          Center        SNstatus             Sex          Age.SN      Ulceration 
-##              &quot;&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot;        &quot;logreg&quot; 
-##         Loc_CAT       Histology         Breslow multiple.fields     Tot_SNs_neg 
-##              &quot;&quot;       &quot;polyreg&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot; 
-##     Tot_SNs_pos        Rdamcrit           Dewar         Mitosis      Recurrence 
-##              &quot;&quot;           &quot;pmm&quot;        &quot;logreg&quot;           &quot;pmm&quot;              &quot;&quot; 
-##            dead             MSM     logRec.time      logFU.time 
-##              &quot;&quot;              &quot;&quot;              &quot;&quot;              &quot;&quot; 
+<pre><code>## Warning: Number of logged events: 2</code></pre>
+<pre><code>##                Center              SNstatus                   Sex 
+##                    &quot;&quot;                    &quot;&quot;                    &quot;&quot; 
+##                Age.SN            Ulceration               Loc_CAT 
+##                    &quot;&quot;              &quot;logreg&quot;                    &quot;&quot; 
+##             Histology               Breslow       multiple.fields 
+##             &quot;polyreg&quot;                    &quot;&quot;                    &quot;&quot; 
+##           Tot_SNs_neg           Tot_SNs_pos              Rdamcrit 
+##                    &quot;&quot;                    &quot;&quot;                 &quot;pmm&quot; 
+##                 Dewar               Mitosis                Status 
+##              &quot;logreg&quot;                 &quot;pmm&quot;                    &quot;&quot; 
+##         Rec.composite logRec.composite.time                   MSM 
+##                    &quot;&quot;                    &quot;&quot;                    &quot;&quot; 
+##            logFU.time 
+##                    &quot;&quot; 
 ##   it im dep     meth    out
-## 1  0  0     constant Center</code></pre>
+## 1  0  0     constant Center
+## 2  0  0     constant Status</code></pre>
 <pre class="r"><code># training data gives warning messages for Mitosis
 # validation data gives multicolinearity of logRectime and recurrence
 # print(imputed.data$loggedEvents)</code></pre>

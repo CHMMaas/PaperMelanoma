@@ -28,12 +28,7 @@ descr.table <- arsenal::tableby(Continent ~ SNstatus
                                 +arsenal::includeNA(Histology)
                                 +Breslow
                                 +multiple.fields
-                                +arsenal::includeNA(Mitosis)
-                                +Recurrence
-                                +dead
-                                +MSM
-                                +logRec.time
-                                +logFU.time, 
+                                +arsenal::includeNA(Mitosis),
                                 data=pooled.data.to.be.imputed,
                                 total.pos="before",
                                 digits = 1,
