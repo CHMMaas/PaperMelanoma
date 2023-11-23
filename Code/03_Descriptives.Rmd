@@ -236,6 +236,18 @@ survminer::ggsurvplot(survival::survfit(S.Rec.5.pooled ~ Center,
                       conf.int=TRUE, risk.table=TRUE)+
   ggplot2::guides(colour=guide_legend(nrow=2))
 grDevices::dev.off()
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.composite.zoomed.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.Rec.5.pooled ~ Center, 
+                                        data=pooled.data), 
+                      legend.title="",
+                      legend.labs=c("Rotterdam", "Berlin", "Warsaw", "Amsterdam", "Australia"),
+                      title="Recurrence-free survival",
+                      ylab="Recurrence-free survival probability",
+                      xlab="Time in years",
+                      ylim=c(0.6, 1),
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()
 
 S.MSM.pooled <- survival::Surv(exp(pooled.data$logFU.time),
                                pooled.data$MSM=="Death by melanoma")
@@ -251,6 +263,18 @@ survminer::ggsurvplot(survival::survfit(S.MSM.5.pooled ~ Center,
                       title="Melanoma-specific survival",
                       ylab="Melanoma-specific survival probability",
                       xlab="Time in years",
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.zoomed.png"), width=16, height=16, units="cm", res=300)
+survminer::ggsurvplot(survival::survfit(S.MSM.5.pooled ~ Center, 
+                                        data=pooled.data), 
+                      legend.title="",
+                      legend.labs=c("Rotterdam", "Berlin", "Warsaw", "Amsterdam", "Australia"),
+                      title="Melanoma-specific survival",
+                      ylab="Melanoma-specific survival probability",
+                      xlab="Time in years",
+                      ylim=c(0.6, 1),
                       conf.int=TRUE, risk.table=TRUE)+
   ggplot2::guides(colour=guide_legend(nrow=2))
 grDevices::dev.off()

@@ -586,6 +586,20 @@ survminer::ggsurvplot(survival::survfit(S.Rec.5.pooled ~ Center,
 grDevices::dev.off()</code></pre>
 <pre><code>## png 
 ##   2</code></pre>
+<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.Rec.composite.zoomed.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
+survminer::ggsurvplot(survival::survfit(S.Rec.5.pooled ~ Center, 
+                                        data=pooled.data), 
+                      legend.title=&quot;&quot;,
+                      legend.labs=c(&quot;Rotterdam&quot;, &quot;Berlin&quot;, &quot;Warsaw&quot;, &quot;Amsterdam&quot;, &quot;Australia&quot;),
+                      title=&quot;Recurrence-free survival&quot;,
+                      ylab=&quot;Recurrence-free survival probability&quot;,
+                      xlab=&quot;Time in years&quot;,
+                      ylim=c(0.6, 1),
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()</code></pre>
+<pre><code>## png 
+##   2</code></pre>
 <pre class="r"><code>S.MSM.pooled &lt;- survival::Surv(exp(pooled.data$logFU.time),
                                pooled.data$MSM==&quot;Death by melanoma&quot;)
 S.MSM.5.pooled &lt;- S.MSM.pooled
@@ -600,6 +614,20 @@ survminer::ggsurvplot(survival::survfit(S.MSM.5.pooled ~ Center,
                       title=&quot;Melanoma-specific survival&quot;,
                       ylab=&quot;Melanoma-specific survival probability&quot;,
                       xlab=&quot;Time in years&quot;,
+                      conf.int=TRUE, risk.table=TRUE)+
+  ggplot2::guides(colour=guide_legend(nrow=2))
+grDevices::dev.off()</code></pre>
+<pre><code>## png 
+##   2</code></pre>
+<pre class="r"><code>png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/KM.MSM.zoomed.png&quot;), width=16, height=16, units=&quot;cm&quot;, res=300)
+survminer::ggsurvplot(survival::survfit(S.MSM.5.pooled ~ Center, 
+                                        data=pooled.data), 
+                      legend.title=&quot;&quot;,
+                      legend.labs=c(&quot;Rotterdam&quot;, &quot;Berlin&quot;, &quot;Warsaw&quot;, &quot;Amsterdam&quot;, &quot;Australia&quot;),
+                      title=&quot;Melanoma-specific survival&quot;,
+                      ylab=&quot;Melanoma-specific survival probability&quot;,
+                      xlab=&quot;Time in years&quot;,
+                      ylim=c(0.6, 1),
                       conf.int=TRUE, risk.table=TRUE)+
   ggplot2::guides(colour=guide_legend(nrow=2))
 grDevices::dev.off()</code></pre>
