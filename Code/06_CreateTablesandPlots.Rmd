@@ -276,15 +276,16 @@ for (model in list("Rec.5", "MSM.5.refit")){
     }
     
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/all.centers.", model, ".", type, ".png"))
-    out <- PredictionTools::val.surv.mi(p,S,g=5,main="All centers",
-                                        time=NULL,lim=c(0,1),dist=TRUE)
+    out <- PredictionTools::val.surv.mi(p=p, y=S, g=5, main="All centers", CI.metrics=TRUE,
+                                        time=NULL, lim=c(0,1), dist=TRUE)
     grDevices::dev.off()
     
     final.full.table <- eval(parse(text=paste0("final.", type, ".table.", model)))
-    final.full.table["C-index", "HR"] <- sprintf("%.2f", out$cindex-optimism)
-    final.full.table["C-index", "CI"] <- paste0("[", sprintf("%.2f", out$cindex.lower-optimism),
+    final.full.table["Harrell's C-index", "HR"] <- sprintf("%.2f", out$cindex-optimism)
+    final.full.table["Harrell's C-index", "CI"] <- paste0("[", sprintf("%.2f", out$cindex.lower-optimism),
                                                    "; ", sprintf("%.2f", out$cindex.upper-optimism), "]")
-
+    final.full.table["Uno's C-index", "HR"] <- sprintf("%.2f", out$uno.C-optimism)
+    
     assign(paste0("final.", type, ".table.", model), final.full.table)
     
     if (type=="BS"&model=="Rec.5"){
@@ -300,21 +301,30 @@ for (model in list("Rec.5", "MSM.5.refit")){
 ```{r, eval=TRUE}
 for (type in c("full", "BS")){
   f.mi <- eval(parse(text=paste0("f.mi.", type, ".Rec.5")))
+  unoC.MSM <- rep(0, m)
   cindex.MSM.cal <- rep(0, m)
   cindex.se.MSM.cal <- rep(0, m)
   for (i in 1:m){
-    rc <- Hmisc::rcorr.cens(-predict(f.mi,
-                                     newdata=mice::complete(imputed.training.data,i), type="lp"), 
+    lp.i <- predict(f.mi, newdata=mice::complete(imputed.training.data,i), type="lp")
+    rc <- Hmisc::rcorr.cens(-lp.i, 
                             S.MSM.5.training)
     cindex.MSM.cal[i] <- rc["C Index"]
     cindex.se.MSM.cal[i] <- rc["S.D."]/2
+    
+    unoC.MSM[i] <- survC1::Est.Cval(mydata=cbind(S.MSM.5.training[, 1], 
+                                              S.MSM.5.training[, 2], 
+                                              lp.i), 
+                                 tau=5, nofit=TRUE)$Dhat
   }
   cindex.mi.MSM.cal <- Rubin.combine(cindex.MSM.cal, cindex.se.MSM.cal)
   
   final.full.table <- eval(parse(text=paste0("final.", type, ".table.Rec.5")))
-  final.full.table["C-index MSM", "HR"] <- sprintf("%.2f", cindex.mi.MSM.cal$est-optimism)
-  final.full.table["C-index MSM", "CI"] <- paste0("[", sprintf("%.2f", cindex.mi.MSM.cal$est+qnorm(.025)*cindex.mi.MSM.cal$se-optimism),
-                                                 "; ", sprintf("%.2f", cindex.mi.MSM.cal$est+qnorm(.975)*cindex.mi.MSM.cal$se-optimism), "]")
+  final.full.table["Harrell's C-index MSM", "HR"] <- sprintf("%.2f", 
+                                                cindex.mi.MSM.cal$est-optimism)
+  final.full.table["Harrell's C-index MSM", "CI"] <- paste0("[", 
+    sprintf("%.2f", cindex.mi.MSM.cal$est+qnorm(.025)*cindex.mi.MSM.cal$se-optimism),
+    "; ", sprintf("%.2f", cindex.mi.MSM.cal$est+qnorm(.975)*cindex.mi.MSM.cal$se-optimism), "]")
+  final.full.table["Uno's C-index MSM", "HR"] <- sprintf("%.2f", mean(unoC.MSM)-optimism)
 
   assign(paste0("final.", type, ".table.Rec.5"), final.full.table)
 }
@@ -345,7 +355,7 @@ row.names(final.full.table.Rec.5) <- c("Positive SN status", "Male",
                                     "Location metastasis in lymph node",
                                     "Subcap", "Combined", "Parenchymal",
                                     "Multifocal", "Extensive",
-                                    rownames(final.full.table.Rec.5)[(nrow(final.full.table.Rec.5)-1):nrow(final.full.table.Rec.5)])
+                                    rownames(final.full.table.Rec.5)[(nrow(final.full.table.Rec.5)-3):nrow(final.full.table.Rec.5)])
 final.full.table.MSM.5.refit <- as.data.frame(final.full.table.MSM.5.refit)
 row.names(final.full.table.MSM.5.refit) <- c("Positive SN status", "Male",
                                           "Age", "Ulceration", "Location",
@@ -358,7 +368,7 @@ row.names(final.full.table.MSM.5.refit) <- c("Positive SN status", "Male",
                                           "Location metastasis in lymph node",
                                           "Subcap", "Combined", "Parenchymal",
                                           "Multifocal", "Extensive",
-                                          row.names(final.full.table.MSM.5.refit)[nrow(final.full.table.MSM.5.refit)])
+                                          row.names(final.full.table.MSM.5.refit)[(nrow(final.full.table.MSM.5.refit)-1):nrow(final.full.table.MSM.5.refit)])
 final.BS.table.Rec.5 <- as.data.frame(final.BS.table.Rec.5)
 row.names(final.BS.table.Rec.5) <- c("SN status",
                                      "Negative SN status",
@@ -374,7 +384,7 @@ row.names(final.BS.table.Rec.5) <- c("SN status",
                                      "Breslow (negative)",
                                      "Breslow (positive)",
                                      "SN tumour burden", 
-                                   row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-1):nrow(final.BS.table.Rec.5)])
+                                   row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-3):nrow(final.BS.table.Rec.5)])
 final.BS.table.MSM.5.refit <- as.data.frame(final.BS.table.MSM.5.refit)
 row.names(final.BS.table.MSM.5.refit) <- c("SN status",
                                      "Negative SN status",
@@ -390,7 +400,7 @@ row.names(final.BS.table.MSM.5.refit) <- c("SN status",
                                      "Breslow (negative)",
                                      "Breslow (positive)",
                                      "SN tumour burden",  
-                                   row.names(final.BS.table.MSM.5.refit)[nrow(final.BS.table.MSM.5.refit)])
+                                   row.names(final.BS.table.MSM.5.refit)[(nrow(final.BS.table.MSM.5.refit)-1):nrow(final.BS.table.MSM.5.refit)])
 
 # save tables
 write.table(final.full.table.Rec.5,

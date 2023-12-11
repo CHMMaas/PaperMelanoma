@@ -110,7 +110,8 @@ for (model in c("Rec.5", "MSM.5")){
       
         png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", model, ".", select.value, ".", type, ".", Centers[j], ".png"))
         out <- PredictionTools::val.surv.mi(p, S, g=5, main=paste("Center", Centers.anonimized[j]),
-                                            time=NULL,lim=c(0,1),dist=TRUE)
+                                            time=NULL,lim=c(0,1),dist=TRUE,
+                                            CI.metrics=TRUE)
         grDevices::dev.off()
       }
     }

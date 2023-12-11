@@ -805,15 +805,16 @@ optimism</code></pre>
     }
     
     png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/all.centers.&quot;, model, &quot;.&quot;, type, &quot;.png&quot;))
-    out &lt;- PredictionTools::val.surv.mi(p,S,g=5,main=&quot;All centers&quot;,
-                                        time=NULL,lim=c(0,1),dist=TRUE)
+    out &lt;- PredictionTools::val.surv.mi(p=p, y=S, g=5, main=&quot;All centers&quot;, CI.metrics=TRUE,
+                                        time=NULL, lim=c(0,1), dist=TRUE)
     grDevices::dev.off()
     
     final.full.table &lt;- eval(parse(text=paste0(&quot;final.&quot;, type, &quot;.table.&quot;, model)))
-    final.full.table[&quot;C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$cindex-optimism)
-    final.full.table[&quot;C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$cindex.lower-optimism),
+    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$cindex-optimism)
+    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$cindex.lower-optimism),
                                                    &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$cindex.upper-optimism), &quot;]&quot;)
-
+    final.full.table[&quot;Uno&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$uno.C-optimism)
+    
     assign(paste0(&quot;final.&quot;, type, &quot;.table.&quot;, model), final.full.table)
     
     if (type==&quot;BS&quot;&amp;model==&quot;Rec.5&quot;){
@@ -829,21 +830,30 @@ optimism</code></pre>
 recurrence</h1>
 <pre class="r"><code>for (type in c(&quot;full&quot;, &quot;BS&quot;)){
   f.mi &lt;- eval(parse(text=paste0(&quot;f.mi.&quot;, type, &quot;.Rec.5&quot;)))
+  unoC.MSM &lt;- rep(0, m)
   cindex.MSM.cal &lt;- rep(0, m)
   cindex.se.MSM.cal &lt;- rep(0, m)
   for (i in 1:m){
-    rc &lt;- Hmisc::rcorr.cens(-predict(f.mi,
-                                     newdata=mice::complete(imputed.training.data,i), type=&quot;lp&quot;), 
+    lp.i &lt;- predict(f.mi, newdata=mice::complete(imputed.training.data,i), type=&quot;lp&quot;)
+    rc &lt;- Hmisc::rcorr.cens(-lp.i, 
                             S.MSM.5.training)
     cindex.MSM.cal[i] &lt;- rc[&quot;C Index&quot;]
     cindex.se.MSM.cal[i] &lt;- rc[&quot;S.D.&quot;]/2
+    
+    unoC.MSM[i] &lt;- survC1::Est.Cval(mydata=cbind(S.MSM.5.training[, 1], 
+                                              S.MSM.5.training[, 2], 
+                                              lp.i), 
+                                 tau=5, nofit=TRUE)$Dhat
   }
   cindex.mi.MSM.cal &lt;- Rubin.combine(cindex.MSM.cal, cindex.se.MSM.cal)
   
   final.full.table &lt;- eval(parse(text=paste0(&quot;final.&quot;, type, &quot;.table.Rec.5&quot;)))
-  final.full.table[&quot;C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, cindex.mi.MSM.cal$est-optimism)
-  final.full.table[&quot;C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.MSM.cal$est+qnorm(.025)*cindex.mi.MSM.cal$se-optimism),
-                                                 &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.MSM.cal$est+qnorm(.975)*cindex.mi.MSM.cal$se-optimism), &quot;]&quot;)
+  final.full.table[&quot;Harrell&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, 
+                                                cindex.mi.MSM.cal$est-optimism)
+  final.full.table[&quot;Harrell&#39;s C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, 
+    sprintf(&quot;%.2f&quot;, cindex.mi.MSM.cal$est+qnorm(.025)*cindex.mi.MSM.cal$se-optimism),
+    &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.MSM.cal$est+qnorm(.975)*cindex.mi.MSM.cal$se-optimism), &quot;]&quot;)
+  final.full.table[&quot;Uno&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, mean(unoC.MSM)-optimism)
 
   assign(paste0(&quot;final.&quot;, type, &quot;.table.Rec.5&quot;), final.full.table)
 }</code></pre>
@@ -873,7 +883,7 @@ row.names(final.full.table.Rec.5) &lt;- c(&quot;Positive SN status&quot;, &quot;
                                     &quot;Location metastasis in lymph node&quot;,
                                     &quot;Subcap&quot;, &quot;Combined&quot;, &quot;Parenchymal&quot;,
                                     &quot;Multifocal&quot;, &quot;Extensive&quot;,
-                                    rownames(final.full.table.Rec.5)[(nrow(final.full.table.Rec.5)-1):nrow(final.full.table.Rec.5)])
+                                    rownames(final.full.table.Rec.5)[(nrow(final.full.table.Rec.5)-3):nrow(final.full.table.Rec.5)])
 final.full.table.MSM.5.refit &lt;- as.data.frame(final.full.table.MSM.5.refit)
 row.names(final.full.table.MSM.5.refit) &lt;- c(&quot;Positive SN status&quot;, &quot;Male&quot;,
                                           &quot;Age&quot;, &quot;Ulceration&quot;, &quot;Location&quot;,
@@ -886,7 +896,7 @@ row.names(final.full.table.MSM.5.refit) &lt;- c(&quot;Positive SN status&quot;, 
                                           &quot;Location metastasis in lymph node&quot;,
                                           &quot;Subcap&quot;, &quot;Combined&quot;, &quot;Parenchymal&quot;,
                                           &quot;Multifocal&quot;, &quot;Extensive&quot;,
-                                          row.names(final.full.table.MSM.5.refit)[nrow(final.full.table.MSM.5.refit)])
+                                          row.names(final.full.table.MSM.5.refit)[(nrow(final.full.table.MSM.5.refit)-1):nrow(final.full.table.MSM.5.refit)])
 final.BS.table.Rec.5 &lt;- as.data.frame(final.BS.table.Rec.5)
 row.names(final.BS.table.Rec.5) &lt;- c(&quot;SN status&quot;,
                                      &quot;Negative SN status&quot;,
@@ -902,7 +912,7 @@ row.names(final.BS.table.Rec.5) &lt;- c(&quot;SN status&quot;,
                                      &quot;Breslow (negative)&quot;,
                                      &quot;Breslow (positive)&quot;,
                                      &quot;SN tumour burden&quot;, 
-                                   row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-1):nrow(final.BS.table.Rec.5)])
+                                   row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-3):nrow(final.BS.table.Rec.5)])
 final.BS.table.MSM.5.refit &lt;- as.data.frame(final.BS.table.MSM.5.refit)
 row.names(final.BS.table.MSM.5.refit) &lt;- c(&quot;SN status&quot;,
                                      &quot;Negative SN status&quot;,
@@ -918,7 +928,7 @@ row.names(final.BS.table.MSM.5.refit) &lt;- c(&quot;SN status&quot;,
                                      &quot;Breslow (negative)&quot;,
                                      &quot;Breslow (positive)&quot;,
                                      &quot;SN tumour burden&quot;,  
-                                   row.names(final.BS.table.MSM.5.refit)[nrow(final.BS.table.MSM.5.refit)])
+                                   row.names(final.BS.table.MSM.5.refit)[(nrow(final.BS.table.MSM.5.refit)-1):nrow(final.BS.table.MSM.5.refit)])
 
 # save tables
 write.table(final.full.table.Rec.5,
@@ -962,8 +972,10 @@ final.full.table.Rec.5</code></pre>
 ## Parenchymal                                             1.08 [0.67; 1.74]     
 ## Multifocal                                              0.78 [0.40; 1.53]     
 ## Extensive                                               1.29 [0.74; 2.27]     
-## C-index                                                                       
-## C-index MSM                                                                   
+## Harrell&#39;s C-index                                                             
+## Uno&#39;s C-index                                                                 
+## Harrell&#39;s C-index MSM                                                         
+## Uno&#39;s C-index MSM                                                             
 ##                                   Int   HR           CI
 ## Positive SN status                 27                  
 ## Male                                4                  
@@ -990,8 +1002,10 @@ final.full.table.Rec.5</code></pre>
 ## Parenchymal                                            
 ## Multifocal                                             
 ## Extensive                                              
-## C-index                               0.76 [0.75; 0.78]
-## C-index MSM                           0.79 [0.77; 0.81]</code></pre>
+## Harrell&#39;s C-index                     0.76 [0.75; 0.78]
+## Uno&#39;s C-index                         0.76             
+## Harrell&#39;s C-index MSM                 0.79 [0.77; 0.81]
+## Uno&#39;s C-index MSM                     0.79</code></pre>
 <pre class="r"><code>final.full.table.MSM.5.refit</code></pre>
 <pre><code>##                                   HR.neg       CI.neg HR.pos        CI.pos Main
 ## Positive SN status                                      6.04 [2.41; 15.12]   39
@@ -1019,7 +1033,8 @@ final.full.table.Rec.5</code></pre>
 ## Parenchymal                                             1.36  [0.71; 2.60]     
 ## Multifocal                                              1.23  [0.57; 2.63]     
 ## Extensive                                               1.46  [0.76; 2.82]     
-## C-index                                                                        
+## Harrell&#39;s C-index                                                              
+## Uno&#39;s C-index                                                                  
 ##                                   Int   HR           CI
 ## Positive SN status                 32                  
 ## Male                                2                  
@@ -1046,25 +1061,28 @@ final.full.table.Rec.5</code></pre>
 ## Parenchymal                                            
 ## Multifocal                                             
 ## Extensive                                              
-## C-index                               0.80 [0.78; 0.82]</code></pre>
+## Harrell&#39;s C-index                     0.80 [0.78; 0.82]
+## Uno&#39;s C-index                         0.79</code></pre>
 <pre class="r"><code>final.BS.table.Rec.5</code></pre>
-<pre><code>##                       HR            CI Imp.
-## SN status                               153
-## Negative SN status (ref)                   
-## Positive SN status  2.96  [2.48; 3.54]     
-## Age                 1.37  [1.23; 1.53]   31
-## Ulceration          1.61  [1.39; 1.87]   41
-## Location                                 21
-## Upper limb         (ref)                   
-## Lower limb          1.14  [0.89; 1.46]     
-## Trunk               1.29  [1.02; 1.63]     
-## Head and neck       1.89  [1.41; 2.54]     
-## Breslow                                    
-## Breslow (negative)  2.43  [2.14; 2.76]  199
-## Breslow (positive)  1.52  [1.29; 1.80]   21
-## SN tumour burden    5.74 [2.67; 12.30]   20
-## C-index             0.76  [0.74; 0.78]     
-## C-index MSM         0.79  [0.77; 0.81]</code></pre>
+<pre><code>##                          HR            CI Imp.
+## SN status                                  153
+## Negative SN status    (ref)                   
+## Positive SN status     2.96  [2.48; 3.54]     
+## Age                    1.37  [1.23; 1.53]   31
+## Ulceration             1.61  [1.39; 1.87]   41
+## Location                                    21
+## Upper limb            (ref)                   
+## Lower limb             1.14  [0.89; 1.46]     
+## Trunk                  1.29  [1.02; 1.63]     
+## Head and neck          1.89  [1.41; 2.54]     
+## Breslow                                       
+## Breslow (negative)     2.43  [2.14; 2.76]  199
+## Breslow (positive)     1.52  [1.29; 1.80]   21
+## SN tumour burden       5.74 [2.67; 12.30]   20
+## Harrell&#39;s C-index      0.76  [0.74; 0.78]     
+## Uno&#39;s C-index          0.75                   
+## Harrell&#39;s C-index MSM  0.79  [0.77; 0.81]     
+## Uno&#39;s C-index MSM      0.78</code></pre>
 <pre class="r"><code>final.BS.table.MSM.5.refit</code></pre>
 <pre><code>##                       HR            CI Imp.
 ## SN status                                83
@@ -1081,7 +1099,8 @@ final.full.table.Rec.5</code></pre>
 ## Breslow (negative)  2.79  [2.31; 3.38]  119
 ## Breslow (positive)  1.57  [1.25; 1.98]   16
 ## SN tumour burden    9.63 [2.85; 32.54]   13
-## C-index             0.79  [0.77; 0.81]</code></pre>
+## Harrell&#39;s C-index   0.79  [0.77; 0.81]     
+## Uno&#39;s C-index       0.78</code></pre>
 </div>
 <div id="c-index-of-final-model-for-recurrence-stratified-by-sn-status" class="section level1">
 <h1>C-index of final model for recurrence stratified by SN status</h1>

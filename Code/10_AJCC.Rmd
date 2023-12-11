@@ -31,10 +31,13 @@ calculate.AJCC.7.8 <- function(imputed.data=NULL, type=NULL, S.Rec.5=NULL){
   ####
   TNM.7 <- c()
   AJCC.7 <- c()
+  unoC.AJCC.7 <- rep(0, m)
   cindex.AJCC.7 <- rep(0, m)
   cindex.AJCC.7.se <- rep(0, m)
+  unoC.AJCC.7.pos <- rep(0, m)
   cindex.AJCC.7.pos <- rep(0, m)
   cindex.AJCC.7.se.pos <- rep(0, m)
+  unoC.AJCC.7.neg <- rep(0, m)
   cindex.AJCC.7.neg <- rep(0, m)
   cindex.AJCC.7.se.neg <- rep(0, m)
   for (i in 1:m){
@@ -126,24 +129,43 @@ calculate.AJCC.7.8 <- function(imputed.data=NULL, type=NULL, S.Rec.5=NULL){
       }
     }
   
-    # save TNM.7 and AJCC.7 for each imputated data set
+    # save TNM.7 and AJCC.7 for each imputed data set
     TNM.7 <- cbind(TNM.7, TNM.7.i)
     AJCC.7 <- cbind(AJCC.7, AJCC.7.i)
   
-    # compute C-index
+    # compute Harrell's C-index
     rc <- Hmisc::rcorr.cens(-AJCC.7.i, S.Rec.5) # add a minus to revert class order: from worst to best
     cindex.AJCC.7[i]<-rc["C Index"]
     cindex.AJCC.7.se[i]<-rc["S.D."]/2
-  
+
+    # Uno's c-index  
+    unoC.AJCC.7[i] <- survC1::Est.Cval(mydata=cbind(S.Rec.5[, 1], S.Rec.5[, 2], 
+                                              AJCC.7.i), 
+                                 tau=5, nofit=TRUE)$Dhat
+
     # compute C-index for only positive sentinel node patients
-    rc.pos <- Hmisc::rcorr.cens(-AJCC.7.i[imputation.i$SNstatus=="Positive"], S.Rec.5[imputation.i$SNstatus=="Positive",])
+    positives <- imputation.i$SNstatus=="Positive"
+    rc.pos <- Hmisc::rcorr.cens(-AJCC.7.i[positives], S.Rec.5[positives,])
     cindex.AJCC.7.pos[i]<-rc.pos["C Index"]
     cindex.AJCC.7.se.pos[i]<-rc.pos["S.D."]/2
+    
+    # Uno's c-index  
+    unoC.AJCC.7.pos[i] <- survC1::Est.Cval(mydata=cbind(S.Rec.5[positives, 1], 
+                                              S.Rec.5[positives, 2], 
+                                              AJCC.7.i[positives]), 
+                                 tau=5, nofit=TRUE)$Dhat
   
     # compute C-index for only negative sentinel node patients
-    rc.neg <- Hmisc::rcorr.cens(-AJCC.7.i[imputation.i$SNstatus=="Negative"], S.Rec.5[imputation.i$SNstatus=="Negative",])
+    negatives <- imputation.i$SNstatus=="Negative"
+    rc.neg <- Hmisc::rcorr.cens(-AJCC.7.i[negatives], S.Rec.5[negatives,])
     cindex.AJCC.7.neg[i]<-rc.neg["C Index"]
     cindex.AJCC.7.se.neg[i]<-rc.neg["S.D."]/2
+    
+    # Uno's c-index  
+    unoC.AJCC.7.neg[i] <- survC1::Est.Cval(mydata=cbind(S.Rec.5[negatives, 1], 
+                                              S.Rec.5[negatives, 2], 
+                                              AJCC.7.i[negatives]), 
+                                 tau=5, nofit=TRUE)$Dhat
   }
   
   # combine C-index for each imputed data set
@@ -154,23 +176,29 @@ calculate.AJCC.7.8 <- function(imputed.data=NULL, type=NULL, S.Rec.5=NULL){
   # save C-index and confidence interval
   AJCC.7.table <- rbind(c("All patients:", sprintf("%.2f", cindex.mi.AJCC.7$est),
                 paste0("[", sprintf("%.2f", cindex.mi.AJCC.7$est+qnorm(.025)*cindex.mi.AJCC.7$se),
-                        "; ", sprintf("%.2f", cindex.mi.AJCC.7$est+qnorm(.975)*cindex.mi.AJCC.7$se), "]")),
-              c("Negative SN patients:", sprintf("%.2f", cindex.mi.AJCC.7.neg$est),
-                    paste0("[", sprintf("%.2f", cindex.mi.AJCC.7.neg$est+qnorm(.025)*cindex.mi.AJCC.7.neg$se),
-                           "; ", sprintf("%.2f", cindex.mi.AJCC.7.neg$est+qnorm(.975)*cindex.mi.AJCC.7.neg$se), "]")),
+                        "; ", sprintf("%.2f", cindex.mi.AJCC.7$est+qnorm(.975)*cindex.mi.AJCC.7$se), "]"),
+                sprintf("%.2f", mean(unoC.AJCC.7))),
               c("Positive SN patients:", sprintf("%.2f", cindex.mi.AJCC.7.pos$est),
                     paste0("[", sprintf("%.2f", cindex.mi.AJCC.7.pos$est+qnorm(.025)*cindex.mi.AJCC.7.pos$se),
-                           "; ", sprintf("%.2f", cindex.mi.AJCC.7.pos$est+qnorm(.975)*cindex.mi.AJCC.7.pos$se), "]")))
+                           "; ", sprintf("%.2f", cindex.mi.AJCC.7.pos$est+qnorm(.975)*cindex.mi.AJCC.7.pos$se), "]"),
+                sprintf("%.2f", mean(unoC.AJCC.7.pos))),
+              c("Negative SN patients:", sprintf("%.2f", cindex.mi.AJCC.7.neg$est),
+                    paste0("[", sprintf("%.2f", cindex.mi.AJCC.7.neg$est+qnorm(.025)*cindex.mi.AJCC.7.neg$se),
+                           "; ", sprintf("%.2f", cindex.mi.AJCC.7.neg$est+qnorm(.975)*cindex.mi.AJCC.7.neg$se), "]"),
+                sprintf("%.2f", mean(unoC.AJCC.7.neg))))
   
   ####
   #### AJCC8
   ####
   TNM.8 <- c()
   AJCC.8 <- c()
+  unoC.AJCC.8 <- rep(0, m)
   cindex.AJCC.8 <- rep(0, m)
   cindex.AJCC.8.se <- rep(0, m)
+  unoC.AJCC.8.pos <- rep(0, m)
   cindex.AJCC.8.pos <- rep(0, m)
   cindex.AJCC.8.se.pos <- rep(0, m)
+  unoC.AJCC.8.neg <- rep(0, m)
   cindex.AJCC.8.neg <- rep(0, m)
   cindex.AJCC.8.se.neg <- rep(0, m)
   for (i in 1:m){
@@ -248,24 +276,41 @@ calculate.AJCC.7.8 <- function(imputed.data=NULL, type=NULL, S.Rec.5=NULL){
   
     }
   
-    # save TNM.8 and AJCC.8 for each imputated data set
+    # save TNM.8 and AJCC.8 for each imputed data set
     TNM.8 <- cbind(TNM.8, TNM.8.i)
     AJCC.8 <- cbind(AJCC.8, AJCC.8.i)
   
-    # compute C-index
+    # compute Harrell's C-index
     rc <- Hmisc::rcorr.cens(-AJCC.8.i, S.Rec.5) # add a minus to revert class order: from worst to best
     cindex.AJCC.8[i]<-rc["C Index"]
     cindex.AJCC.8.se[i]<-rc["S.D."]/2
+    
+    # Uno's c-index  
+    unoC.AJCC.8[i] <- survC1::Est.Cval(mydata=cbind(S.Rec.5[, 1], S.Rec.5[, 2], 
+                                              AJCC.8.i), 
+                                 tau=5, nofit=TRUE)$Dhat
   
     # compute C-index for only positive sentinel node patients
-    rc.pos <- Hmisc::rcorr.cens(-AJCC.8.i[imputation.i$SNstatus=="Positive"], S.Rec.5[imputation.i$SNstatus=="Positive",])
+    positives <- imputation.i$SNstatus=="Positive"
+    rc.pos <- Hmisc::rcorr.cens(-AJCC.8.i[positives], S.Rec.5[positives,])
     cindex.AJCC.8.pos[i]<-rc.pos["C Index"]
     cindex.AJCC.8.se.pos[i]<-rc.pos["S.D."]/2
+    unoC.AJCC.8.pos[i] <- survC1::Est.Cval(mydata=cbind(S.Rec.5[positives, 1], 
+                                                    S.Rec.5[positives, 2], 
+                                                    AJCC.8.i[positives]), 
+                                 tau=5, nofit=TRUE)$Dhat
+  
   
     # compute C-index for only negative sentinel node patients
-    rc.neg <- Hmisc::rcorr.cens(-AJCC.8.i[imputation.i$SNstatus=="Negative"], S.Rec.5[imputation.i$SNstatus=="Negative",])
+    negatives <- imputation.i$SNstatus=="Negative"
+    rc.neg <- Hmisc::rcorr.cens(-AJCC.8.i[negatives], S.Rec.5[negatives,])
     cindex.AJCC.8.neg[i]<-rc.neg["C Index"]
     cindex.AJCC.8.se.neg[i]<-rc.neg["S.D."]/2
+    unoC.AJCC.8.neg[i] <- survC1::Est.Cval(mydata=cbind(S.Rec.5[negatives, 1], 
+                                                    S.Rec.5[negatives, 2], 
+                                                    AJCC.8.i[negatives]), 
+                                 tau=5, nofit=TRUE)$Dhat
+  
   }
   # combine C-index for each imputed data set
   cindex.mi.AJCC.8<-Rubin.combine(cindex.AJCC.8,cindex.AJCC.8.se)
@@ -275,13 +320,16 @@ calculate.AJCC.7.8 <- function(imputed.data=NULL, type=NULL, S.Rec.5=NULL){
   # save C-index and confidence interval
   AJCC.8.table <- rbind(c("All patients:", sprintf("%.2f", cindex.mi.AJCC.8$est),
                           paste0("[", sprintf("%.2f", cindex.mi.AJCC.8$est+qnorm(.025)*cindex.mi.AJCC.8$se),
-                                 "; ", sprintf("%.2f", cindex.mi.AJCC.8$est+qnorm(.975)*cindex.mi.AJCC.8$se), "]")),
-                    c("Negative SN patients", sprintf("%.2f", cindex.mi.AJCC.8.neg$est),
-                          paste0("[", sprintf("%.2f", cindex.mi.AJCC.8.neg$est+qnorm(.025)*cindex.mi.AJCC.8.neg$se),
-                                 "; ", sprintf("%.2f", cindex.mi.AJCC.8.neg$est+qnorm(.975)*cindex.mi.AJCC.8.neg$se), "]")),
+                                 "; ", sprintf("%.2f", cindex.mi.AJCC.8$est+qnorm(.975)*cindex.mi.AJCC.8$se), "]"),
+                          sprintf("%.2f", mean(unoC.AJCC.8))),
                     c("Positive SN patients:", sprintf("%.2f", cindex.mi.AJCC.8.pos$est),
                           paste0("[", sprintf("%.2f", cindex.mi.AJCC.8.pos$est+qnorm(.025)*cindex.mi.AJCC.8.pos$se),
-                                 "; ", sprintf("%.2f", cindex.mi.AJCC.8.pos$est+qnorm(.975)*cindex.mi.AJCC.8.pos$se), "]")))
+                                 "; ", sprintf("%.2f", cindex.mi.AJCC.8.pos$est+qnorm(.975)*cindex.mi.AJCC.8.pos$se), "]"),
+                      sprintf("%.2f", mean(unoC.AJCC.8.pos))),
+                    c("Negative SN patients", sprintf("%.2f", cindex.mi.AJCC.8.neg$est),
+                          paste0("[", sprintf("%.2f", cindex.mi.AJCC.8.neg$est+qnorm(.025)*cindex.mi.AJCC.8.neg$se),
+                                 "; ", sprintf("%.2f", cindex.mi.AJCC.8.neg$est+qnorm(.975)*cindex.mi.AJCC.8.neg$se), "]"),
+                      sprintf("%.2f", mean(unoC.AJCC.8.neg))))
   
   # table of number of AJCC.7 and AJCC.8
   table.AJCC.7 <- c()
@@ -400,10 +448,10 @@ CIndex.val <- rbind(c("All patients:",
 utils::write.table(cbind(train.AJCC$AJCC.7.table, rep("", 3), train.AJCC$AJCC.8.table[,-1]),
               file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/AJCC.train.txt"),
               row.names=FALSE, col.names=FALSE, sep=",")
-utils::write.table(cbind(CIndex.val, rep("", 3),
-                   validation.AJCC$AJCC.7.table[, -1], rep("", 3), 
-                   compare.AJCC.model[, 2:3], rep("", 3),
-                   validation.AJCC$AJCC.8.table[,-1], rep("", 3),
+utils::write.table(cbind(CIndex.val,
+                   validation.AJCC$AJCC.7.table[, -1],
+                   compare.AJCC.model[, 2:3],
+                   validation.AJCC$AJCC.8.table[,-1],
                    compare.AJCC.model[, 4:5]),
               file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/AJCC.validation.txt"),
               row.names=FALSE, col.names=FALSE, sep=",")

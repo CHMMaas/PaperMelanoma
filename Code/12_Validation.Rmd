@@ -72,7 +72,7 @@ for (data.type in c("training", "validation")){
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p, S,
                                  g=5, main="All patients", time=NULL, 
-                                 lim=c(0,1), dist=TRUE,
+                                 lim=c(0,1), dist=TRUE, CI.metrics=TRUE,
                                  optimism.C=ifelse(data.type=="training", optimism, 0))
     grDevices::dev.off()
     
@@ -81,7 +81,7 @@ for (data.type in c("training", "validation")){
     PredictionTools::val.surv.mi(p[data$SNstatus=="Positive",],
                                  S[data$SNstatus=="Positive",],
                                  g=5, main="Patients with positive SN", 
-                                 time=NULL, lim=c(0,1), dist=TRUE,
+                                 time=NULL, lim=c(0,1), dist=TRUE, CI.metrics=TRUE,
                                  optimism.C=ifelse(data.type=="training", optimism, 0))
     grDevices::dev.off()
     
@@ -90,7 +90,7 @@ for (data.type in c("training", "validation")){
     PredictionTools::val.surv.mi(p[data$SNstatus=="Negative",],
                                  S[data$SNstatus=="Negative",],
                                  g=5, main="Patients with negative SN", 
-                                 time=NULL, lim=c(0,1), dist=TRUE,
+                                 time=NULL, lim=c(0,1), dist=TRUE, CI.metrics=TRUE,
                                  optimism.C=ifelse(data.type=="training", optimism, 0))
     grDevices::dev.off()
     
