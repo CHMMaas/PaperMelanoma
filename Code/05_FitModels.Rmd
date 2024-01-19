@@ -85,6 +85,10 @@ f.mi.BS.Rec.5 <- Hmisc::fit.mult.impute(form.BS.Rec.5,cph,
                                         data=training.data.to.be.imputed,
                                         n.impute=m, pr=FALSE,fit.reps=TRUE,
                                         fitargs=list(y=TRUE,x=TRUE,se.fit=TRUE))
+
+# check Cox Proportional Hazards Assumption
+PH.assumption <- survival::cox.zph(f.mi.BS.Rec.5)
+
 # backward selection
 # round(stats::anova(f.mi.BS.Rec.5)[order(stats::anova(f.mi.BS.Rec.5)[, "P"]),], 3)
 summary(f.mi.BS.Rec.5, Breslow=exp(c.Breslow))
@@ -171,7 +175,9 @@ utils::write.table(paste0(sprintf("%.2f", MSM.cal.fact), " [",
 
 save(list=c("dd.training", "training.data.to.be.imputed", "m", 
             "imputed.training.data", "last.imputed.training.data.set", 
-            "horizon", "S.Rec.5.training", "S.MSM.5.training",
+            "horizon", 
+            "S.Rec.training", "S.MSM.training",
+            "S.Rec.5.training", "S.MSM.5.training",
             "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", 
             "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", 
             "form.full.Rec.5", "form.BS.Rec.5", "form.full.MSM.5.refit", "form.BS.MSM.5.refit"),
@@ -179,6 +185,7 @@ save(list=c("dd.training", "training.data.to.be.imputed", "m",
 load("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData")
 save(list=c("dd.validation", "validation.data.to.be.imputed", "m", 
             "imputed.validation.data", "last.imputed.validation.data.set", "horizon", 
+            "S.Rec.validation", "S.MSM.validation", 
             "S.Rec.5.validation", "S.MSM.5.validation", "f.mi.BS.Rec.5"),
      file=paste0("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata"), compress=TRUE)
 ```
@@ -228,7 +235,8 @@ for (i in 1:m){
                       type="lp")
   p.MSM.5.redev[, i] <- 1-exp(-h0.MSM.redev*exp(lp.val.i))
 }
-PredictionTools::val.surv.mi(p.MSM.5.redev, S.MSM.5.training, g=5,
-                             main="All patients", time=NULL, lim=c(0, 1),
+PredictionTools::val.surv.mi(p.MSM.5.redev, S.MSM.training, g=5,
+                             main="All patients", time=5, lim=c(0, 1),
                              dist=TRUE)
 ```
+

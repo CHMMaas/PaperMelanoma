@@ -61,36 +61,42 @@ for (i in 1:m){
 # calibration curve for recurrence
 # TODO: validation based on dd.training or dd.validation?
 for (data.type in c("training", "validation")){
-  for (outcome in c("Rec.5", "MSM.5")){
+  for (outcome in c("Rec", "MSM")){
     options(datadist=paste0("dd.", data.type))
   
     S <- eval(parse(text=paste0("S.", outcome, ".", data.type)))
-    p <- eval(parse(text=paste0("p.", outcome, ".", data.type)))
+    p <- eval(parse(text=paste0("p.", outcome, ".5.", data.type)))
     data <- eval(parse(text=paste0(data.type, ".data.to.be.imputed")))
     
-    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".All.png"))
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".All.png"),
+        width=1800, height=1800, units="px", res=300)
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p, S,
-                                 g=5, main="All patients", time=NULL, 
-                                 lim=c(0,1), dist=TRUE, CI.metrics=TRUE,
+                                 g=5, main="All patients", time=horizon, 
+                                 lim=c(0,1), dist=TRUE, 
+                                 CI.metrics=TRUE, n.iter=40,
                                  optimism.C=ifelse(data.type=="training", optimism, 0))
     grDevices::dev.off()
     
-    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Positive.png"))
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Positive.png"),
+        width=1800, height=1800, units="px", res=300)
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus=="Positive",],
                                  S[data$SNstatus=="Positive",],
                                  g=5, main="Patients with positive SN", 
-                                 time=NULL, lim=c(0,1), dist=TRUE, CI.metrics=TRUE,
+                                 time=horizon, lim=c(0,1), dist=TRUE, 
+                                 CI.metrics=TRUE, n.iter=40,
                                  optimism.C=ifelse(data.type=="training", optimism, 0))
     grDevices::dev.off()
     
-    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Negative.png"))
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", data.type, ".", outcome, ".Negative.png"),
+        width=1800, height=1800, units="px", res=300)
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus=="Negative",],
                                  S[data$SNstatus=="Negative",],
                                  g=5, main="Patients with negative SN", 
-                                 time=NULL, lim=c(0,1), dist=TRUE, CI.metrics=TRUE,
+                                 time=horizon, lim=c(0,1), dist=TRUE, 
+                                 CI.metrics=TRUE, n.iter=40,
                                  optimism.C=ifelse(data.type=="training", optimism, 0))
     grDevices::dev.off()
     
@@ -105,7 +111,8 @@ for (data.type in c("training", "validation")){
     }
     grDevices::dev.off()
     
-    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/", data.type, ".", outcome, ".png"), width=32, height=45, units="cm", res=600)
+    png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/", data.type, ".", outcome, ".png"), 
+        width=32, height=45, units="cm", res=600)
     par(mar=rep(0, 4))
     layout(matrix(1:2, ncol=1, nrow=2, byrow=TRUE), heights=c(2, 1), widths=c(2, 2))
     for (select.value in c("All", "Neg.Pos")){

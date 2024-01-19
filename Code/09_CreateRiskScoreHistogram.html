@@ -454,7 +454,8 @@ p.MSM &lt;- fun.event(lp=lp.points.MSM.5, h0=h0.MSM)
 x.lim &lt;- c(0, max.range+1)
 y.lim &lt;- c(0, 100)
 y.lim.hist &lt;- c(0, 25)
-png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.png&quot;))
+png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.png&quot;),
+    width=1800, height=1800, units=&quot;px&quot;, res=300)
 par(mar = c(5,5,2,5))
 plot(h.plot,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,main=NA,col=&quot;white&quot;)
 abline(h=(0:30)*1,col=&quot;light grey&quot;,lty=2)
@@ -487,7 +488,9 @@ save(rc.Rec, int.Rec, f.mi.BS.Rec.5, MSM.cal.fact, max.range,
 
 save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;, &quot;m&quot;, 
             &quot;imputed.training.data&quot;, &quot;last.imputed.training.data.set&quot;, 
-            &quot;horizon&quot;, &quot;S.Rec.5.training&quot;, &quot;S.MSM.5.training&quot;,
+            &quot;horizon&quot;, 
+            &quot;S.Rec.training&quot;, &quot;S.MSM.training&quot;,
+            &quot;S.Rec.5.training&quot;, &quot;S.MSM.5.training&quot;,
             &quot;f.mi.full.Rec.5&quot;, &quot;f.mi.BS.Rec.5&quot;, 
             &quot;f.mi.full.MSM.5.refit&quot;, &quot;f.mi.BS.MSM.5.refit&quot;, 
             &quot;MSM.cal.fact&quot;, &quot;c.Breslow&quot;, &quot;optimism&quot;,
@@ -527,17 +530,13 @@ plot &lt;- ggplot(data=data.frame(), aes(x=0:max.range, y=0:100))+
                                                           color=&quot;black&quot;)))+
   theme(legend.position=c(0.25, 0.80),
         legend.title=element_blank())
-png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.png&quot;), 
-    width=15, height=15, units=&quot;cm&quot;, res=300)
-show(plot)</code></pre>
+ggsave(file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.pdf&quot;,
+       width=15, height=15, units=&quot;cm&quot;, dpi=300)</code></pre>
 <pre><code>## Warning: The dot-dot notation (`..count..`) was deprecated in ggplot2 3.4.0.
 ## i Please use `after_stat(count)` instead.
 ## This warning is displayed once every 8 hours.
 ## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
 ## generated.</code></pre>
-<pre class="r"><code>grDevices::dev.off()</code></pre>
-<pre><code>## png 
-##   2</code></pre>
 </div>
 
 

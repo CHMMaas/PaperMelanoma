@@ -387,15 +387,18 @@ Centers.anonimized &lt;- c(&quot;A&quot;, &quot;B&quot;, &quot;C&quot;, &quot;D&
 cuts &lt;- 5
 for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
   if (model == &quot;Rec.5&quot;){
+    S.full &lt;- S.Rec.training
     S.model &lt;- S.Rec.5.training
   }
   if (model == &quot;MSM.5&quot;){
+    S.full &lt;- S.MSM.training
     S.model &lt;- S.MSM.5.training
   }
 
   for (type in c(&quot;full&quot;, &quot;BS&quot;)){
     for (j in 1:4){
       S.j&lt;-S.model[training.data.to.be.imputed$Center==Centers[j],]
+      S.full.j&lt;-S.full[training.data.to.be.imputed$Center==Centers[j],]
       S.notj&lt;-S.model[training.data.to.be.imputed$Center!=Centers[j],]
       S.Rec.5.notj&lt;-S.Rec.5.training[training.data.to.be.imputed$Center!=Centers[j],]
 
@@ -417,7 +420,8 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
         }
 
         # calibration with metrics
-        S &lt;- S.j[select.patients,]
+        # S.full &lt;- S.full.j[select.patients,]
+        S &lt;- S.full.j[select.patients,]
         p &lt;- matrix(NA, nrow(S), m)
         for (i in 1:m){
           data.i &lt;- mice::complete(imputed.training.data, i)
@@ -448,17 +452,19 @@ for (model in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
         }
 
         # omit the observation with predicted probability = 1
-        omit &lt;- unique(c(which(p[,1]==1), which(p[,2]==1), which(p[,3]==1), which(p[,4]==1), which(p[,5]==1)))
-        if (length(omit)&gt;0){
-          cat(&quot;Omit:&quot;, omit, &quot;\n&quot;)
-          p &lt;- p[-omit,]
-          S &lt;- S[-omit,]
-        }
+        # omit &lt;- unique(c(which(p[,1]==1), which(p[,2]==1), which(p[,3]==1), which(p[,4]==1), which(p[,5]==1)))
+        # if (length(omit)&gt;0){
+        #   cat(&quot;Omit:&quot;, omit, &quot;\n&quot;)
+        #   p &lt;- p[-omit,]
+        #   S.full &lt;- S.full[-omit,]
+        # }
       
-        png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, model, &quot;.&quot;, select.value, &quot;.&quot;, type, &quot;.&quot;, Centers[j], &quot;.png&quot;))
-        out &lt;- PredictionTools::val.surv.mi(p, S, g=5, main=paste(&quot;Center&quot;, Centers.anonimized[j]),
-                                            time=NULL,lim=c(0,1),dist=TRUE,
-                                            CI.metrics=TRUE)
+        png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, model, &quot;.&quot;, select.value, &quot;.&quot;, type, &quot;.&quot;, Centers[j], &quot;.png&quot;),
+            width=1800, height=1800, units=&quot;px&quot;, res=300)
+        out &lt;- PredictionTools::val.surv.mi(p, S, g=5, 
+                                            main=paste(&quot;Center&quot;, Centers.anonimized[j]),
+                                            time=5, lim=c(0,1), dist=TRUE,
+                                            CI.metrics=TRUE, n.iter=40)
         grDevices::dev.off()
       }
     }

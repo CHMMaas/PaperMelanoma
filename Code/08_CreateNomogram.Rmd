@@ -70,7 +70,9 @@ nom
 
 save(list=c("dd.training", "training.data.to.be.imputed", "m", 
             "imputed.training.data",  "last.imputed.training.data.set", 
-            "horizon", "S.Rec.5.training", "S.MSM.5.training",
+            "horizon", 
+            "S.Rec.training", "S.MSM.training",
+            "S.Rec.5.training", "S.MSM.5.training",
             "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", 
             "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", "optimism",
             "form.full.Rec.5", "form.BS.Rec.5", 

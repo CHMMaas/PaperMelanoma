@@ -89,7 +89,8 @@ p.MSM <- fun.event(lp=lp.points.MSM.5, h0=h0.MSM)
 x.lim <- c(0, max.range+1)
 y.lim <- c(0, 100)
 y.lim.hist <- c(0, 25)
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.png"))
+png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.png"),
+    width=1800, height=1800, units="px", res=300)
 par(mar = c(5,5,2,5))
 plot(h.plot,freq=FALSE,axes=FALSE, xlab=NA, xlim=x.lim, ylab=NA,ylim=y.lim.hist,main=NA,col="white")
 abline(h=(0:30)*1,col="light grey",lty=2)
@@ -119,7 +120,9 @@ save(rc.Rec, int.Rec, f.mi.BS.Rec.5, MSM.cal.fact, max.range,
 
 save(list=c("dd.training", "training.data.to.be.imputed", "m", 
             "imputed.training.data", "last.imputed.training.data.set", 
-            "horizon", "S.Rec.5.training", "S.MSM.5.training",
+            "horizon", 
+            "S.Rec.training", "S.MSM.training",
+            "S.Rec.5.training", "S.MSM.5.training",
             "f.mi.full.Rec.5", "f.mi.BS.Rec.5", 
             "f.mi.full.MSM.5.refit", "f.mi.BS.MSM.5.refit", 
             "MSM.cal.fact", "c.Breslow", "optimism",
@@ -159,8 +162,6 @@ plot <- ggplot(data=data.frame(), aes(x=0:max.range, y=0:100))+
                                                           color="black")))+
   theme(legend.position=c(0.25, 0.80),
         legend.title=element_blank())
-png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.png"), 
-    width=15, height=15, units="cm", res=300)
-show(plot)
-grDevices::dev.off()
+ggsave(file="Z:/Project Melanoom/PaperMelanoma/Results/Risk.distribution.pdf",
+       width=15, height=15, units="cm", dpi=300)
 ```

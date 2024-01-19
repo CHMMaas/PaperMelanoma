@@ -755,13 +755,15 @@ optimism</code></pre>
 <pre class="r"><code>for (model in list(&quot;Rec.5&quot;, &quot;MSM.5.refit&quot;)){
   if (model == &quot;Rec.5&quot;){
     # plot predict
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Rec.png&quot;))
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Rec.png&quot;),
+        width=1800, height=1800, units=&quot;px&quot;, res=300)
     plot.predict &lt;- plot(Predict(f.mi.full.Rec.5))
     show(plot.predict)
     grDevices::dev.off()
 
     # plot predict Breslow
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Breslow.Rec.png&quot;))
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Breslow.Rec.png&quot;),
+        width=1800, height=1800, units=&quot;px&quot;, res=300)
     plot.Breslow &lt;- plot(Predict(f.mi.full.Rec.5, Breslow=0:20, SNstatus), ~ Breslow, groups=&quot;SNstatus&quot;,
                          adj.subtitle=FALSE, lwd=2, labels=FALSE,
                          par.settings=list(superpose.line=list(lty=c(1, 2), 
@@ -798,22 +800,32 @@ optimism</code></pre>
     
     # load outcome
     if (model==&quot;Rec.5&quot;){
-      S &lt;- S.Rec.5.training
+      S &lt;- S.Rec.training
     }
     else if (model==&quot;MSM.5.refit&quot;){
-      S &lt;- S.MSM.5.training
+      S &lt;- S.MSM.training
     }
     
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/all.centers.&quot;, model, &quot;.&quot;, type, &quot;.png&quot;))
-    out &lt;- PredictionTools::val.surv.mi(p=p, y=S, g=5, main=&quot;All centers&quot;, CI.metrics=TRUE,
-                                        time=NULL, lim=c(0,1), dist=TRUE)
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/all.centers.&quot;, model, &quot;.&quot;, type, &quot;.png&quot;),
+        width=1800, height=1800, units=&quot;px&quot;, res=300)
+    out &lt;- PredictionTools::val.surv.mi(p=p, y=S, g=5, time=5,
+                                        main=&quot;All centers&quot;, CI.metrics=TRUE,
+                                        lim=c(0,1), dist=TRUE, n.iter=40)
     grDevices::dev.off()
     
     final.full.table &lt;- eval(parse(text=paste0(&quot;final.&quot;, type, &quot;.table.&quot;, model)))
-    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$cindex-optimism)
-    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$cindex.lower-optimism),
+    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$cindex)
+    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$cindex.lower),
+                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$cindex.upper), &quot;]&quot;)
+    final.full.table[&quot;Harrell&#39;s optimism-corrected C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$cindex-optimism)
+    final.full.table[&quot;Harrell&#39;s optimism-corrected C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$cindex.lower-optimism),
                                                    &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$cindex.upper-optimism), &quot;]&quot;)
-    final.full.table[&quot;Uno&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$uno.C-optimism)
+    final.full.table[&quot;Uno&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$unoC)
+    final.full.table[&quot;Uno&#39;s C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$unoC.lower),
+                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$unoC.upper), &quot;]&quot;)
+    final.full.table[&quot;AUC&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$AUC)
+    final.full.table[&quot;AUC&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$AUC.lower),
+                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$AUC.upper), &quot;]&quot;)
     
     assign(paste0(&quot;final.&quot;, type, &quot;.table.&quot;, model), final.full.table)
     
@@ -830,31 +842,77 @@ optimism</code></pre>
 recurrence</h1>
 <pre class="r"><code>for (type in c(&quot;full&quot;, &quot;BS&quot;)){
   f.mi &lt;- eval(parse(text=paste0(&quot;f.mi.&quot;, type, &quot;.Rec.5&quot;)))
+  cindex.MSM &lt;- rep(0, m)
+  cindex.se.MSM &lt;- rep(0, m)
   unoC.MSM &lt;- rep(0, m)
-  cindex.MSM.cal &lt;- rep(0, m)
-  cindex.se.MSM.cal &lt;- rep(0, m)
+  AUC.MSM &lt;- rep(0, m)
   for (i in 1:m){
     lp.i &lt;- predict(f.mi, newdata=mice::complete(imputed.training.data,i), type=&quot;lp&quot;)
+    
+    # Harrell&#39;s C-index
     rc &lt;- Hmisc::rcorr.cens(-lp.i, 
                             S.MSM.5.training)
-    cindex.MSM.cal[i] &lt;- rc[&quot;C Index&quot;]
-    cindex.se.MSM.cal[i] &lt;- rc[&quot;S.D.&quot;]/2
+    cindex.MSM[i] &lt;- rc[&quot;C Index&quot;]
+    cindex.se.MSM[i] &lt;- rc[&quot;S.D.&quot;]/2
     
-    unoC.MSM[i] &lt;- survC1::Est.Cval(mydata=cbind(S.MSM.5.training[, 1], 
-                                              S.MSM.5.training[, 2], 
-                                              lp.i), 
-                                 tau=5, nofit=TRUE)$Dhat
+    # Uno&#39;s C-index
+    Uno.data &lt;- cbind(S.MSM.5.training[, 1], S.MSM.5.training[, 2], lp.i)
+    unoC.MSM[i] &lt;- survC1::Est.Cval(mydata=Uno.data, 
+                                    tau=horizon, nofit=TRUE)$Dhat
+    if (i == 1){
+      unoC.boot &lt;- c()
+      nr.iter &lt;- 40
+      for (itr in 1:nr.iter){
+        boot &lt;- Uno.data[sample(1:nrow(Uno.data), nrow(Uno.data), replace=TRUE),]
+        unoC &lt;- survC1::Est.Cval(mydata=boot,
+                                  tau=horizon,
+                                  nofit=TRUE)$Dhat
+        unoC.boot &lt;- c(unoC.boot, unoC)
+      }
+      unoC.MSM.se &lt;- PredictionTools::Rubin.combine(mean(unoC.boot), sd(unoC.boot))$se
+    }
+    
+    # time-dependent ROC
+    AUC.MSM.i &lt;- timeROC::timeROC(T=S.MSM.training[, 1],
+                                   delta=S.MSM.training[, 2],
+                                   marker=lp.i,
+                                   times=horizon,
+                                   cause=1, 
+                                   iid=FALSE)
+    
+    # time-dependent ROC SE
+    if (i == 1){
+      AUC.MSM.i &lt;- timeROC::timeROC(T=S.MSM.training[, 1],
+                                   delta=S.MSM.training[, 2],
+                                   marker=lp.i,
+                                   times=horizon,
+                                   cause=1, 
+                                   iid=TRUE)
+      AUC.MSM.CI &lt;- stats::confint(AUC.MSM.i)
+      AUC.MSM.se &lt;- as.numeric((as.numeric(AUC.MSM.CI$CI_AUC[2])/100-as.numeric(AUC.MSM.i$AUC[2]))/AUC.MSM.CI$C.alpha)
+    }
+    AUC.MSM[i] &lt;- as.numeric(AUC.MSM.i$AUC[2])
   }
-  cindex.mi.MSM.cal &lt;- Rubin.combine(cindex.MSM.cal, cindex.se.MSM.cal)
+  cindex.mi.MSM &lt;- Rubin.combine(cindex.MSM, cindex.se.MSM)
   
   final.full.table &lt;- eval(parse(text=paste0(&quot;final.&quot;, type, &quot;.table.Rec.5&quot;)))
-  final.full.table[&quot;Harrell&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, 
-                                                cindex.mi.MSM.cal$est-optimism)
+  final.full.table[&quot;Harrell&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est)
   final.full.table[&quot;Harrell&#39;s C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, 
-    sprintf(&quot;%.2f&quot;, cindex.mi.MSM.cal$est+qnorm(.025)*cindex.mi.MSM.cal$se-optimism),
-    &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.MSM.cal$est+qnorm(.975)*cindex.mi.MSM.cal$se-optimism), &quot;]&quot;)
-  final.full.table[&quot;Uno&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, mean(unoC.MSM)-optimism)
-
+    sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est+qnorm(.025)*cindex.mi.MSM$se),
+    &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est+qnorm(.975)*cindex.mi.MSM$se), &quot;]&quot;)
+  final.full.table[&quot;Harrell&#39;s optimism-corrected C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est-optimism)
+  final.full.table[&quot;Harrell&#39;s optimism-corrected C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, 
+    sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est+qnorm(.025)*cindex.mi.MSM$se-optimism),
+    &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est+qnorm(.975)*cindex.mi.MSM$se-optimism), &quot;]&quot;)
+  final.full.table[&quot;Uno&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, mean(unoC.MSM))
+  final.full.table[&quot;Uno&#39;s C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, 
+    sprintf(&quot;%.2f&quot;, mean(unoC.MSM)+qnorm(.025)*unoC.MSM.se),
+    &quot;; &quot;, sprintf(&quot;%.2f&quot;, mean(unoC.MSM)+qnorm(.975)*unoC.MSM.se), &quot;]&quot;)
+  final.full.table[&quot;AUC MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, mean(AUC.MSM))
+  final.full.table[&quot;AUC MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, 
+    sprintf(&quot;%.2f&quot;, mean(AUC.MSM)+qnorm(.025)*AUC.MSM.se),
+    &quot;; &quot;, sprintf(&quot;%.2f&quot;, mean(AUC.MSM)+qnorm(.975)*AUC.MSM.se), &quot;]&quot;)
+  
   assign(paste0(&quot;final.&quot;, type, &quot;.table.Rec.5&quot;), final.full.table)
 }</code></pre>
 </div>
@@ -883,7 +941,7 @@ row.names(final.full.table.Rec.5) &lt;- c(&quot;Positive SN status&quot;, &quot;
                                     &quot;Location metastasis in lymph node&quot;,
                                     &quot;Subcap&quot;, &quot;Combined&quot;, &quot;Parenchymal&quot;,
                                     &quot;Multifocal&quot;, &quot;Extensive&quot;,
-                                    rownames(final.full.table.Rec.5)[(nrow(final.full.table.Rec.5)-3):nrow(final.full.table.Rec.5)])
+                                    rownames(final.full.table.Rec.5)[(nrow(final.full.table.Rec.5)-7):nrow(final.full.table.Rec.5)])
 final.full.table.MSM.5.refit &lt;- as.data.frame(final.full.table.MSM.5.refit)
 row.names(final.full.table.MSM.5.refit) &lt;- c(&quot;Positive SN status&quot;, &quot;Male&quot;,
                                           &quot;Age&quot;, &quot;Ulceration&quot;, &quot;Location&quot;,
@@ -896,7 +954,7 @@ row.names(final.full.table.MSM.5.refit) &lt;- c(&quot;Positive SN status&quot;, 
                                           &quot;Location metastasis in lymph node&quot;,
                                           &quot;Subcap&quot;, &quot;Combined&quot;, &quot;Parenchymal&quot;,
                                           &quot;Multifocal&quot;, &quot;Extensive&quot;,
-                                          row.names(final.full.table.MSM.5.refit)[(nrow(final.full.table.MSM.5.refit)-1):nrow(final.full.table.MSM.5.refit)])
+                                          row.names(final.full.table.MSM.5.refit)[(nrow(final.full.table.MSM.5.refit)-3):nrow(final.full.table.MSM.5.refit)])
 final.BS.table.Rec.5 &lt;- as.data.frame(final.BS.table.Rec.5)
 row.names(final.BS.table.Rec.5) &lt;- c(&quot;SN status&quot;,
                                      &quot;Negative SN status&quot;,
@@ -912,7 +970,7 @@ row.names(final.BS.table.Rec.5) &lt;- c(&quot;SN status&quot;,
                                      &quot;Breslow (negative)&quot;,
                                      &quot;Breslow (positive)&quot;,
                                      &quot;SN tumour burden&quot;, 
-                                   row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-3):nrow(final.BS.table.Rec.5)])
+                                   row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-7):nrow(final.BS.table.Rec.5)])
 final.BS.table.MSM.5.refit &lt;- as.data.frame(final.BS.table.MSM.5.refit)
 row.names(final.BS.table.MSM.5.refit) &lt;- c(&quot;SN status&quot;,
                                      &quot;Negative SN status&quot;,
@@ -928,7 +986,7 @@ row.names(final.BS.table.MSM.5.refit) &lt;- c(&quot;SN status&quot;,
                                      &quot;Breslow (negative)&quot;,
                                      &quot;Breslow (positive)&quot;,
                                      &quot;SN tumour burden&quot;,  
-                                   row.names(final.BS.table.MSM.5.refit)[(nrow(final.BS.table.MSM.5.refit)-1):nrow(final.BS.table.MSM.5.refit)])
+                                   row.names(final.BS.table.MSM.5.refit)[(nrow(final.BS.table.MSM.5.refit)-3):nrow(final.BS.table.MSM.5.refit)])
 
 # save tables
 write.table(final.full.table.Rec.5,
@@ -946,161 +1004,213 @@ write.table(final.BS.table.MSM.5.refit,
 
 # show tables
 final.full.table.Rec.5</code></pre>
-<pre><code>##                                   HR.neg       CI.neg HR.pos       CI.pos Main
-## Positive SN status                                      3.83 [2.09; 7.02]   42
-## Male                                1.32 [1.09; 1.60]   0.98 [0.79; 1.21]    8
-## Age iqr                             1.27 [1.10; 1.47]   1.41 [1.18; 1.69]   25
-## Ulceration                          1.65 [1.36; 2.01]   1.42 [1.13; 1.79]   34
-## Location                                                                    23
-## Arm                                (ref)               (ref)                  
-## Leg                                 1.23 [0.92; 1.66]   1.00 [0.61; 1.65]     
-## Trunk                               1.33 [1.00; 1.77]   1.04 [0.66; 1.62]     
-## Head and neck                       2.18 [1.52; 3.15]   1.60 [0.91; 2.81]     
-## Histology                                                                   11
-## SSM                                (ref)               (ref)                  
-## NM                                  1.24 [0.98; 1.57]   1.27 [0.96; 1.67]     
-## ALM                                 1.70 [1.04; 2.76]   1.54 [0.91; 2.59]     
-## Other                               0.92 [0.61; 1.40]   1.09 [0.47; 2.54]     
-## Breslow iqr                         2.29 [1.96; 2.67]   1.50 [1.25; 1.79]  124
-## Multiple fields                     1.47 [1.07; 2.01]   1.41 [1.03; 1.94]   10
-## Total number of negative nodes      0.96 [0.91; 1.02]   0.96 [0.91; 1.02]    2
-## Total number of positive nodes                          0.98 [0.82; 1.17]    0
-## SN tumour burden iqr                                    3.65 [1.42; 9.34]    7
-## Location metastasis in lymph node                                            6
-## Subcap                                                 (ref)                  
-## Combined                                                1.38 [0.91; 2.09]     
-## Parenchymal                                             1.08 [0.67; 1.74]     
-## Multifocal                                              0.78 [0.40; 1.53]     
-## Extensive                                               1.29 [0.74; 2.27]     
-## Harrell&#39;s C-index                                                             
-## Uno&#39;s C-index                                                                 
-## Harrell&#39;s C-index MSM                                                         
-## Uno&#39;s C-index MSM                                                             
-##                                   Int   HR           CI
-## Positive SN status                 27                  
-## Male                                4                  
-## Age iqr                             1                  
-## Ulceration                          1                  
-## Location                            1                  
-## Arm                                                    
-## Leg                                                    
-## Trunk                                                  
-## Head and neck                                          
-## Histology                           0                  
-## SSM                                                    
-## NM                                                     
-## ALM                                                    
-## Other                                                  
-## Breslow iqr                        13                  
-## Multiple fields                     0                  
-## Total number of negative nodes                         
-## Total number of positive nodes                         
-## SN tumour burden iqr                                   
-## Location metastasis in lymph node                      
-## Subcap                                                 
-## Combined                                               
-## Parenchymal                                            
-## Multifocal                                             
-## Extensive                                              
-## Harrell&#39;s C-index                     0.76 [0.75; 0.78]
-## Uno&#39;s C-index                         0.76             
-## Harrell&#39;s C-index MSM                 0.79 [0.77; 0.81]
-## Uno&#39;s C-index MSM                     0.79</code></pre>
+<pre><code>##                                          HR.neg       CI.neg HR.pos
+## Positive SN status                                             3.83
+## Male                                       1.32 [1.09; 1.60]   0.98
+## Age iqr                                    1.27 [1.10; 1.47]   1.41
+## Ulceration                                 1.65 [1.36; 2.01]   1.42
+## Location                                                           
+## Arm                                       (ref)               (ref)
+## Leg                                        1.23 [0.92; 1.66]   1.00
+## Trunk                                      1.33 [1.00; 1.77]   1.04
+## Head and neck                              2.18 [1.52; 3.15]   1.60
+## Histology                                                          
+## SSM                                       (ref)               (ref)
+## NM                                         1.24 [0.98; 1.57]   1.27
+## ALM                                        1.70 [1.04; 2.76]   1.54
+## Other                                      0.92 [0.61; 1.40]   1.09
+## Breslow iqr                                2.29 [1.96; 2.67]   1.50
+## Multiple fields                            1.47 [1.07; 2.01]   1.41
+## Total number of negative nodes             0.96 [0.91; 1.02]   0.96
+## Total number of positive nodes                                 0.98
+## SN tumour burden iqr                                           3.65
+## Location metastasis in lymph node                                  
+## Subcap                                                        (ref)
+## Combined                                                       1.38
+## Parenchymal                                                    1.08
+## Multifocal                                                     0.78
+## Extensive                                                      1.29
+## Harrell&#39;s C-index                                                  
+## Harrell&#39;s optimism-corrected C-index                               
+## Uno&#39;s C-index                                                      
+## AUC                                                                
+## Harrell&#39;s C-index MSM                                              
+## Harrell&#39;s optimism-corrected C-index MSM                           
+## Uno&#39;s C-index MSM                                                  
+## AUC MSM                                                            
+##                                                CI.pos Main Int   HR
+## Positive SN status                       [2.09; 7.02]   42  27     
+## Male                                     [0.79; 1.21]    8   4     
+## Age iqr                                  [1.18; 1.69]   25   1     
+## Ulceration                               [1.13; 1.79]   34   1     
+## Location                                                23   1     
+## Arm                                                                
+## Leg                                      [0.61; 1.65]              
+## Trunk                                    [0.66; 1.62]              
+## Head and neck                            [0.91; 2.81]              
+## Histology                                               11   0     
+## SSM                                                                
+## NM                                       [0.96; 1.67]              
+## ALM                                      [0.91; 2.59]              
+## Other                                    [0.47; 2.54]              
+## Breslow iqr                              [1.25; 1.79]  124  13     
+## Multiple fields                          [1.03; 1.94]   10   0     
+## Total number of negative nodes           [0.91; 1.02]    2         
+## Total number of positive nodes           [0.82; 1.17]    0         
+## SN tumour burden iqr                     [1.42; 9.34]    7         
+## Location metastasis in lymph node                        6         
+## Subcap                                                             
+## Combined                                 [0.91; 2.09]              
+## Parenchymal                              [0.67; 1.74]              
+## Multifocal                               [0.40; 1.53]              
+## Extensive                                [0.74; 2.27]              
+## Harrell&#39;s C-index                                              0.77
+## Harrell&#39;s optimism-corrected C-index                           0.76
+## Uno&#39;s C-index                                                  0.76
+## AUC                                                            0.80
+## Harrell&#39;s C-index MSM                                          0.80
+## Harrell&#39;s optimism-corrected C-index MSM                       0.79
+## Uno&#39;s C-index MSM                                              0.79
+## AUC MSM                                                        0.82
+##                                                    CI
+## Positive SN status                                   
+## Male                                                 
+## Age iqr                                              
+## Ulceration                                           
+## Location                                             
+## Arm                                                  
+## Leg                                                  
+## Trunk                                                
+## Head and neck                                        
+## Histology                                            
+## SSM                                                  
+## NM                                                   
+## ALM                                                  
+## Other                                                
+## Breslow iqr                                          
+## Multiple fields                                      
+## Total number of negative nodes                       
+## Total number of positive nodes                       
+## SN tumour burden iqr                                 
+## Location metastasis in lymph node                    
+## Subcap                                               
+## Combined                                             
+## Parenchymal                                          
+## Multifocal                                           
+## Extensive                                            
+## Harrell&#39;s C-index                        [0.76; 0.79]
+## Harrell&#39;s optimism-corrected C-index     [0.75; 0.78]
+## Uno&#39;s C-index                            [0.75; 0.78]
+## AUC                                      [0.78; 0.82]
+## Harrell&#39;s C-index MSM                    [0.78; 0.82]
+## Harrell&#39;s optimism-corrected C-index MSM [0.77; 0.81]
+## Uno&#39;s C-index MSM                        [0.77; 0.81]
+## AUC MSM                                  [0.80; 0.84]</code></pre>
 <pre class="r"><code>final.full.table.MSM.5.refit</code></pre>
-<pre><code>##                                   HR.neg       CI.neg HR.pos        CI.pos Main
-## Positive SN status                                      6.04 [2.41; 15.12]   39
-## Male                                1.65 [1.22; 2.23]   1.25  [0.93; 1.70]   13
-## Age                                 0.93 [0.74; 1.16]   1.37  [1.08; 1.74]    7
-## Ulceration                          2.08 [1.52; 2.84]   1.58  [1.16; 2.16]   29
-## Location                                                                     15
-## Arm                                (ref)               (ref)                   
-## Leg                                 1.13 [0.70; 1.84]   0.96  [0.49; 1.89]     
-## Trunk                               1.80 [1.15; 2.82]   0.94  [0.52; 1.71]     
-## Head and neck                       1.85 [0.99; 3.47]   1.58  [0.73; 3.41]     
-## Histology                                                                     5
-## SSM                                (ref)               (ref)                   
-## NM                                  1.40 [0.96; 2.04]   1.16  [0.81; 1.66]     
-## ALM                                 1.69 [0.68; 4.22]   1.22  [0.56; 2.68]     
-## Other                               0.99 [0.50; 1.98]   0.71  [0.17; 3.00]     
-## Breslow                             2.52 [1.99; 3.18]   1.56  [1.22; 1.99]   70
-## Multiple fields                     1.23 [0.76; 1.97]   1.45  [0.96; 2.21]    4
-## Total number of negative nodes      0.95 [0.87; 1.03]   0.95  [0.87; 1.03]    2
-## Total number of positive nodes                          0.98  [0.77; 1.25]    0
-## SN tumour burden                                        6.30 [1.37; 28.95]    6
-## Location metastasis in lymph node                                             1
-## Subcap                                                 (ref)                   
-## Combined                                                1.24  [0.73; 2.10]     
-## Parenchymal                                             1.36  [0.71; 2.60]     
-## Multifocal                                              1.23  [0.57; 2.63]     
-## Extensive                                               1.46  [0.76; 2.82]     
-## Harrell&#39;s C-index                                                              
-## Uno&#39;s C-index                                                                  
-##                                   Int   HR           CI
-## Positive SN status                 32                  
-## Male                                2                  
-## Age                                 5                  
-## Ulceration                          1                  
-## Location                            6                  
-## Arm                                                    
-## Leg                                                    
-## Trunk                                                  
-## Head and neck                                          
-## Histology                           1                  
-## SSM                                                    
-## NM                                                     
-## ALM                                                    
-## Other                                                  
-## Breslow                             8                  
-## Multiple fields                     0                  
-## Total number of negative nodes                         
-## Total number of positive nodes                         
-## SN tumour burden                                       
-## Location metastasis in lymph node                      
-## Subcap                                                 
-## Combined                                               
-## Parenchymal                                            
-## Multifocal                                             
-## Extensive                                              
-## Harrell&#39;s C-index                     0.80 [0.78; 0.82]
-## Uno&#39;s C-index                         0.79</code></pre>
+<pre><code>##                                      HR.neg       CI.neg HR.pos        CI.pos
+## Positive SN status                                         6.04 [2.41; 15.12]
+## Male                                   1.65 [1.22; 2.23]   1.25  [0.93; 1.70]
+## Age                                    0.93 [0.74; 1.16]   1.37  [1.08; 1.74]
+## Ulceration                             2.08 [1.52; 2.84]   1.58  [1.16; 2.16]
+## Location                                                                     
+## Arm                                   (ref)               (ref)              
+## Leg                                    1.13 [0.70; 1.84]   0.96  [0.49; 1.89]
+## Trunk                                  1.80 [1.15; 2.82]   0.94  [0.52; 1.71]
+## Head and neck                          1.85 [0.99; 3.47]   1.58  [0.73; 3.41]
+## Histology                                                                    
+## SSM                                   (ref)               (ref)              
+## NM                                     1.40 [0.96; 2.04]   1.16  [0.81; 1.66]
+## ALM                                    1.69 [0.68; 4.22]   1.22  [0.56; 2.68]
+## Other                                  0.99 [0.50; 1.98]   0.71  [0.17; 3.00]
+## Breslow                                2.52 [1.99; 3.18]   1.56  [1.22; 1.99]
+## Multiple fields                        1.23 [0.76; 1.97]   1.45  [0.96; 2.21]
+## Total number of negative nodes         0.95 [0.87; 1.03]   0.95  [0.87; 1.03]
+## Total number of positive nodes                             0.98  [0.77; 1.25]
+## SN tumour burden                                           6.30 [1.37; 28.95]
+## Location metastasis in lymph node                                            
+## Subcap                                                    (ref)              
+## Combined                                                   1.24  [0.73; 2.10]
+## Parenchymal                                                1.36  [0.71; 2.60]
+## Multifocal                                                 1.23  [0.57; 2.63]
+## Extensive                                                  1.46  [0.76; 2.82]
+## Harrell&#39;s C-index                                                            
+## Harrell&#39;s optimism-corrected C-index                                         
+## Uno&#39;s C-index                                                                
+## AUC                                                                          
+##                                      Main Int   HR           CI
+## Positive SN status                     39  32                  
+## Male                                   13   2                  
+## Age                                     7   5                  
+## Ulceration                             29   1                  
+## Location                               15   6                  
+## Arm                                                            
+## Leg                                                            
+## Trunk                                                          
+## Head and neck                                                  
+## Histology                               5   1                  
+## SSM                                                            
+## NM                                                             
+## ALM                                                            
+## Other                                                          
+## Breslow                                70   8                  
+## Multiple fields                         4   0                  
+## Total number of negative nodes          2                      
+## Total number of positive nodes          0                      
+## SN tumour burden                        6                      
+## Location metastasis in lymph node       1                      
+## Subcap                                                         
+## Combined                                                       
+## Parenchymal                                                    
+## Multifocal                                                     
+## Extensive                                                      
+## Harrell&#39;s C-index                             0.81 [0.79; 0.83]
+## Harrell&#39;s optimism-corrected C-index          0.80 [0.78; 0.82]
+## Uno&#39;s C-index                                 0.80 [0.78; 0.82]
+## AUC                                           0.83 [0.80; 0.85]</code></pre>
 <pre class="r"><code>final.BS.table.Rec.5</code></pre>
-<pre><code>##                          HR            CI Imp.
-## SN status                                  153
-## Negative SN status    (ref)                   
-## Positive SN status     2.96  [2.48; 3.54]     
-## Age                    1.37  [1.23; 1.53]   31
-## Ulceration             1.61  [1.39; 1.87]   41
-## Location                                    21
-## Upper limb            (ref)                   
-## Lower limb             1.14  [0.89; 1.46]     
-## Trunk                  1.29  [1.02; 1.63]     
-## Head and neck          1.89  [1.41; 2.54]     
-## Breslow                                       
-## Breslow (negative)     2.43  [2.14; 2.76]  199
-## Breslow (positive)     1.52  [1.29; 1.80]   21
-## SN tumour burden       5.74 [2.67; 12.30]   20
-## Harrell&#39;s C-index      0.76  [0.74; 0.78]     
-## Uno&#39;s C-index          0.75                   
-## Harrell&#39;s C-index MSM  0.79  [0.77; 0.81]     
-## Uno&#39;s C-index MSM      0.78</code></pre>
+<pre><code>##                                             HR            CI Imp.
+## SN status                                                     153
+## Negative SN status                       (ref)                   
+## Positive SN status                        2.96  [2.48; 3.54]     
+## Age                                       1.37  [1.23; 1.53]   31
+## Ulceration                                1.61  [1.39; 1.87]   41
+## Location                                                       21
+## Upper limb                               (ref)                   
+## Lower limb                                1.14  [0.89; 1.46]     
+## Trunk                                     1.29  [1.02; 1.63]     
+## Head and neck                             1.89  [1.41; 2.54]     
+## Breslow                                                          
+## Breslow (negative)                        2.43  [2.14; 2.76]  199
+## Breslow (positive)                        1.52  [1.29; 1.80]   21
+## SN tumour burden                          5.74 [2.67; 12.30]   20
+## Harrell&#39;s C-index                         0.77  [0.75; 0.78]     
+## Harrell&#39;s optimism-corrected C-index      0.76  [0.74; 0.78]     
+## Uno&#39;s C-index                             0.76  [0.74; 0.77]     
+## AUC                                       0.80  [0.78; 0.81]     
+## Harrell&#39;s C-index MSM                     0.79  [0.77; 0.81]     
+## Harrell&#39;s optimism-corrected C-index MSM  0.79  [0.77; 0.81]     
+## Uno&#39;s C-index MSM                         0.79  [0.77; 0.81]     
+## AUC MSM                                   0.81  [0.79; 0.84]</code></pre>
 <pre class="r"><code>final.BS.table.MSM.5.refit</code></pre>
-<pre><code>##                       HR            CI Imp.
-## SN status                                83
-## Negative SN status (ref)                   
-## Positive SN status  3.40  [2.60; 4.45]     
-## Age                 1.17  [1.00; 1.37]    4
-## Ulceration          1.84  [1.48; 2.29]   30
-## Location                                 14
-## Upper limb         (ref)                   
-## Lower limb          1.00  [0.68; 1.47]     
-## Trunk               1.44  [1.01; 2.04]     
-## Head and neck       1.75  [1.11; 2.78]     
-## Breslow                                    
-## Breslow (negative)  2.79  [2.31; 3.38]  119
-## Breslow (positive)  1.57  [1.25; 1.98]   16
-## SN tumour burden    9.63 [2.85; 32.54]   13
-## Harrell&#39;s C-index   0.79  [0.77; 0.81]     
-## Uno&#39;s C-index       0.78</code></pre>
+<pre><code>##                                         HR            CI Imp.
+## SN status                                                  83
+## Negative SN status                   (ref)                   
+## Positive SN status                    3.40  [2.60; 4.45]     
+## Age                                   1.17  [1.00; 1.37]    4
+## Ulceration                            1.84  [1.48; 2.29]   30
+## Location                                                   14
+## Upper limb                           (ref)                   
+## Lower limb                            1.00  [0.68; 1.47]     
+## Trunk                                 1.44  [1.01; 2.04]     
+## Head and neck                         1.75  [1.11; 2.78]     
+## Breslow                                                      
+## Breslow (negative)                    2.79  [2.31; 3.38]  119
+## Breslow (positive)                    1.57  [1.25; 1.98]   16
+## SN tumour burden                      9.63 [2.85; 32.54]   13
+## Harrell&#39;s C-index                     0.80  [0.78; 0.82]     
+## Harrell&#39;s optimism-corrected C-index  0.79  [0.77; 0.81]     
+## Uno&#39;s C-index                         0.79  [0.77; 0.81]     
+## AUC                                   0.82  [0.80; 0.84]</code></pre>
 </div>
 <div id="c-index-of-final-model-for-recurrence-stratified-by-sn-status" class="section level1">
 <h1>C-index of final model for recurrence stratified by SN status</h1>
@@ -1127,19 +1237,22 @@ final.full.table.Rec.5</code></pre>
                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.stratified$est+qnorm(.975)*cindex.mi.stratified$se), &quot;]&quot;)))
 }
 
+# optimism-corrected
 CIndex.Rec.Table &lt;- rbind(CIndex.BS.Rec.5.All, CIndex.BS.Rec.5.Positive, CIndex.BS.Rec.5.Negative)
 CIndex.Rec.Table</code></pre>
 <pre><code>##                          [,1]   [,2]          
 ## CIndex.BS.Rec.5.All      &quot;0.76&quot; &quot;[0.74; 0.78]&quot;
 ## CIndex.BS.Rec.5.Positive &quot;0.68&quot; &quot;[0.66; 0.71]&quot;
 ## CIndex.BS.Rec.5.Negative &quot;0.74&quot; &quot;[0.72; 0.76]&quot;</code></pre>
-<pre class="r"><code>utils::write.table(CIndex.Rec.Table,
-              file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/CIndex.train.txt&quot;),
-              row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)
+<pre class="r"><code># utils::write.table(CIndex.Rec.Table,
+#               file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/CIndex.train.txt&quot;),
+#               row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)
 
 save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;, &quot;m&quot;, 
             &quot;imputed.training.data&quot;, &quot;last.imputed.training.data.set&quot;, 
-            &quot;horizon&quot;, &quot;S.Rec.5.training&quot;, &quot;S.MSM.5.training&quot;,
+            &quot;horizon&quot;, 
+            &quot;S.Rec.training&quot;, &quot;S.MSM.training&quot;,
+            &quot;S.Rec.5.training&quot;, &quot;S.MSM.5.training&quot;,
             &quot;f.mi.full.Rec.5&quot;, &quot;f.mi.BS.Rec.5&quot;, &quot;f.mi.full.MSM.5.refit&quot;, 
             &quot;f.mi.BS.MSM.5.refit&quot;, &quot;MSM.cal.fact&quot;, &quot;c.Breslow&quot;, &quot;optimism&quot;,
             &quot;form.full.Rec.5&quot;, &quot;form.BS.Rec.5&quot;, 

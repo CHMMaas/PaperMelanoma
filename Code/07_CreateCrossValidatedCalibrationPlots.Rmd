@@ -40,15 +40,18 @@ Centers.anonimized <- c("A", "B", "C", "D")
 cuts <- 5
 for (model in c("Rec.5", "MSM.5")){
   if (model == "Rec.5"){
+    S.full <- S.Rec.training
     S.model <- S.Rec.5.training
   }
   if (model == "MSM.5"){
+    S.full <- S.MSM.training
     S.model <- S.MSM.5.training
   }
 
   for (type in c("full", "BS")){
     for (j in 1:4){
       S.j<-S.model[training.data.to.be.imputed$Center==Centers[j],]
+      S.full.j<-S.full[training.data.to.be.imputed$Center==Centers[j],]
       S.notj<-S.model[training.data.to.be.imputed$Center!=Centers[j],]
       S.Rec.5.notj<-S.Rec.5.training[training.data.to.be.imputed$Center!=Centers[j],]
 
@@ -70,7 +73,8 @@ for (model in c("Rec.5", "MSM.5")){
         }
 
         # calibration with metrics
-        S <- S.j[select.patients,]
+        # S.full <- S.full.j[select.patients,]
+        S <- S.full.j[select.patients,]
         p <- matrix(NA, nrow(S), m)
         for (i in 1:m){
           data.i <- mice::complete(imputed.training.data, i)
@@ -101,17 +105,19 @@ for (model in c("Rec.5", "MSM.5")){
         }
 
         # omit the observation with predicted probability = 1
-        omit <- unique(c(which(p[,1]==1), which(p[,2]==1), which(p[,3]==1), which(p[,4]==1), which(p[,5]==1)))
-        if (length(omit)>0){
-          cat("Omit:", omit, "\n")
-          p <- p[-omit,]
-          S <- S[-omit,]
-        }
+        # omit <- unique(c(which(p[,1]==1), which(p[,2]==1), which(p[,3]==1), which(p[,4]==1), which(p[,5]==1)))
+        # if (length(omit)>0){
+        #   cat("Omit:", omit, "\n")
+        #   p <- p[-omit,]
+        #   S.full <- S.full[-omit,]
+        # }
       
-        png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", model, ".", select.value, ".", type, ".", Centers[j], ".png"))
-        out <- PredictionTools::val.surv.mi(p, S, g=5, main=paste("Center", Centers.anonimized[j]),
-                                            time=NULL,lim=c(0,1),dist=TRUE,
-                                            CI.metrics=TRUE)
+        png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/", model, ".", select.value, ".", type, ".", Centers[j], ".png"),
+            width=1800, height=1800, units="px", res=300)
+        out <- PredictionTools::val.surv.mi(p, S, g=5, 
+                                            main=paste("Center", Centers.anonimized[j]),
+                                            time=5, lim=c(0,1), dist=TRUE,
+                                            CI.metrics=TRUE, n.iter=40)
         grDevices::dev.off()
       }
     }

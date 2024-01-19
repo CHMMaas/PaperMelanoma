@@ -404,36 +404,42 @@ for (i in 1:m){
 <pre class="r"><code># calibration curve for recurrence
 # TODO: validation based on dd.training or dd.validation?
 for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
-  for (outcome in c(&quot;Rec.5&quot;, &quot;MSM.5&quot;)){
+  for (outcome in c(&quot;Rec&quot;, &quot;MSM&quot;)){
     options(datadist=paste0(&quot;dd.&quot;, data.type))
   
     S &lt;- eval(parse(text=paste0(&quot;S.&quot;, outcome, &quot;.&quot;, data.type)))
-    p &lt;- eval(parse(text=paste0(&quot;p.&quot;, outcome, &quot;.&quot;, data.type)))
+    p &lt;- eval(parse(text=paste0(&quot;p.&quot;, outcome, &quot;.5.&quot;, data.type)))
     data &lt;- eval(parse(text=paste0(data.type, &quot;.data.to.be.imputed&quot;)))
     
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.All.png&quot;))
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.All.png&quot;),
+        width=1800, height=1800, units=&quot;px&quot;, res=300)
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p, S,
-                                 g=5, main=&quot;All patients&quot;, time=NULL, 
-                                 lim=c(0,1), dist=TRUE, CI.metrics=TRUE,
+                                 g=5, main=&quot;All patients&quot;, time=horizon, 
+                                 lim=c(0,1), dist=TRUE, 
+                                 CI.metrics=TRUE, n.iter=40,
                                  optimism.C=ifelse(data.type==&quot;training&quot;, optimism, 0))
     grDevices::dev.off()
     
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Positive.png&quot;))
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Positive.png&quot;),
+        width=1800, height=1800, units=&quot;px&quot;, res=300)
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus==&quot;Positive&quot;,],
                                  S[data$SNstatus==&quot;Positive&quot;,],
                                  g=5, main=&quot;Patients with positive SN&quot;, 
-                                 time=NULL, lim=c(0,1), dist=TRUE, CI.metrics=TRUE,
+                                 time=horizon, lim=c(0,1), dist=TRUE, 
+                                 CI.metrics=TRUE, n.iter=40,
                                  optimism.C=ifelse(data.type==&quot;training&quot;, optimism, 0))
     grDevices::dev.off()
     
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Negative.png&quot;))
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/&quot;, data.type, &quot;.&quot;, outcome, &quot;.Negative.png&quot;),
+        width=1800, height=1800, units=&quot;px&quot;, res=300)
     par(mar=rep(0, 4))
     PredictionTools::val.surv.mi(p[data$SNstatus==&quot;Negative&quot;,],
                                  S[data$SNstatus==&quot;Negative&quot;,],
                                  g=5, main=&quot;Patients with negative SN&quot;, 
-                                 time=NULL, lim=c(0,1), dist=TRUE, CI.metrics=TRUE,
+                                 time=horizon, lim=c(0,1), dist=TRUE, 
+                                 CI.metrics=TRUE, n.iter=40,
                                  optimism.C=ifelse(data.type==&quot;training&quot;, optimism, 0))
     grDevices::dev.off()
     
@@ -448,7 +454,8 @@ for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
     }
     grDevices::dev.off()
     
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/&quot;, data.type, &quot;.&quot;, outcome, &quot;.png&quot;), width=32, height=45, units=&quot;cm&quot;, res=600)
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/&quot;, data.type, &quot;.&quot;, outcome, &quot;.png&quot;), 
+        width=32, height=45, units=&quot;cm&quot;, res=600)
     par(mar=rep(0, 4))
     layout(matrix(1:2, ncol=1, nrow=2, byrow=TRUE), heights=c(2, 1), widths=c(2, 2))
     for (select.value in c(&quot;All&quot;, &quot;Neg.Pos&quot;)){
