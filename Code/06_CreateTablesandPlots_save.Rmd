@@ -189,8 +189,26 @@ for (model in c("Rec.5", "MSM.5.refit")){
                   anova.out["SNstatus * Breslow  (Factor+Higher Order Factors)"], # Breslow positive
                   anova.out[c("Rdamcrit")])
   BS.table <- cbind(BS.table, sprintf("%.0f", anova.main))
+  
+  # add p-values
+  p.out <- anova(f.mi.BS)[, "P"]
+  p.main <- c(p.out[c("SNstatus  (Factor+Higher Order Factors)")], # SN status
+                  NA,               # negative SN
+                  NA,               # positive SN
+                  p.out[c("Age.SN",     # Age
+                              "Ulceration", # Ulceration
+                              "Loc_CAT")],  # Location
+                  NA,               # upper limb
+                  NA,               # lower limb
+                  NA,               # trunk
+                  NA,               # head & neck
+                  NA,               # Breslow title
+                  p.out[c("Breslow  (Factor+Higher Order Factors)")], # Breslow negative
+                  p.out["SNstatus * Breslow  (Factor+Higher Order Factors)"], # Breslow positive
+                  p.out[c("Rdamcrit")])
+  BS.table <- cbind(BS.table, sprintf("%.4f", p.main))
 
-  colnames(BS.table) <- c("HR", "CI", "Imp.")
+  colnames(BS.table) <- c("HR", "CI", "Imp.", "p-value")
   assign(paste0("final.BS.table.", model), as.data.frame(BS.table))
 }
 ```
@@ -224,6 +242,7 @@ mean(cindex.orig)-optimism
 # Add C-index to model for Recurrence and MSM refit Table
 ```{r, eval=TRUE}
 for (model in list("Rec.5", "MSM.5.refit")){
+  print(model)
   if (model == "Rec.5"){
     # plot predict
     png(file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Rec.png"),
@@ -249,6 +268,7 @@ for (model in list("Rec.5", "MSM.5.refit")){
 
   # discrimination full and backward selected model
   for (type in c("full", "BS")){
+    print(type)
     # load model
     f.mi <- eval(parse(text=paste0("f.mi.", type, ".", model)))
     form.mi <- eval(parse(text=paste0("form.", type, ".", model)))
@@ -285,15 +305,15 @@ for (model in list("Rec.5", "MSM.5.refit")){
     grDevices::dev.off()
     
     final.full.table <- eval(parse(text=paste0("final.", type, ".table.", model)))
-    final.full.table["Harrell's C-index", "HR"] <- sprintf("%.2f", out$cindex)
-    final.full.table["Harrell's C-index", "CI"] <- paste0("[", sprintf("%.2f", out$cindex.lower),
-                                                   "; ", sprintf("%.2f", out$cindex.upper), "]")
-    final.full.table["Harrell's optimism-corrected C-index", "HR"] <- sprintf("%.2f", out$cindex-optimism)
-    final.full.table["Harrell's optimism-corrected C-index", "CI"] <- paste0("[", sprintf("%.2f", out$cindex.lower-optimism),
-                                                   "; ", sprintf("%.2f", out$cindex.upper-optimism), "]")
-    final.full.table["Uno's C-index", "HR"] <- sprintf("%.2f", out$unoC)
-    final.full.table["Uno's C-index", "CI"] <- paste0("[", sprintf("%.2f", out$unoC.lower),
-                                                   "; ", sprintf("%.2f", out$unoC.upper), "]")
+    final.full.table["Harrell's C-index", "HR"] <- sprintf("%.2f", out$HarrellC)
+    final.full.table["Harrell's C-index", "CI"] <- paste0("[", sprintf("%.2f", out$HarrellC.lower),
+                                                   "; ", sprintf("%.2f", out$HarrellC.upper), "]")
+    final.full.table["Harrell's optimism-corrected C-index", "HR"] <- sprintf("%.2f", out$HarrellC-optimism)
+    final.full.table["Harrell's optimism-corrected C-index", "CI"] <- paste0("[", sprintf("%.2f", out$HarrellC.lower-optimism),
+                                                   "; ", sprintf("%.2f", out$HarrellC.upper-optimism), "]")
+    final.full.table["Uno's C-index", "HR"] <- sprintf("%.2f", out$UnoC)
+    final.full.table["Uno's C-index", "CI"] <- paste0("[", sprintf("%.2f", out$UnoC.lower),
+                                                   "; ", sprintf("%.2f", out$UnoC.upper), "]")
     final.full.table["AUC", "HR"] <- sprintf("%.2f", out$AUC)
     final.full.table["AUC", "CI"] <- paste0("[", sprintf("%.2f", out$AUC.lower),
                                                    "; ", sprintf("%.2f", out$AUC.upper), "]")
@@ -301,9 +321,9 @@ for (model in list("Rec.5", "MSM.5.refit")){
     assign(paste0("final.", type, ".table.", model), final.full.table)
     
     if (type=="BS"&model=="Rec.5"){
-      CIndex.BS.Rec.5.All <- c(sprintf("%.2f", out$cindex-optimism), 
-                              paste0("[", sprintf("%.2f", out$cindex.lower-optimism), 
-                                     "; ", sprintf("%.2f", out$cindex.upper-optimism), "]"))
+      CIndex.BS.Rec.5.All <- c(sprintf("%.2f", out$HarrellC-optimism), 
+                              paste0("[", sprintf("%.2f", out$HarrellC.lower-optimism), 
+                                     "; ", sprintf("%.2f", out$HarrellC.upper-optimism), "]"))
     }
   }
 }
@@ -312,78 +332,62 @@ for (model in list("Rec.5", "MSM.5.refit")){
 # Add the C-index for calibrated MSM model to Table for recurrence
 ```{r, eval=TRUE}
 for (type in c("full", "BS")){
+  print(type)
   f.mi <- eval(parse(text=paste0("f.mi.", type, ".Rec.5")))
-  cindex.MSM <- rep(0, m)
-  cindex.se.MSM <- rep(0, m)
-  unoC.MSM <- rep(0, m)
+  HarrellC.MSM <- rep(0, m)
+  HarrellC.MSM.se <- rep(0, m)
+  UnoC.MSM <- rep(0, m)
+  UnoC.MSM.se <- rep(0, m)
   AUC.MSM <- rep(0, m)
+  AUC.MSM.se <- rep(0, m)
   for (i in 1:m){
+    # linear predictor ith prediction
     lp.i <- predict(f.mi, newdata=mice::complete(imputed.training.data,i), type="lp")
+    f.MSM.lp.i <- survival::coxph(S.MSM.5.training ~ lp.i)
     
     # Harrell's C-index
-    rc <- Hmisc::rcorr.cens(-lp.i, 
-                            S.MSM.5.training)
-    cindex.MSM[i] <- rc["C Index"]
-    cindex.se.MSM[i] <- rc["S.D."]/2
+    rc.H <- survival::concordance(f.MSM.lp.i, timewt = "n")
+    HarrellC.MSM[i] <- rc.H$concordance
+    HarrellC.MSM.se[i] <- sqrt(rc.H$var)
     
     # Uno's C-index
-    Uno.data <- cbind(S.MSM.5.training[, 1], S.MSM.5.training[, 2], lp.i)
-    unoC.MSM[i] <- survC1::Est.Cval(mydata=Uno.data, 
-                                    tau=horizon, nofit=TRUE)$Dhat
-    if (i == 1){
-      unoC.boot <- c()
-      nr.iter <- 40
-      for (itr in 1:nr.iter){
-        boot <- Uno.data[sample(1:nrow(Uno.data), nrow(Uno.data), replace=TRUE),]
-        unoC <- survC1::Est.Cval(mydata=boot,
-                                  tau=horizon,
-                                  nofit=TRUE)$Dhat
-        unoC.boot <- c(unoC.boot, unoC)
-      }
-      unoC.MSM.se <- PredictionTools::Rubin.combine(mean(unoC.boot), sd(unoC.boot))$se
-    }
+    rc.U <- survival::concordance(f.MSM.lp.i, timewt = "n/G2")
+    UnoC.MSM[i] <- rc.U$concordance
+    UnoC.MSM.se[i] <- sqrt(rc.U$var)
     
     # time-dependent ROC
     AUC.MSM.i <- timeROC::timeROC(T=S.MSM.training[, 1],
                                    delta=S.MSM.training[, 2],
                                    marker=lp.i,
                                    times=horizon,
-                                   cause=1, 
-                                   iid=FALSE)
-    
-    # time-dependent ROC SE
-    if (i == 1){
-      AUC.MSM.i <- timeROC::timeROC(T=S.MSM.training[, 1],
-                                   delta=S.MSM.training[, 2],
-                                   marker=lp.i,
-                                   times=horizon,
-                                   cause=1, 
+                                   cause=1,
                                    iid=TRUE)
-      AUC.MSM.CI <- stats::confint(AUC.MSM.i)
-      AUC.MSM.se <- as.numeric((as.numeric(AUC.MSM.CI$CI_AUC[2])/100-as.numeric(AUC.MSM.i$AUC[2]))/AUC.MSM.CI$C.alpha)
-    }
     AUC.MSM[i] <- as.numeric(AUC.MSM.i$AUC[2])
+    AUC.MSM.CI <- stats::confint(AUC.MSM.i)
+    AUC.MSM.se[i] <- as.numeric((as.numeric(AUC.MSM.CI$CI_AUC[2])/100-as.numeric(AUC.MSM.i$AUC[2]))/AUC.MSM.CI$C.alpha)
   }
-  cindex.mi.MSM <- Rubin.combine(cindex.MSM, cindex.se.MSM)
-  
+  HarrellC.mi.MSM <- Rubin.combine(HarrellC.MSM, HarrellC.MSM.se)
+  Uno.mi.MSM <- Rubin.combine(UnoC.MSM, UnoC.MSM.se)
+  AUC.mi.MSM <- Rubin.combine(AUC.MSM, AUC.MSM.se)
+
   final.full.table <- eval(parse(text=paste0("final.", type, ".table.Rec.5")))
-  final.full.table["Harrell's C-index MSM", "HR"] <- sprintf("%.2f", cindex.mi.MSM$est)
-  final.full.table["Harrell's C-index MSM", "CI"] <- paste0("[", 
-    sprintf("%.2f", cindex.mi.MSM$est+qnorm(.025)*cindex.mi.MSM$se),
-    "; ", sprintf("%.2f", cindex.mi.MSM$est+qnorm(.975)*cindex.mi.MSM$se), "]")
-  final.full.table["Harrell's optimism-corrected C-index MSM", "HR"] <- sprintf("%.2f", cindex.mi.MSM$est-optimism)
-  final.full.table["Harrell's optimism-corrected C-index MSM", "CI"] <- paste0("[", 
-    sprintf("%.2f", cindex.mi.MSM$est+qnorm(.025)*cindex.mi.MSM$se-optimism),
-    "; ", sprintf("%.2f", cindex.mi.MSM$est+qnorm(.975)*cindex.mi.MSM$se-optimism), "]")
-  final.full.table["Uno's C-index MSM", "HR"] <- sprintf("%.2f", mean(unoC.MSM))
-  final.full.table["Uno's C-index MSM", "CI"] <- paste0("[", 
-    sprintf("%.2f", mean(unoC.MSM)+qnorm(.025)*unoC.MSM.se),
-    "; ", sprintf("%.2f", mean(unoC.MSM)+qnorm(.975)*unoC.MSM.se), "]")
-  final.full.table["AUC MSM", "HR"] <- sprintf("%.2f", mean(AUC.MSM))
-  final.full.table["AUC MSM", "CI"] <- paste0("[", 
-    sprintf("%.2f", mean(AUC.MSM)+qnorm(.025)*AUC.MSM.se),
-    "; ", sprintf("%.2f", mean(AUC.MSM)+qnorm(.975)*AUC.MSM.se), "]")
-  
+  final.full.table["Harrell's C-index MSM", "HR"] <- sprintf("%.2f", HarrellC.mi.MSM$est)
+  final.full.table["Harrell's C-index MSM", "CI"] <- paste0("[",
+    sprintf("%.2f", HarrellC.mi.MSM$est+qnorm(.025)*HarrellC.mi.MSM$se),
+    "; ", sprintf("%.2f", HarrellC.mi.MSM$est+qnorm(.975)*HarrellC.mi.MSM$se), "]")
+  final.full.table["Harrell's optimism-corrected C-index MSM", "HR"] <- sprintf("%.2f", HarrellC.mi.MSM$est-optimism)
+  final.full.table["Harrell's optimism-corrected C-index MSM", "CI"] <- paste0("[",
+    sprintf("%.2f", HarrellC.mi.MSM$est+qnorm(.025)*HarrellC.mi.MSM$se-optimism),
+    "; ", sprintf("%.2f", HarrellC.mi.MSM$est+qnorm(.975)*HarrellC.mi.MSM$se-optimism), "]")
+  final.full.table["Uno's C-index MSM", "HR"] <- sprintf("%.2f", Uno.mi.MSM$est)
+  final.full.table["Uno's C-index MSM", "CI"] <- paste0("[",
+    sprintf("%.2f", Uno.mi.MSM$est+qnorm(.025)*Uno.mi.MSM$se),
+    "; ", sprintf("%.2f", Uno.mi.MSM$est+qnorm(.975)*Uno.mi.MSM$se), "]")
+  final.full.table["AUC MSM", "HR"] <- sprintf("%.2f", AUC.mi.MSM$est)
+  final.full.table["AUC MSM", "CI"] <- paste0("[",
+    sprintf("%.2f", AUC.mi.MSM$est+qnorm(.025)*AUC.mi.MSM$se),
+    "; ", sprintf("%.2f", AUC.mi.MSM$est+qnorm(.975)*AUC.mi.MSM$se), "]")
+
   assign(paste0("final.", type, ".table.Rec.5"), final.full.table)
 }
 ```
@@ -482,7 +486,7 @@ final.BS.table.MSM.5.refit
 ```
 
 # C-index of final model for recurrence stratified by SN status
-```{r, eval=TRUE}
+```{r, eval=FALSE}
 for (arm in c("Positive", "Negative")){
   f.mi.stratified <- eval(parse(text=paste0("f.mi.BS.Rec.5")))
   S.5.subset <- S.Rec.5.training[last.imputed.training.data.set$SNstatus==arm,]
@@ -512,14 +516,17 @@ CIndex.Rec.Table
 # utils::write.table(CIndex.Rec.Table,
 #               file=paste0("Z:/Project Melanoom/PaperMelanoma/Results/CIndex.train.txt"),
 #               row.names=FALSE, col.names=FALSE, sep=",")
+```
 
+```{r,eval=TRUE}
 save(list=c("dd.training", "training.data.to.be.imputed", "m", 
             "imputed.training.data", "last.imputed.training.data.set", 
             "horizon", 
             "S.Rec.training", "S.MSM.training",
             "S.Rec.5.training", "S.MSM.5.training",
             "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", 
-            "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", "optimism",
+            "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "h0.Rec", "h0.MSM",
+            "c.Breslow", "optimism",
             "form.full.Rec.5", "form.BS.Rec.5", 
             "form.full.MSM.5.refit", "form.BS.MSM.5.refit"),
      file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)

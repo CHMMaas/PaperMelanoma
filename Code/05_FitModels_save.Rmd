@@ -173,15 +173,6 @@ utils::write.table(paste0(sprintf("%.2f", MSM.cal.fact), " [",
             file="Z:/Project Melanoom/PaperMelanoma/Results/calibration.MSS.txt", 
             row.names=FALSE, col.names=FALSE, sep=",")
 
-save(list=c("dd.training", "training.data.to.be.imputed", "m", 
-            "imputed.training.data", "last.imputed.training.data.set", 
-            "horizon", 
-            "S.Rec.training", "S.MSM.training",
-            "S.Rec.5.training", "S.MSM.5.training",
-            "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", 
-            "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", 
-            "form.full.Rec.5", "form.BS.Rec.5", "form.full.MSM.5.refit", "form.BS.MSM.5.refit"),
-     file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
 load("Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData")
 save(list=c("dd.validation", "validation.data.to.be.imputed", "m", 
             "imputed.validation.data", "last.imputed.validation.data.set", "horizon", 
@@ -240,3 +231,40 @@ PredictionTools::val.surv.mi(p.MSM.5.redev, S.MSM.training, g=5,
                              dist=TRUE)
 ```
 
+# Calculate baseline hazards
+```{r, eval=TRUE}
+# baseline hazard of recurrence averaged over all imputed data sets
+h0.Rec.all <- c()
+for (i in 1:m){
+  f.Rec.basehaz.i <- survival::basehaz(cph(form.BS.Rec.5, data=mice::complete(imputed.training.data, i), se.fit=TRUE, x=TRUE, y=TRUE))
+  h0.Rec.i <- f.Rec.basehaz.i$hazard[f.Rec.basehaz.i$time==max(f.Rec.basehaz.i$time[f.Rec.basehaz.i$time<=horizon])]
+  h0.Rec.all <- c(h0.Rec.all, h0.Rec.i)
+}
+h0.Rec <- mean(h0.Rec.all)
+
+# baseline hazard of MSM
+h0.MSM.all <- c()
+for (i in 1:m){
+  lp.i<-predict(f.mi.BS.Rec.5,
+                newdata=mice::complete(imputed.training.data,i), 
+                type="lp")
+  f.MSM.basehaz.i <- survival::basehaz(rms::cph(S.MSM.5.training~lp.i,y=TRUE,x=TRUE))
+  h0.MSM.i <- f.MSM.basehaz.i$hazard[f.MSM.basehaz.i$time==max(f.MSM.basehaz.i$time[f.MSM.basehaz.i$time<=horizon])]
+  h0.MSM.all <- c(h0.MSM.all, h0.MSM.i)
+}
+h0.MSM <- mean(h0.MSM.all)
+```
+# Save for webapp
+```{r,eval=TRUE}
+save(f.mi.BS.Rec.5, MSM.cal.fact, h0.Rec, h0.MSM, c.Breslow,
+     file="Z:/Project Melanoom/PaperMelanoma/Results/model.Rdata", 
+     compress=TRUE)
+save(list=c("dd.training", "training.data.to.be.imputed", "m", 
+            "imputed.training.data", "last.imputed.training.data.set", 
+            "horizon", "S.Rec.training", "S.MSM.training",
+            "S.Rec.5.training", "S.MSM.5.training",
+            "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", 
+            "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", "h0.Rec", "h0.MSM",
+            "form.full.Rec.5", "form.BS.Rec.5", "form.full.MSM.5.refit", "form.BS.MSM.5.refit"),
+     file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", compress=TRUE)
+```

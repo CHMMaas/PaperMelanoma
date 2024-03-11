@@ -407,6 +407,26 @@ form.linear.full.Rec &lt;- S.Rec.5.training ~
   SNstatus:Histology +
   SNstatus:Breslow +
   SNstatus:multiple.fields
+form.log.age.full.Rec &lt;- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  log(Age.SN) +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:log(Age.SN) +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
 form.nonlinear.age.full.Rec &lt;- S.Rec.5.training ~
   SNstatus +
   Sex +
@@ -434,6 +454,11 @@ linear.full.Rec &lt;- Hmisc::fit.mult.impute(form.linear.full.Rec, cph,
                                           fit.reps=TRUE, 
                                           fitargs=list(y=TRUE, x=TRUE, 
                                                        se.fit=TRUE))
+log.age.full.Rec &lt;- Hmisc::fit.mult.impute(form.log.age.full.Rec, cph, xtrans=imputed.training.data,
+                                                 data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                                 fit.reps=TRUE, 
+                                                 fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 nonlinear.age.full.Rec &lt;- Hmisc::fit.mult.impute(form.nonlinear.age.full.Rec, cph, xtrans=imputed.training.data,
                                                  data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
                                                  fit.reps=TRUE, 
@@ -445,13 +470,33 @@ hist(last.imputed.training.data.set$Age.SN)</code></pre>
 <pre class="r"><code># linear model
 linear.full.Rec$loglik[2]</code></pre>
 <pre><code>## [1] -6455.03</code></pre>
-<pre class="r"><code># using log(Age) gives slightly better log likelihood
+<pre class="r"><code># using rcs(Age) gives slightly better log likelihood
 nonlinear.age.full.Rec$loglik[2]</code></pre>
 <pre><code>## [1] -6451.494</code></pre>
 </div>
 <div id="test-if-breslow-should-be-modelled-non-linearly" class="section level3">
 <h3>Test if Breslow should be modelled non-linearly</h3>
-<pre class="r"><code>form.nonlinear.Breslow.full.Rec &lt;- S.Rec.5.training ~
+<pre class="r"><code>form.log.Breslow.full.Rec &lt;- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  log(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:log(Breslow) +
+  SNstatus:multiple.fields
+form.nonlinear.Breslow.full.Rec &lt;- S.Rec.5.training ~
   SNstatus +
   Sex +
   Age.SN +
@@ -471,6 +516,11 @@ nonlinear.age.full.Rec$loglik[2]</code></pre>
   SNstatus:Histology +
   SNstatus:rcs(Breslow) +
   SNstatus:multiple.fields
+log.Breslow.full.Rec &lt;- Hmisc::fit.mult.impute(form.log.Breslow.full.Rec, cph, xtrans=imputed.training.data,
+                                                     data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                                     fit.reps=TRUE, 
+                                                     fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 nonlinear.Breslow.full.Rec &lt;- Hmisc::fit.mult.impute(form.nonlinear.Breslow.full.Rec, cph, xtrans=imputed.training.data,
                                                      data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
                                                      fit.reps=TRUE, 
@@ -482,87 +532,33 @@ hist(last.imputed.training.data.set$Breslow)</code></pre>
 <pre class="r"><code># linear model
 linear.full.Rec$loglik[2]</code></pre>
 <pre><code>## [1] -6455.03</code></pre>
-<pre class="r"><code># using log(Breslow) gives better log likelihood
+<pre class="r"><code># using rcs(Breslow) gives better log likelihood
 nonlinear.Breslow.full.Rec$loglik[2]</code></pre>
 <pre><code>## [1] -6410.226</code></pre>
-<pre class="r"><code># test
-anova(nonlinear.Breslow.full.Rec)</code></pre>
-<pre><code>##                 Wald Statistics          Response: S.Rec.5.training 
-## 
-##  Factor                                                    Chi-Square d.f.
-##  SNstatus  (Factor+Higher Order Factors)                    33.49     15  
-##   All Interactions                                          23.93     14  
-##  Sex  (Factor+Higher Order Factors)                          8.00      2  
-##   All Interactions                                           3.66      1  
-##  Age.SN  (Factor+Higher Order Factors)                      25.03      2  
-##   All Interactions                                           0.70      1  
-##  Ulceration  (Factor+Higher Order Factors)                  31.75      2  
-##   All Interactions                                           1.12      1  
-##  Loc_CAT  (Factor+Higher Order Factors)                     22.30      6  
-##   All Interactions                                           1.03      3  
-##  Histology  (Factor+Higher Order Factors)                   10.26      6  
-##   All Interactions                                           0.14      3  
-##  Breslow  (Factor+Higher Order Factors)                    126.06      8  
-##   All Interactions                                          12.05      4  
-##   Nonlinear (Factor+Higher Order Factors)                   80.00      6  
-##  multiple.fields  (Factor+Higher Order Factors)              8.63      2  
-##   All Interactions                                           0.00      1  
-##  Tot_SNs_neg                                                 1.52      1  
-##  Tot_SNs_pos                                                 0.00      1  
-##  Rdamcrit                                                    1.01      1  
-##  Dewar                                                      13.91      4  
-##  SNstatus * Sex  (Factor+Higher Order Factors)               3.66      1  
-##  SNstatus * Age.SN  (Factor+Higher Order Factors)            0.70      1  
-##  SNstatus * Ulceration  (Factor+Higher Order Factors)        1.12      1  
-##  SNstatus * Loc_CAT  (Factor+Higher Order Factors)           1.03      3  
-##  SNstatus * Histology  (Factor+Higher Order Factors)         0.14      3  
-##  SNstatus * Breslow  (Factor+Higher Order Factors)          12.05      4  
-##   Nonlinear                                                 10.86      3  
-##   Nonlinear Interaction : f(A,B) vs. AB                     10.86      3  
-##  SNstatus * multiple.fields  (Factor+Higher Order Factors)   0.00      1  
-##  TOTAL NONLINEAR                                            80.00      6  
-##  TOTAL INTERACTION                                          23.93     14  
-##  TOTAL NONLINEAR + INTERACTION                             100.28     17  
-##  TOTAL                                                     728.41     36  
-##  P     
-##  0.0040
-##  0.0467
-##  0.0183
-##  0.0558
-##  &lt;.0001
-##  0.4035
-##  &lt;.0001
-##  0.2895
-##  0.0011
-##  0.7934
-##  0.1140
-##  0.9865
-##  &lt;.0001
-##  0.0170
-##  &lt;.0001
-##  0.0133
-##  0.9621
-##  0.2182
-##  0.9499
-##  0.3157
-##  0.0076
-##  0.0558
-##  0.4035
-##  0.2895
-##  0.7934
-##  0.9865
-##  0.0170
-##  0.0125
-##  0.0125
-##  0.9621
-##  &lt;.0001
-##  0.0467
-##  &lt;.0001
-##  &lt;.0001</code></pre>
 </div>
 <div id="test-if-rdamcrit-should-be-modelled-non-linearly" class="section level3">
 <h3>Test if Rdamcrit should be modelled non-linearly</h3>
-<pre class="r"><code>form.nonlinear.Rdamcrit.full.Rec &lt;- S.Rec.5.training ~
+<pre class="r"><code>form.log.Rdamcrit.full.Rec &lt;- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  log(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
+form.nonlinear.Rdamcrit.full.Rec &lt;- S.Rec.5.training ~
   SNstatus +
   Sex +
   Age.SN +
@@ -582,6 +578,11 @@ anova(nonlinear.Breslow.full.Rec)</code></pre>
   SNstatus:Histology +
   SNstatus:Breslow +
   SNstatus:multiple.fields
+log.Rdamcrit.full.Rec &lt;- Hmisc::fit.mult.impute(form.log.Rdamcrit.full.Rec, cph, xtrans=imputed.training.data,
+                                                      data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                                      fit.reps=TRUE, 
+                                                      fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 nonlinear.Rdamcrit.full.Rec &lt;- Hmisc::fit.mult.impute(form.nonlinear.Rdamcrit.full.Rec, cph, xtrans=imputed.training.data,
                                                       data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
                                                       fit.reps=TRUE, 
@@ -593,9 +594,23 @@ hist(last.imputed.training.data.set$Rdamcrit)</code></pre>
 <pre class="r"><code># linear model
 linear.full.Rec$loglik[2]</code></pre>
 <pre><code>## [1] -6455.03</code></pre>
-<pre class="r"><code># using log(Rdamcrit) gives better log likelihood
+<pre class="r"><code># using rcs(Rdamcrit) gives better log likelihood
 nonlinear.Rdamcrit.full.Rec$loglik[2]</code></pre>
 <pre><code>## [1] -6451.211</code></pre>
+<pre class="r"><code>print(cbind(c(&quot;Linear&quot;, &quot;Age log&quot;, &quot;Age rcs&quot;, &quot;Breslow log&quot;, &quot;Breslow rcs&quot;, 
+              &quot;Rdamcrit log&quot;, &quot;Rdamcrit rcs&quot;),
+            round(c(BIC(linear.full.Rec), 
+                    BIC(log.age.full.Rec), BIC(nonlinear.age.full.Rec), 
+                    BIC(log.Breslow.full.Rec), BIC(nonlinear.Breslow.full.Rec), 
+                    BIC(log.Rdamcrit.full.Rec), BIC(nonlinear.Rdamcrit.full.Rec)), 1)))</code></pre>
+<pre><code>##      [,1]           [,2]     
+## [1,] &quot;Linear&quot;       &quot;13159.4&quot;
+## [2,] &quot;Age log&quot;      &quot;13163.2&quot;
+## [3,] &quot;Age rcs&quot;      &quot;13202.2&quot;
+## [4,] &quot;Breslow log&quot;  &quot;13078.8&quot;
+## [5,] &quot;Breslow rcs&quot;  &quot;13119.7&quot;
+## [6,] &quot;Rdamcrit log&quot; &quot;13151.2&quot;
+## [7,] &quot;Rdamcrit rcs&quot; &quot;13160.1&quot;</code></pre>
 </div>
 </div>
 

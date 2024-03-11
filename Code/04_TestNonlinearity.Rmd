@@ -59,6 +59,26 @@ form.linear.full.Rec <- S.Rec.5.training ~
   SNstatus:Histology +
   SNstatus:Breslow +
   SNstatus:multiple.fields
+form.log.age.full.Rec <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  log(Age.SN) +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:log(Age.SN) +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
 form.nonlinear.age.full.Rec <- S.Rec.5.training ~
   SNstatus +
   Sex +
@@ -86,6 +106,11 @@ linear.full.Rec <- Hmisc::fit.mult.impute(form.linear.full.Rec, cph,
                                           fit.reps=TRUE, 
                                           fitargs=list(y=TRUE, x=TRUE, 
                                                        se.fit=TRUE))
+log.age.full.Rec <- Hmisc::fit.mult.impute(form.log.age.full.Rec, cph, xtrans=imputed.training.data,
+                                                 data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                                 fit.reps=TRUE, 
+                                                 fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 nonlinear.age.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.age.full.Rec, cph, xtrans=imputed.training.data,
                                                  data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
                                                  fit.reps=TRUE, 
@@ -95,12 +120,32 @@ nonlinear.age.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.age.full.Rec, cp
 hist(last.imputed.training.data.set$Age.SN)
 # linear model
 linear.full.Rec$loglik[2]
-# using log(Age) gives slightly better log likelihood
+# using rcs(Age) gives slightly better log likelihood
 nonlinear.age.full.Rec$loglik[2]
 ```
 
 ### Test if Breslow should be modelled non-linearly
 ```{r, eval=TRUE}
+form.log.Breslow.full.Rec <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  log(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  Rdamcrit +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:log(Breslow) +
+  SNstatus:multiple.fields
 form.nonlinear.Breslow.full.Rec <- S.Rec.5.training ~
   SNstatus +
   Sex +
@@ -121,6 +166,11 @@ form.nonlinear.Breslow.full.Rec <- S.Rec.5.training ~
   SNstatus:Histology +
   SNstatus:rcs(Breslow) +
   SNstatus:multiple.fields
+log.Breslow.full.Rec <- Hmisc::fit.mult.impute(form.log.Breslow.full.Rec, cph, xtrans=imputed.training.data,
+                                                     data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                                     fit.reps=TRUE, 
+                                                     fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 nonlinear.Breslow.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Breslow.full.Rec, cph, xtrans=imputed.training.data,
                                                      data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
                                                      fit.reps=TRUE, 
@@ -130,14 +180,32 @@ nonlinear.Breslow.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Breslow.full
 hist(last.imputed.training.data.set$Breslow)
 # linear model
 linear.full.Rec$loglik[2]
-# using log(Breslow) gives better log likelihood
+# using rcs(Breslow) gives better log likelihood
 nonlinear.Breslow.full.Rec$loglik[2]
-# test
-anova(nonlinear.Breslow.full.Rec)
 ```
 
 ### Test if Rdamcrit should be modelled non-linearly
 ```{r, eval=TRUE}
+form.log.Rdamcrit.full.Rec <- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  Breslow +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  log(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:Breslow +
+  SNstatus:multiple.fields
 form.nonlinear.Rdamcrit.full.Rec <- S.Rec.5.training ~
   SNstatus +
   Sex +
@@ -158,6 +226,11 @@ form.nonlinear.Rdamcrit.full.Rec <- S.Rec.5.training ~
   SNstatus:Histology +
   SNstatus:Breslow +
   SNstatus:multiple.fields
+log.Rdamcrit.full.Rec <- Hmisc::fit.mult.impute(form.log.Rdamcrit.full.Rec, cph, xtrans=imputed.training.data,
+                                                      data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
+                                                      fit.reps=TRUE, 
+                                                      fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
 nonlinear.Rdamcrit.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Rdamcrit.full.Rec, cph, xtrans=imputed.training.data,
                                                       data=training.data.to.be.imputed,n.impute=m, pr=FALSE,
                                                       fit.reps=TRUE, 
@@ -167,6 +240,13 @@ nonlinear.Rdamcrit.full.Rec <- Hmisc::fit.mult.impute(form.nonlinear.Rdamcrit.fu
 hist(last.imputed.training.data.set$Rdamcrit)
 # linear model
 linear.full.Rec$loglik[2]
-# using log(Rdamcrit) gives better log likelihood
+# using rcs(Rdamcrit) gives better log likelihood
 nonlinear.Rdamcrit.full.Rec$loglik[2]
+
+print(cbind(c("Linear", "Age log", "Age rcs", "Breslow log", "Breslow rcs", 
+              "Rdamcrit log", "Rdamcrit rcs"),
+            round(c(BIC(linear.full.Rec), 
+                    BIC(log.age.full.Rec), BIC(nonlinear.age.full.Rec), 
+                    BIC(log.Breslow.full.Rec), BIC(nonlinear.Breslow.full.Rec), 
+                    BIC(log.Rdamcrit.full.Rec), BIC(nonlinear.Rdamcrit.full.Rec)), 1)))
 ```

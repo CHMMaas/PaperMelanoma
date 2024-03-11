@@ -25,6 +25,31 @@ library(survival)
 source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
 ```
 
+### Check mean event rates of risk distribution
+#### Recurrence
+```{r, eval=TRUE}
+load("Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData")
+
+# h0 for only last imputed data set
+f.Rec.basehaz.5 <- survival::basehaz(f.mi.BS.Rec.5,TRUE)
+h0.Rec.5 <- f.Rec.basehaz.5$hazard[f.Rec.basehaz.5$time==max(f.Rec.basehaz.5$time[f.Rec.basehaz.5$time<=horizon])]
+
+# lp for last imputed data set
+lp.Rec<-predict(f.mi.BS.Rec.5,
+              newdata=mice::complete(imputed.training.data,5), 
+              type="lp")
+
+# calibration factor
+f.mi.5 <- rms::cph(S.MSM.5.training~lp.Rec,y=TRUE,x=TRUE) 
+MSM.cal.fact.5 <- stats::coef(f.mi.5)
+
+# sum(h.Rec$density*fun.event(lp=lp.points.Rec.5, h0=h0.Rec))
+# similar to the 5-year survival probability, e.g. kaplan-meier at 5 years, i.e. survfit at 5 years:
+SF<-survival::survfit(S.Rec.5.training~1,data=training.data.to.be.imputed)
+100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
+# average probability of recurrence
+mean(fun.event(lp=lp.Rec, h0=h0.Rec))
+```
 # Test if model is correct
 ### Check calibration
 Intercept of recurrence should be the same as when setting covariates to "zero" values minus the center
@@ -42,28 +67,6 @@ f.mi.BS.MSM.5 <- rms::cph(S.MSM.5.training~lp.BS,y=TRUE,x=TRUE)
   f.mi.BS.Rec.5$center
 ```
 
-### Check mean event rates of risk distribution
-#### Recurrence
-```{r, eval=TRUE}
-# h0 for only last imputed data set
-f.Rec.basehaz.5 <- survival::basehaz(f.mi.BS.Rec.5,TRUE)
-h0.Rec.5 <- f.Rec.basehaz.5$hazard[f.Rec.basehaz.5$time==max(f.Rec.basehaz.5$time[f.Rec.basehaz.5$time<=horizon])]
-
-# MSM.cal.fact for only last imputed data set
-lp.5<-predict(f.mi.BS.Rec.5,
-              newdata=mice::complete(imputed.training.data,5), 
-              type="lp")
-f.mi.5 <- rms::cph(S.MSM.5.training~lp.5,y=TRUE,x=TRUE) 
-MSM.cal.fact.5 <- stats::coef(f.mi.5)
-
-sum(h.Rec$density*fun.event(lp=lp.points.Rec.5, h0=h0.Rec.5))
-# similar to the 5-year survival probability, e.g. kaplan-meier at 5 years, i.e. survfit at 5 years:
-SF<-survival::survfit(S.Rec.5.training~1,data=training.data.to.be.imputed)
-100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
-# average probability of recurrence
-mean(fun.event(lp=lp.Rec, h0=h0.Rec.5))
-```
-
 #### MSM
 ```{r, eval=TRUE}
 lp.BS <- f.mi.BS.Rec.5$linear
@@ -71,12 +74,12 @@ f.mi.BS.MSM.5 <- rms::cph(S.MSM.5.training~lp.BS,y=TRUE,x=TRUE)
 f.MSM.basehaz.5 <- survival::basehaz(f.mi.BS.MSM.5,TRUE)
 h0.MSM.5 <- f.MSM.basehaz.5$hazard[f.MSM.basehaz.5$time==max(f.MSM.basehaz.5$time[f.MSM.basehaz.5$time<=horizon])]
 
-sum(h.Rec$density*fun.event(lp=lp.points.MSM.5, h0=h0.MSM.5))
+# sum(h.Rec$density*fun.event(lp=lp.points.MSM.5, h0=h0.MSM.5))
 # equal to the 5-year survival probability, e.g. kaplan-meier at 5 years, i.e. survfit at 5 years:
 SF<-survfit(S.MSM.5.training~1,data=training.data.to.be.imputed)
 100*(1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])])
 # average probability of MSM
-mean(fun.event(lp=lp.MSM, h0=h0.MSM.5))
+mean(fun.event(lp=MSM.cal.fact*lp.Rec, h0=h0.MSM))
 ```
 
 # Check if predictions of new and old model align for negative SN patients
@@ -310,4 +313,11 @@ plot(h.plot.pos,freq=FALSE,axes=TRUE, xlab="Risk score", xlim=x.lim,
 test.prop<-survival::cox.zph(f.mi.full.Rec.5$fits[[1]])
 test.prop
 plot(test.prop)
+```
+### See if RFS always lower than MSS
+```{r, eval=TRUE}
+p.RFS <- fun.event(lp=predict(f.mi.BS.Rec.5), h0=h0.Rec)
+p.MSS <- fun.event(lp=MSM.cal.fact*predict(f.mi.BS.Rec.5), h0=h0.MSM)
+plot(p.RFS, p.MSS)
+abline(a=0, b=1, col="red")
 ```

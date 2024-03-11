@@ -12,7 +12,7 @@
 <meta name="author" content="Carolien C.H.M. Maas" />
 
 
-<title>Create Nomogram</title>
+<title>Create Tables</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -349,15 +349,15 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Create Nomogram</h1>
+<h1 class="title toc-ignore">Create Tables</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
 <h4 class="date">November 2023</h4>
 
 </div>
 
 
-<div id="create-nomogram" class="section level2">
-<h2>Create Nomogram</h2>
+<div id="create-tables" class="section level2">
+<h2>Create Tables</h2>
 <div id="load-packages-functions-and-data" class="section level3">
 <h3>Load packages, functions, and data</h3>
 <pre class="r"><code># erase memory
@@ -367,162 +367,904 @@ rm(list = ls(all.names = TRUE))
 set.seed(100)
 
 # load libraries
+library(foreign)
+library(mice)
+library(survminer)
+library(prodlim)
 library(rms)
-library(survival)
+library(Hmisc)
+library(png)
+# remotes::install_github(&quot;CHMMaas/PredictionTools&quot;)
+library(PredictionTools)
 source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quot;)</code></pre>
 </div>
-</div>
-<div id="nomogram" class="section level1">
-<h1>Nomogram</h1>
+<div id="create-variables-with-results" class="section level3">
+<h3>Create variables with results</h3>
+<div id="put-hazard-ratios-and-anova-chi-square-statistics-of-positive-and-negative-sn-patients-in-table-of-final-recurrence-model-and-refitted-msm-model" class="section level5">
+<h5>Put hazard ratio”s and anova Chi-square statistics of positive and
+negative SN patients in Table of final recurrence model and refitted MSM
+model</h5>
 <pre class="r"><code>load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
 options(datadist=&quot;dd.training&quot;)
 
-# Limits of Age, Breslow, Rdamcrit
-Age.class &lt;- c(20, 50, 80)
-Breslow.class &lt;- c(0.1, 0.3, 0.6, 1, 2, 3, 7)
-Rdamcrit.class &lt;- c(0.01, 0.1, 0.3, 1, 3, 10)
+for (model in c(&quot;Rec.5&quot;, &quot;MSM.5.refit&quot;)){
+  # load model
+  f.mi.full &lt;- eval(parse(text=paste0(&quot;f.mi.full.&quot;, model)))
 
-# initial nomogram
-nom.0 &lt;- rms::nomogram(f.mi.BS.Rec.5,maxscale=10,
-                  Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class)
+  # Coefficients with CI
+  # Negative results
+  neg.results &lt;- summary(f.mi.full, SNstatus=&quot;Negative&quot;, Loc_CAT=&quot;arm&quot;)
+  neg.table &lt;- rbind(rep(NA, 3), # SN status
+                     exp(neg.results[c(&quot;Sex - male:female&quot;,
+                                       &quot;Age.SN&quot;,
+                                       &quot;Ulceration - Yes:No&quot;,
+                                       &quot;Loc_CAT - leg:arm&quot;,
+                                       &quot;Loc_CAT - trunk:arm&quot;,
+                                       &quot;Loc_CAT - head &amp; neck:arm&quot;,
+                                       &quot;Histology - NM:SSM&quot;,
+                                       &quot;Histology - ALM:SSM&quot;,
+                                       &quot;Histology - other:SSM&quot;,
+                                       &quot;Breslow&quot;,
+                                       &quot;multiple.fields - Multiple SN fields:Other&quot;,
+                                       &quot;Tot_SNs_neg&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
+                     matrix(NA, nrow=6, ncol=3)) # Tot_SNs_pos, Rdamcrit, Combined, Parenchymal, Multifocal, Extensive
+  # add CI
+  neg.table &lt;- cbind(sprintf(&quot;%.2f&quot;, neg.table[, 1]),
+                     paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, neg.table[, 2]), &quot;; &quot;, 
+                            sprintf(&quot;%.2f&quot;, neg.table[, 3]), &quot;]&quot;))
 
-# baseline hazard of recurrence averaged over all imputed data sets
-h0.Rec.all &lt;- c()
-for (i in 1:m){
-  f.Rec.basehaz.i &lt;- basehaz(cph(form.BS.Rec.5, data=mice::complete(imputed.training.data, i), se.fit=TRUE, x=TRUE, y=TRUE))
-  h0.Rec.i &lt;- f.Rec.basehaz.i$hazard[f.Rec.basehaz.i$time==max(f.Rec.basehaz.i$time[f.Rec.basehaz.i$time&lt;=horizon])]
-  h0.Rec.all &lt;- c(h0.Rec.all, h0.Rec.i)
+  # Positive results
+  pos.results &lt;- summary(f.mi.full, SNstatus=&quot;Positive&quot;, Loc_CAT=&quot;arm&quot;, Tot_SNs_pos=c(0, 1))
+  pos.table &lt;- rbind(exp(neg.results[&quot;SNstatus - Positive:Negative&quot;, c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
+                     exp(pos.results[c(&quot;Sex - male:female&quot;,
+                                       &quot;Age.SN&quot;,
+                                       &quot;Ulceration - Yes:No&quot;,
+                                       &quot;Loc_CAT - leg:arm&quot;,
+                                       &quot;Loc_CAT - trunk:arm&quot;,
+                                       &quot;Loc_CAT - head &amp; neck:arm&quot;,
+                                       &quot;Histology - NM:SSM&quot;,
+                                       &quot;Histology - ALM:SSM&quot;,
+                                       &quot;Histology - other:SSM&quot;,
+                                       &quot;Breslow&quot;,
+                                       &quot;multiple.fields - Multiple SN fields:Other&quot;,
+                                       &quot;Tot_SNs_neg&quot;,
+                                       &quot;Tot_SNs_pos&quot;,
+                                       &quot;Rdamcrit&quot;,
+                                       &quot;Dewar - combined:subcap&quot;,
+                                       &quot;Dewar - parenchymal:subcap&quot;,
+                                       &quot;Dewar - multifocal:subcap&quot;,
+                                       &quot;Dewar - extensive:subcap&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]))
+  # add CI
+  pos.table &lt;- cbind(sprintf(&quot;%.2f&quot;, pos.table[, 1]),
+                     paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, pos.table[, 2]), &quot;; &quot;, sprintf(&quot;%.2f&quot;, pos.table[, 3]), &quot;]&quot;))
+
+  # combine postive with negative
+  full.table &lt;- cbind(neg.table, pos.table)
+
+  # add reference rows
+  final.table &lt;- rbind(full.table[1:4,],
+                       rep(NA, 4),     # location
+                       c(&quot;(ref)&quot;, NA, &quot;(ref)&quot;, NA), # ref arm
+                       full.table[5:7,],   # other locations
+                       rep(NA, 4),     # histology
+                       c(&quot;(ref)&quot;, NA, &quot;(ref)&quot;, NA), # ref SMM
+                       full.table[8:15,],
+                       rep(NA, 4),     # Dewar
+                       c(rep(NA, 2), &quot;(ref)&quot;, NA), # ref subcap
+                       full.table[16:nrow(full.table),]) # other Dewar
+
+  # add Chi-square statistics
+  anova.out &lt;- anova(f.mi.full)[, &quot;Chi-Square&quot;]
+  anova.main &lt;- c(anova.out[c(&quot;SNstatus  (Factor+Higher Order Factors)&quot;,
+                              &quot;Sex  (Factor+Higher Order Factors)&quot;,
+                              &quot;Age.SN  (Factor+Higher Order Factors)&quot;,
+                              &quot;Ulceration  (Factor+Higher Order Factors)&quot;,
+                              &quot;Loc_CAT  (Factor+Higher Order Factors)&quot;)],
+                  rep(NA, 4),
+                  anova.out[&quot;Histology  (Factor+Higher Order Factors)&quot;],
+                  rep(NA, 4),
+                  anova.out[c(&quot;Breslow  (Factor+Higher Order Factors)&quot;,
+                              &quot;multiple.fields  (Factor+Higher Order Factors)&quot;,
+                              &quot;Tot_SNs_neg&quot;,
+                              &quot;Tot_SNs_pos&quot;,
+                              &quot;Rdamcrit&quot;,
+                              &quot;Dewar&quot;)],
+                  rep(NA, 5))
+  anova.int &lt;- c(anova.out[c(&quot;TOTAL INTERACTION&quot;,
+                             &quot;SNstatus * Sex  (Factor+Higher Order Factors)&quot;,
+                             &quot;SNstatus * Age.SN  (Factor+Higher Order Factors)&quot;,
+                             &quot;SNstatus * Ulceration  (Factor+Higher Order Factors)&quot;,
+                             &quot;SNstatus * Loc_CAT  (Factor+Higher Order Factors)&quot;)],
+                 rep(NA, 4),
+                 anova.out[&quot;SNstatus * Histology  (Factor+Higher Order Factors)&quot;],
+                 rep(NA, 4),
+                 anova.out[c(&quot;SNstatus * Breslow  (Factor+Higher Order Factors)&quot;,
+                             &quot;SNstatus * multiple.fields  (Factor+Higher Order Factors)&quot;)],
+                 rep(NA, 9))
+  final.table &lt;- cbind(final.table, sprintf(&quot;%.0f&quot;, anova.main), sprintf(&quot;%.0f&quot;, anova.int))
+
+  colnames(final.table) &lt;- c(&quot;HR.neg&quot;, &quot;CI.neg&quot;, &quot;HR.pos&quot;, &quot;CI.pos&quot;, &quot;Main&quot;, &quot;Int&quot;)
+  assign(paste0(&quot;final.full.table.&quot;, model), as.data.frame(final.table))
+}</code></pre>
+</div>
+<div id="put-hazard-ratios-and-anova-chi-square-statistics-of-positive-and-negative-sn-patients-in-table-of-final-recurrence-model-and-refitted-msm-model-1" class="section level5">
+<h5>Put hazard ratio”s and anova Chi-square statistics of positive and
+negative SN patients in Table of final recurrence model and refitted MSM
+model</h5>
+<pre class="r"><code>for (model in c(&quot;Rec.5&quot;, &quot;MSM.5.refit&quot;)){
+  f.mi.BS &lt;- eval(parse(text=paste0(&quot;f.mi.BS.&quot;, model)))
+
+  # Coefficients with CI
+  # Negative results
+  neg.results.BS &lt;- summary(f.mi.BS, SNstatus=&quot;Negative&quot;, Breslow=exp(c.Breslow), Loc_CAT=&quot;arm&quot;)
+  pos.results.BS &lt;- summary(f.mi.BS, SNstatus=&quot;Positive&quot;, Breslow=exp(c.Breslow), Loc_CAT=&quot;arm&quot;)
+  table.BS &lt;- rbind(exp(neg.results.BS[&quot;SNstatus - Positive:Negative&quot;, c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
+                    exp(neg.results.BS[c(&quot;Age.SN&quot;,
+                                             &quot;Ulceration - Yes:No&quot;,
+                                             &quot;Loc_CAT - leg:arm&quot;,
+                                             &quot;Loc_CAT - trunk:arm&quot;,
+                                             &quot;Loc_CAT - head &amp; neck:arm&quot;,
+                                             &quot;Breslow&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
+                    exp(pos.results.BS[c(&quot;Breslow&quot;,
+                                         &quot;Rdamcrit&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]))
+  # add CI
+  BS.table &lt;- cbind(sprintf(&quot;%.2f&quot;, table.BS[, 1]),
+                        paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, table.BS[, 2]), &quot;; &quot;, 
+                               sprintf(&quot;%.2f&quot;, table.BS[, 3]), &quot;]&quot;))
+
+  # add reference rows
+  BS.table &lt;- rbind(rep(NA, 2),             # SN status title
+                    c(&quot;(ref)&quot;, NA),         # Negative SN status
+                    BS.table[1:3,],         # Positive SN status, Age, Ulceration
+                    rep(NA, 2),             # Location title
+                    c(&quot;(ref)&quot;, NA),         # Upper limb ref
+                    BS.table[4:6,],         # Lower limb, tunk, head&amp;neck
+                    rep(NA, 2),             # Breslow title
+                    BS.table[7:9,])         # Breslow negative and positive, tumour burden
+
+  # add Chi-square statistics
+  anova.out &lt;- anova(f.mi.BS)[, &quot;Chi-Square&quot;]
+  anova.main &lt;- c(anova.out[c(&quot;SNstatus  (Factor+Higher Order Factors)&quot;)], # SN status
+                  NA,               # negative SN
+                  NA,               # positive SN
+                  anova.out[c(&quot;Age.SN&quot;,     # Age
+                              &quot;Ulceration&quot;, # Ulceration
+                              &quot;Loc_CAT&quot;)],  # Location
+                  NA,               # upper limb
+                  NA,               # lower limb
+                  NA,               # trunk
+                  NA,               # head &amp; neck
+                  NA,               # Breslow title
+                  anova.out[c(&quot;Breslow  (Factor+Higher Order Factors)&quot;)], # Breslow negative
+                  anova.out[&quot;SNstatus * Breslow  (Factor+Higher Order Factors)&quot;], # Breslow positive
+                  anova.out[c(&quot;Rdamcrit&quot;)])
+  BS.table &lt;- cbind(BS.table, sprintf(&quot;%.0f&quot;, anova.main))
+  
+  # add p-values
+  p.out &lt;- anova(f.mi.BS)[, &quot;P&quot;]
+  p.main &lt;- c(p.out[c(&quot;SNstatus  (Factor+Higher Order Factors)&quot;)], # SN status
+                  NA,               # negative SN
+                  NA,               # positive SN
+                  p.out[c(&quot;Age.SN&quot;,     # Age
+                              &quot;Ulceration&quot;, # Ulceration
+                              &quot;Loc_CAT&quot;)],  # Location
+                  NA,               # upper limb
+                  NA,               # lower limb
+                  NA,               # trunk
+                  NA,               # head &amp; neck
+                  NA,               # Breslow title
+                  p.out[c(&quot;Breslow  (Factor+Higher Order Factors)&quot;)], # Breslow negative
+                  p.out[&quot;SNstatus * Breslow  (Factor+Higher Order Factors)&quot;], # Breslow positive
+                  p.out[c(&quot;Rdamcrit&quot;)])
+  BS.table &lt;- cbind(BS.table, sprintf(&quot;%.4f&quot;, p.main))
+
+  colnames(BS.table) &lt;- c(&quot;HR&quot;, &quot;CI&quot;, &quot;Imp.&quot;, &quot;p-value&quot;)
+  assign(paste0(&quot;final.BS.table.&quot;, model), as.data.frame(BS.table))
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="calculate-optimism-using-bootstrap-using-full-model-and-doing-backward-selection-for-each-bootstrap" class="section level1">
+<h1>Calculate optimism using bootstrap using full model and doing
+backward selection for each bootstrap</h1>
+<pre><code>## 
+##      Backwards Step-down - Original Model
+## 
+##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
+##  Tot_SNs_pos                0.00   1    0.9618  0.00     1   0.9618  -2.00
+##  SNstatus * multiple.fields 0.04   1    0.8415  0.04     2   0.9791  -3.96
+##  SNstatus * Loc_CAT         1.82   3    0.6102  1.86     5   0.8676  -8.14
+##  SNstatus * Histology       1.76   3    0.6242  3.62     8   0.8895 -12.38
+##  SNstatus * Ulceration      0.79   1    0.3740  4.41     9   0.8823 -13.59
+##  SNstatus * Age.SN          0.99   1    0.3202  5.40    10   0.8629 -14.60
+##  Dewar                      5.51   4    0.2392 10.91    14   0.6934 -17.09
+##  Tot_SNs_neg                1.84   1    0.1746 12.75    15   0.6216 -17.25
+## 
+## Approximate Estimates after Deleting Factors
+## 
+##                                         Coef    S.E.   Wald Z         P
+## SNstatus=Positive                   1.529531 0.15953  9.58782 0.000e+00
+## Sex=male                            0.267657 0.09500  2.81731 4.843e-03
+## Age.SN                              0.012947 0.00244  5.30608 1.120e-07
+## Ulceration=Yes                      0.443019 0.07508  5.90026 3.629e-09
+## Loc_CAT=leg                         0.148263 0.12340  1.20148 2.296e-01
+## Loc_CAT=trunk                       0.221867 0.11814  1.87804 6.038e-02
+## Loc_CAT=head &amp; neck                 0.635484 0.14968  4.24569 2.179e-05
+## Histology=NM                        0.232084 0.08106  2.86297 4.197e-03
+## Histology=ALM                       0.559093 0.16544  3.37946 7.263e-04
+## Histology=other                     0.005583 0.18074  0.03089 9.754e-01
+## Breslow                             0.781891 0.06283 12.44444 0.000e+00
+## multiple.fields=Multiple SN fields  0.316722 0.10778  2.93846 3.298e-03
+## Rdamcrit                            0.175585 0.03953  4.44231 8.900e-06
+## SNstatus=Positive * Sex=male       -0.328428 0.14000 -2.34592 1.898e-02
+## SNstatus=Positive * Breslow        -0.398687 0.09555 -4.17250 3.013e-05
+## 
+## Factors in Final Model
+## 
+##  [1] SNstatus           Sex                Age.SN             Ulceration        
+##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
+##  [9] Rdamcrit           SNstatus * Sex     SNstatus * Breslow
+## 
+##      Backwards Step-down - Original Model
+## 
+##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
+##  SNstatus * Histology       0.26   3    0.9674 0.26      3   0.9674  -5.74
+##  SNstatus * multiple.fields 0.00   1    0.9626 0.26      4   0.9921  -7.74
+##  SNstatus * Loc_CAT         0.76   3    0.8580 1.03      7   0.9944 -12.97
+##  Tot_SNs_pos                0.05   1    0.8184 1.08      8   0.9977 -14.92
+##  SNstatus * Ulceration      0.78   1    0.3761 1.86      9   0.9935 -16.14
+##  SNstatus * Age.SN          0.92   1    0.3376 2.78     10   0.9861 -17.22
+##  Dewar                      5.15   4    0.2722 7.93     14   0.8928 -20.07
+##  Tot_SNs_neg                1.79   1    0.1807 9.72     15   0.8367 -20.28
+## 
+## Approximate Estimates after Deleting Factors
+## 
+##                                        Coef     S.E.  Wald Z         P
+## SNstatus=Positive                   1.51629 0.158652  9.5574 0.000e+00
+## Sex=male                            0.27078 0.095249  2.8429 4.470e-03
+## Age.SN                              0.01297 0.002442  5.3123 1.082e-07
+## Ulceration=Yes                      0.45092 0.075341  5.9850 2.164e-09
+## Loc_CAT=leg                         0.17833 0.124928  1.4275 1.534e-01
+## Loc_CAT=trunk                       0.23881 0.120085  1.9887 4.674e-02
+## Loc_CAT=head &amp; neck                 0.66782 0.150829  4.4277 9.525e-06
+## Histology=NM                        0.22210 0.080772  2.7497 5.965e-03
+## Histology=ALM                       0.44619 0.172923  2.5803 9.872e-03
+## Histology=other                    -0.13239 0.190341 -0.6955 4.867e-01
+## Breslow                             0.75216 0.062356 12.0623 0.000e+00
+## multiple.fields=Multiple SN fields  0.31282 0.107451  2.9113 3.599e-03
+## Rdamcrit                            0.20480 0.040081  5.1096 3.228e-07
+## SNstatus=Positive * Sex=male       -0.30391 0.140029 -2.1704 2.998e-02
+## SNstatus=Positive * Breslow        -0.39049 0.095921 -4.0709 4.682e-05
+## 
+## Factors in Final Model
+## 
+##  [1] SNstatus           Sex                Age.SN             Ulceration        
+##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
+##  [9] Rdamcrit           SNstatus * Sex     SNstatus * Breslow
+## 
+##      Backwards Step-down - Original Model
+## 
+##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
+##  SNstatus * Histology       0.37   3    0.9470 0.37      3   0.9470  -5.63
+##  SNstatus * multiple.fields 0.19   1    0.6635 0.56      4   0.9678  -7.44
+##  SNstatus * Loc_CAT         1.84   3    0.6068 2.39      7   0.9349 -11.61
+##  SNstatus * Age.SN          0.42   1    0.5154 2.82      8   0.9453 -13.18
+##  Tot_SNs_pos                0.51   1    0.4762 3.32      9   0.9500 -14.68
+##  SNstatus * Ulceration      0.90   1    0.3436 4.22     10   0.9368 -15.78
+##  Tot_SNs_neg                1.90   1    0.1685 6.12     11   0.8654 -15.88
+## 
+## Approximate Estimates after Deleting Factors
+## 
+##                                        Coef     S.E.  Wald Z         P
+## SNstatus=Positive                   1.23095 0.201794  6.1000 1.060e-09
+## Sex=male                            0.28025 0.095274  2.9415 3.266e-03
+## Age.SN                              0.01209 0.002456  4.9206 8.628e-07
+## Ulceration=Yes                      0.44315 0.075340  5.8820 4.053e-09
+## Loc_CAT=leg                         0.11246 0.124429  0.9038 3.661e-01
+## Loc_CAT=trunk                       0.15620 0.118293  1.3205 1.867e-01
+## Loc_CAT=head &amp; neck                 0.61098 0.147497  4.1423 3.438e-05
+## Histology=NM                        0.18319 0.080515  2.2752 2.289e-02
+## Histology=ALM                       0.41447 0.174131  2.3802 1.730e-02
+## Histology=other                    -0.06141 0.183328 -0.3350 7.376e-01
+## Breslow                             0.78523 0.063225 12.4196 0.000e+00
+## multiple.fields=Multiple SN fields  0.28559 0.107991  2.6446 8.178e-03
+## Rdamcrit                            0.15148 0.055889  2.7104 6.719e-03
+## Dewar=combined                      0.46388 0.171048  2.7120 6.688e-03
+## Dewar=parenchymal                   0.27139 0.206077  1.3170 1.879e-01
+## Dewar=multifocal                   -0.14393 0.278258 -0.5173 6.050e-01
+## Dewar=extensive                     0.47676 0.227821  2.0927 3.637e-02
+## SNstatus=Positive * Sex=male       -0.30996 0.140168 -2.2114 2.701e-02
+## SNstatus=Positive * Breslow        -0.41513 0.096604 -4.2973 1.729e-05
+## 
+## Factors in Final Model
+## 
+##  [1] SNstatus           Sex                Age.SN             Ulceration        
+##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
+##  [9] Rdamcrit           Dewar              SNstatus * Sex     SNstatus * Breslow
+## 
+##      Backwards Step-down - Original Model
+## 
+##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
+##  Tot_SNs_pos                0.00   1    0.9986  0.00     1   0.9986  -2.00
+##  SNstatus * multiple.fields 0.00   1    0.9894  0.00     2   0.9999  -4.00
+##  SNstatus * Loc_CAT         0.73   3    0.8657  0.73     5   0.9812  -9.27
+##  SNstatus * Histology       1.06   3    0.7875  1.79     8   0.9868 -14.21
+##  SNstatus * Ulceration      1.29   1    0.2565  3.08     9   0.9612 -14.92
+##  SNstatus * Age.SN          1.42   1    0.2333  4.50    10   0.9221 -15.50
+##  Tot_SNs_neg                2.10   1    0.1469  6.60    11   0.8303 -15.40
+##  Dewar                      9.14   4    0.0578 15.74    15   0.3997 -14.26
+## 
+## Approximate Estimates after Deleting Factors
+## 
+##                                         Coef     S.E.   Wald Z         P
+## SNstatus=Positive                   1.574775 0.159113  9.89722 0.000e+00
+## Sex=male                            0.264617 0.094980  2.78602 5.336e-03
+## Age.SN                              0.012938 0.002444  5.29287 1.204e-07
+## Ulceration=Yes                      0.435667 0.075093  5.80173 6.563e-09
+## Loc_CAT=leg                         0.173056 0.123687  1.39915 1.618e-01
+## Loc_CAT=trunk                       0.239087 0.118921  2.01047 4.438e-02
+## Loc_CAT=head &amp; neck                 0.695644 0.151198  4.60087 4.207e-06
+## Histology=NM                        0.223285 0.081213  2.74936 5.971e-03
+## Histology=ALM                       0.511766 0.172277  2.97060 2.972e-03
+## Histology=other                    -0.001959 0.178200 -0.01099 9.912e-01
+## Breslow                             0.793893 0.063086 12.58435 0.000e+00
+## multiple.fields=Multiple SN fields  0.304386 0.107889  2.82130 4.783e-03
+## Rdamcrit                            0.198981 0.040500  4.91305 8.967e-07
+## SNstatus=Positive * Sex=male       -0.340782 0.139780 -2.43798 1.477e-02
+## SNstatus=Positive * Breslow        -0.415653 0.095689 -4.34380 1.400e-05
+## 
+## Factors in Final Model
+## 
+##  [1] SNstatus           Sex                Age.SN             Ulceration        
+##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
+##  [9] Rdamcrit           SNstatus * Sex     SNstatus * Breslow
+## 
+##      Backwards Step-down - Original Model
+## 
+##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
+##  SNstatus * Histology       0.11   3    0.9904  0.11     3   0.9904  -5.89
+##  SNstatus * multiple.fields 0.01   1    0.9097  0.12     4   0.9981  -7.88
+##  Tot_SNs_pos                0.02   1    0.8977  0.14     5   0.9996  -9.86
+##  SNstatus * Loc_CAT         1.65   3    0.6476  1.79     8   0.9867 -14.21
+##  SNstatus * Age.SN          0.99   1    0.3204  2.78     9   0.9724 -15.22
+##  SNstatus * Ulceration      0.99   1    0.3191  3.77    10   0.9570 -16.23
+##  Dewar                      6.13   4    0.1898  9.90    14   0.7694 -18.10
+##  Tot_SNs_neg                2.33   1    0.1270 12.23    15   0.6616 -17.77
+## 
+## Approximate Estimates after Deleting Factors
+## 
+##                                        Coef     S.E.  Wald Z         P
+## SNstatus=Positive                   1.57071 0.159158  9.8689 0.000e+00
+## Sex=male                            0.27662 0.095078  2.9094 3.621e-03
+## Age.SN                              0.01261 0.002443  5.1606 2.461e-07
+## Ulceration=Yes                      0.44371 0.075329  5.8904 3.854e-09
+## Loc_CAT=leg                         0.09742 0.122753  0.7936 4.274e-01
+## Loc_CAT=trunk                       0.17891 0.116930  1.5300 1.260e-01
+## Loc_CAT=head &amp; neck                 0.66902 0.149354  4.4795 7.483e-06
+## Histology=NM                        0.25980 0.080710  3.2189 1.287e-03
+## Histology=ALM                       0.52923 0.169842  3.1160 1.833e-03
+## Histology=other                    -0.06774 0.183205 -0.3697 7.116e-01
+## Breslow                             0.75729 0.063697 11.8890 0.000e+00
+## multiple.fields=Multiple SN fields  0.32348 0.107683  3.0040 2.664e-03
+## Rdamcrit                            0.22596 0.041143  5.4921 3.972e-08
+## SNstatus=Positive * Sex=male       -0.34884 0.139917 -2.4932 1.266e-02
+## SNstatus=Positive * Breslow        -0.41111 0.096106 -4.2777 1.889e-05
+## 
+## Factors in Final Model
+## 
+##  [1] SNstatus           Sex                Age.SN             Ulceration        
+##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
+##  [9] Rdamcrit           SNstatus * Sex     SNstatus * Breslow</code></pre>
+</div>
+<div id="show-optimism" class="section level1">
+<h1>Show optimism</h1>
+<pre class="r"><code>mean(cindex.orig)</code></pre>
+<pre><code>## [1] 0.7697279</code></pre>
+<pre class="r"><code>optimism &lt;- mean(opt)
+optimism</code></pre>
+<pre><code>## [1] 0.006063667</code></pre>
+<pre class="r"><code>mean(cindex.B)</code></pre>
+<pre><code>## [1] 0.7636642</code></pre>
+<pre class="r"><code>mean(cindex.orig)-optimism</code></pre>
+<pre><code>## [1] 0.7636642</code></pre>
+</div>
+<div id="add-c-index-to-model-for-recurrence-and-msm-refit-table" class="section level1">
+<h1>Add C-index to model for Recurrence and MSM refit Table</h1>
+<pre class="r"><code>for (model in list(&quot;Rec.5&quot;, &quot;MSM.5.refit&quot;)){
+  print(model)
+  if (model == &quot;Rec.5&quot;){
+    # plot predict
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Rec.png&quot;),
+        width=1800, height=1800, units=&quot;px&quot;, res=300)
+    plot.predict &lt;- plot(Predict(f.mi.full.Rec.5))
+    show(plot.predict)
+    grDevices::dev.off()
+
+    # plot predict Breslow
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Breslow.Rec.png&quot;),
+        width=1800, height=1800, units=&quot;px&quot;, res=300)
+    plot.Breslow &lt;- plot(Predict(f.mi.full.Rec.5, Breslow=0:20, SNstatus), ~ Breslow, groups=&quot;SNstatus&quot;,
+                         adj.subtitle=FALSE, lwd=2, labels=FALSE,
+                         par.settings=list(superpose.line=list(lty=c(1, 2), 
+                                                               col=c(&quot;red&quot;, &quot;blue&quot;))),
+                         key=list(cex=.8,corner = c(0.1, .9),
+                                  lines=list(col=c(&quot;red&quot;,&quot;blue&quot;), 
+                                             lty=c(1,2), lwd=2),
+                                  text=list(c(&quot;Negative&quot;,&quot;Positive&quot;))))
+    show(plot.Breslow)
+    grDevices::dev.off()
+  }
+
+  # discrimination full and backward selected model
+  for (type in c(&quot;full&quot;, &quot;BS&quot;)){
+    print(type)
+    # load model
+    f.mi &lt;- eval(parse(text=paste0(&quot;f.mi.&quot;, type, &quot;.&quot;, model)))
+    form.mi &lt;- eval(parse(text=paste0(&quot;form.&quot;, type, &quot;.&quot;, model)))
+    
+    # obtain predictions for each imputed data set
+    p &lt;- matrix(NA, nrow(training.data.to.be.imputed), m)
+    for (i in 1:m){
+      # baseline hazard
+      # f.Rec.basehaz.i &lt;- basehaz(f.mi, TRUE)
+      f.Rec.basehaz.i &lt;- survival::basehaz(cph(form.mi, 
+                                               data=mice::complete(imputed.training.data, i), 
+                                               se.fit=TRUE, x=TRUE, y=TRUE))
+      h0.Rec.i &lt;- f.Rec.basehaz.i$hazard[f.Rec.basehaz.i$time==max(f.Rec.basehaz.i$time[f.Rec.basehaz.i$time&lt;=horizon])]
+      
+      # probabilities
+      lp.i &lt;- predict(f.mi,newdata=mice::complete(imputed.training.data, i), type=&quot;lp&quot;)
+      p.i &lt;- fun.event(lp=lp.i, h0=h0.Rec.i)
+      p[, i] &lt;- p.i
+    }
+    
+    # load outcome
+    if (model==&quot;Rec.5&quot;){
+      S &lt;- S.Rec.training
+    }
+    else if (model==&quot;MSM.5.refit&quot;){
+      S &lt;- S.MSM.training
+    }
+    
+    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/all.centers.&quot;, model, &quot;.&quot;, type, &quot;.png&quot;),
+        width=1800, height=1800, units=&quot;px&quot;, res=300)
+    out &lt;- PredictionTools::val.surv.mi(p=p, y=S, g=5, time=5,
+                                        main=&quot;All centers&quot;, CI.metrics=TRUE,
+                                        lim=c(0,1), dist=TRUE, n.iter=40)
+    grDevices::dev.off()
+    
+    final.full.table &lt;- eval(parse(text=paste0(&quot;final.&quot;, type, &quot;.table.&quot;, model)))
+    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$HarrellC)
+    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$HarrellC.lower),
+                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$HarrellC.upper), &quot;]&quot;)
+    final.full.table[&quot;Harrell&#39;s optimism-corrected C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$HarrellC-optimism)
+    final.full.table[&quot;Harrell&#39;s optimism-corrected C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$HarrellC.lower-optimism),
+                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$HarrellC.upper-optimism), &quot;]&quot;)
+    final.full.table[&quot;Uno&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$UnoC)
+    final.full.table[&quot;Uno&#39;s C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$UnoC.lower),
+                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$UnoC.upper), &quot;]&quot;)
+    final.full.table[&quot;AUC&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$AUC)
+    final.full.table[&quot;AUC&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$AUC.lower),
+                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$AUC.upper), &quot;]&quot;)
+    
+    assign(paste0(&quot;final.&quot;, type, &quot;.table.&quot;, model), final.full.table)
+    
+    if (type==&quot;BS&quot;&amp;model==&quot;Rec.5&quot;){
+      CIndex.BS.Rec.5.All &lt;- c(sprintf(&quot;%.2f&quot;, out$HarrellC-optimism), 
+                              paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$HarrellC.lower-optimism), 
+                                     &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$HarrellC.upper-optimism), &quot;]&quot;))
+    }
+  }
+}</code></pre>
+<pre><code>## [1] &quot;Rec.5&quot;</code></pre>
+<pre><code>## [1] &quot;full&quot;</code></pre>
+<pre><code>## [1] &quot;BS&quot;</code></pre>
+<pre><code>## [1] &quot;MSM.5.refit&quot;
+## [1] &quot;full&quot;</code></pre>
+<pre><code>## [1] &quot;BS&quot;</code></pre>
+</div>
+<div id="add-the-c-index-for-calibrated-msm-model-to-table-for-recurrence" class="section level1">
+<h1>Add the C-index for calibrated MSM model to Table for
+recurrence</h1>
+<pre class="r"><code>for (type in c(&quot;full&quot;, &quot;BS&quot;)){
+  print(type)
+  f.mi &lt;- eval(parse(text=paste0(&quot;f.mi.&quot;, type, &quot;.Rec.5&quot;)))
+  HarrellC.MSM &lt;- rep(0, m)
+  HarrellC.MSM.se &lt;- rep(0, m)
+  UnoC.MSM &lt;- rep(0, m)
+  UnoC.MSM.se &lt;- rep(0, m)
+  AUC.MSM &lt;- rep(0, m)
+  AUC.MSM.se &lt;- rep(0, m)
+  for (i in 1:m){
+    # linear predictor ith prediction
+    lp.i &lt;- predict(f.mi, newdata=mice::complete(imputed.training.data,i), type=&quot;lp&quot;)
+    f.MSM.lp.i &lt;- survival::coxph(S.MSM.5.training ~ lp.i)
+    
+    # Harrell&#39;s C-index
+    rc.H &lt;- survival::concordance(f.MSM.lp.i, timewt = &quot;n&quot;)
+    HarrellC.MSM[i] &lt;- rc.H$concordance
+    HarrellC.MSM.se[i] &lt;- sqrt(rc.H$var)
+    
+    # Uno&#39;s C-index
+    rc.U &lt;- survival::concordance(f.MSM.lp.i, timewt = &quot;n/G2&quot;)
+    UnoC.MSM[i] &lt;- rc.U$concordance
+    UnoC.MSM.se[i] &lt;- sqrt(rc.U$var)
+    
+    # time-dependent ROC
+    AUC.MSM.i &lt;- timeROC::timeROC(T=S.MSM.training[, 1],
+                                   delta=S.MSM.training[, 2],
+                                   marker=lp.i,
+                                   times=horizon,
+                                   cause=1,
+                                   iid=TRUE)
+    AUC.MSM[i] &lt;- as.numeric(AUC.MSM.i$AUC[2])
+    AUC.MSM.CI &lt;- stats::confint(AUC.MSM.i)
+    AUC.MSM.se[i] &lt;- as.numeric((as.numeric(AUC.MSM.CI$CI_AUC[2])/100-as.numeric(AUC.MSM.i$AUC[2]))/AUC.MSM.CI$C.alpha)
+  }
+  HarrellC.mi.MSM &lt;- Rubin.combine(HarrellC.MSM, HarrellC.MSM.se)
+  Uno.mi.MSM &lt;- Rubin.combine(UnoC.MSM, UnoC.MSM.se)
+  AUC.mi.MSM &lt;- Rubin.combine(AUC.MSM, AUC.MSM.se)
+
+  final.full.table &lt;- eval(parse(text=paste0(&quot;final.&quot;, type, &quot;.table.Rec.5&quot;)))
+  final.full.table[&quot;Harrell&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, HarrellC.mi.MSM$est)
+  final.full.table[&quot;Harrell&#39;s C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;,
+    sprintf(&quot;%.2f&quot;, HarrellC.mi.MSM$est+qnorm(.025)*HarrellC.mi.MSM$se),
+    &quot;; &quot;, sprintf(&quot;%.2f&quot;, HarrellC.mi.MSM$est+qnorm(.975)*HarrellC.mi.MSM$se), &quot;]&quot;)
+  final.full.table[&quot;Harrell&#39;s optimism-corrected C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, HarrellC.mi.MSM$est-optimism)
+  final.full.table[&quot;Harrell&#39;s optimism-corrected C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;,
+    sprintf(&quot;%.2f&quot;, HarrellC.mi.MSM$est+qnorm(.025)*HarrellC.mi.MSM$se-optimism),
+    &quot;; &quot;, sprintf(&quot;%.2f&quot;, HarrellC.mi.MSM$est+qnorm(.975)*HarrellC.mi.MSM$se-optimism), &quot;]&quot;)
+  final.full.table[&quot;Uno&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, Uno.mi.MSM$est)
+  final.full.table[&quot;Uno&#39;s C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;,
+    sprintf(&quot;%.2f&quot;, Uno.mi.MSM$est+qnorm(.025)*Uno.mi.MSM$se),
+    &quot;; &quot;, sprintf(&quot;%.2f&quot;, Uno.mi.MSM$est+qnorm(.975)*Uno.mi.MSM$se), &quot;]&quot;)
+  final.full.table[&quot;AUC MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, AUC.mi.MSM$est)
+  final.full.table[&quot;AUC MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;,
+    sprintf(&quot;%.2f&quot;, AUC.mi.MSM$est+qnorm(.025)*AUC.mi.MSM$se),
+    &quot;; &quot;, sprintf(&quot;%.2f&quot;, AUC.mi.MSM$est+qnorm(.975)*AUC.mi.MSM$se), &quot;]&quot;)
+
+  assign(paste0(&quot;final.&quot;, type, &quot;.table.Rec.5&quot;), final.full.table)
+}</code></pre>
+<pre><code>## [1] &quot;full&quot;
+## [1] &quot;BS&quot;</code></pre>
+</div>
+<div id="save-dataframes-of-result-tables" class="section level1">
+<h1>Save dataframes of result Tables</h1>
+<pre class="r"><code># replace NA by blank
+for (df in c(&quot;final.full.table.Rec.5&quot;, &quot;final.full.table.MSM.5.refit&quot;, 
+             &quot;final.BS.table.Rec.5&quot;, &quot;final.BS.table.MSM.5.refit&quot;)){
+  final.df &lt;- eval(parse(text=df))
+  final.df[final.df==&quot;[NA; NA]&quot;] &lt;- NA
+  final.df[final.df==&quot;NA&quot;] &lt;- NA
+  final.df[is.na(final.df)] &lt;- &quot;&quot;
+  assign(df, final.df)
 }
-h0.Rec &lt;- mean(h0.Rec.all)
 
-# lp range Recurrence
-rc.Rec &lt;- (1/attributes(nom.0)$info$sc)
-int.Rec &lt;- attributes(nom.0)$info$Intercept
-lp.range &lt;- int.Rec+rc.Rec*(0:10)*2
+# set rownames
+final.full.table.Rec.5 &lt;- as.data.frame(final.full.table.Rec.5)
+row.names(final.full.table.Rec.5) &lt;- c(&quot;Positive SN status&quot;, &quot;Male&quot;,
+                                    &quot;Age iqr&quot;, &quot;Ulceration&quot;, &quot;Location&quot;,
+                                    &quot;Arm&quot;, &quot;Leg&quot;, &quot;Trunk&quot;, &quot;Head and neck&quot;,
+                                    &quot;Histology&quot;, &quot;SSM&quot;, &quot;NM&quot;, &quot;ALM&quot;, &quot;Other&quot;,
+                                    &quot;Breslow iqr&quot;, &quot;Multiple fields&quot;, 
+                                    &quot;Total number of negative nodes&quot;,
+                                    &quot;Total number of positive nodes&quot;,
+                                    &quot;SN tumour burden iqr&quot;, 
+                                    &quot;Location metastasis in lymph node&quot;,
+                                    &quot;Subcap&quot;, &quot;Combined&quot;, &quot;Parenchymal&quot;,
+                                    &quot;Multifocal&quot;, &quot;Extensive&quot;,
+                                    rownames(final.full.table.Rec.5)[(nrow(final.full.table.Rec.5)-7):nrow(final.full.table.Rec.5)])
+final.full.table.MSM.5.refit &lt;- as.data.frame(final.full.table.MSM.5.refit)
+row.names(final.full.table.MSM.5.refit) &lt;- c(&quot;Positive SN status&quot;, &quot;Male&quot;,
+                                          &quot;Age&quot;, &quot;Ulceration&quot;, &quot;Location&quot;,
+                                          &quot;Arm&quot;, &quot;Leg&quot;, &quot;Trunk&quot;, &quot;Head and neck&quot;,
+                                          &quot;Histology&quot;, &quot;SSM&quot;, &quot;NM&quot;, &quot;ALM&quot;, &quot;Other&quot;,
+                                          &quot;Breslow&quot;, &quot;Multiple fields&quot;, 
+                                          &quot;Total number of negative nodes&quot;,
+                                          &quot;Total number of positive nodes&quot;,
+                                          &quot;SN tumour burden&quot;, 
+                                          &quot;Location metastasis in lymph node&quot;,
+                                          &quot;Subcap&quot;, &quot;Combined&quot;, &quot;Parenchymal&quot;,
+                                          &quot;Multifocal&quot;, &quot;Extensive&quot;,
+                                          row.names(final.full.table.MSM.5.refit)[(nrow(final.full.table.MSM.5.refit)-3):nrow(final.full.table.MSM.5.refit)])
+final.BS.table.Rec.5 &lt;- as.data.frame(final.BS.table.Rec.5)
+row.names(final.BS.table.Rec.5) &lt;- c(&quot;SN status&quot;,
+                                     &quot;Negative SN status&quot;,
+                                     &quot;Positive SN status&quot;, 
+                                     &quot;Age&quot;, 
+                                     &quot;Ulceration&quot;,
+                                     &quot;Location&quot;, 
+                                     &quot;Upper limb&quot;, 
+                                     &quot;Lower limb&quot;, 
+                                     &quot;Trunk&quot;, 
+                                     &quot;Head and neck&quot;,
+                                     &quot;Breslow&quot;,
+                                     &quot;Breslow (negative)&quot;,
+                                     &quot;Breslow (positive)&quot;,
+                                     &quot;SN tumour burden&quot;, 
+                                   row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-7):nrow(final.BS.table.Rec.5)])
+final.BS.table.MSM.5.refit &lt;- as.data.frame(final.BS.table.MSM.5.refit)
+row.names(final.BS.table.MSM.5.refit) &lt;- c(&quot;SN status&quot;,
+                                     &quot;Negative SN status&quot;,
+                                     &quot;Positive SN status&quot;, 
+                                     &quot;Age&quot;, 
+                                     &quot;Ulceration&quot;,
+                                     &quot;Location&quot;, 
+                                     &quot;Upper limb&quot;, 
+                                     &quot;Lower limb&quot;, 
+                                     &quot;Trunk&quot;, 
+                                     &quot;Head and neck&quot;,
+                                     &quot;Breslow&quot;,
+                                     &quot;Breslow (negative)&quot;,
+                                     &quot;Breslow (positive)&quot;,
+                                     &quot;SN tumour burden&quot;,  
+                                   row.names(final.BS.table.MSM.5.refit)[(nrow(final.BS.table.MSM.5.refit)-3):nrow(final.BS.table.MSM.5.refit)])
 
-# nomogram
-nom &lt;- rms::nomogram(f.mi.BS.Rec.5, maxscale=10,
-                Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class,
-                lp=TRUE, fun.at=fun.event(lp=lp.range, h0=h0.Rec))
-attributes(nom)$names[attributes(nom)$names==&quot;Age.SN&quot;]&lt;-&quot;Age&quot;
-attributes(nom)$names[attributes(nom)$names==&quot;Loc_CAT&quot;]&lt;-&quot;Location&quot;
-attributes(nom)$names[attributes(nom)$names==&quot;Rdamcrit&quot;]&lt;-&quot;Maximum diameter of largest SN metastasis&quot;
-attributes(nom)$names[attributes(nom)$names==&quot;Breslow (SNstatus=Positive)&quot;]&lt;-&quot;Breslow (positive SN)&quot;
-attributes(nom)$names[attributes(nom)$names==&quot;Breslow (SNstatus=Negative)&quot;]&lt;-&quot;Breslow (negative SN)&quot;
-# save width: 1000, height: 800
-par(mar = rep(0, 4))
-plot(nom, total.sep.page=TRUE, col.grid=gray(c(0.8, 0.95)))</code></pre>
-<p><img src="data:image/png;base64,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" width="672" /><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABUAAAAPACAMAAADDuCPrAAAAvVBMVEUAAAAAADoAAGYAOjoAOmYAOpAAZmYAZrY6AAA6OgA6Ojo6OmY6ZmY6ZpA6ZrY6kJA6kLY6kNtmAABmADpmOgBmOjpmZmZmZpBmkLZmkNtmtttmtv+QOgCQZgCQZjqQZmaQkLaQtraQttuQ27aQ2/+2ZgC2Zjq2kDq2kGa2tpC225C229u22/+2///bkDrbkGbbtmbbtpDbtrbb27bb29vb2//b/7bb////tmb/25D/27b/29v//7b//9v///8HrGUJAAAACXBIWXMAAB2HAAAdhwGP5fFlAAAdK0lEQVR4nO3dbYPTVmKGYU9IygQaulDSzRKa7aYZSjesC5vNMjMw/v8/q5bfJL+Oz+MjY8N1fQlMNEeyjn1jW7I8GAEQGXzqDQA4VwIKEBJQgJCAAoQEFCAkoAAhAQUICShASEABQgIKEBJQgJCAAoQEFCAkoAAhAQUICShASEABQgIKEBJQgJCAAoQEFCAkoAAhAQUICShAqMeADgernm5c7vbnjT++ezn46m9bxrt49MPvm1e69lv3rwgg88kDevdqS1d3BbRp6J/2+637VwSQ+eQBvd72xPSegA4GP+71W/evCCDT/3ugH59tf1E9KgzovJl3by8HO0ctWRFA5jwDOhrdXG55Clq+IoDMuQZ0dDUYPCzaDgEFKjt+QO/efT8YDB7//L75y3X3/cwPrx81R4ceTw+W3xPQ4TygS+PNf2vyn7vX346H++7N6oru3jbrebDtQD7Afo4e0Nvns5R93YSt27X2INE3TQz3DOjyeN2A/vWyM3hnRTfzn3tGChzk2AEd/22u+Wmna92D7E3Z7n8J/3R9vE5AO2c8/dJdUec3Ct9FBVhy7ICOu3fxw/vR3evL2TPI+VuTTdeeNC+qf3s+fQq630Gk1fG6Ab148b45+3O2gvmKxsN8/ev4v7cvZ091T84A+DSKH6x9FGDJUkDH3WueD3b+dN327eFimcXbmN2BOgH9x6vLaf3WxusEdPbbw5VSX82H2fWhpU/oU9+D4AtW/HDtowFLlgI6bI+dz16Drx8cn/3CfSfST8K5Nl4noLNhx2WdPNHsPAP95k0Pt7OW9Tk84k+s3MqtvMSRA3rVPosch61p30pAP/z9z7Nz5O/7KOcvG8drAzp7ZroW0Mm7oRf/+l8n+ep9dAZ3KSu38i9n5fc5bkA7XZuHrQ3o3bvv58fH7wvog9lZS+vj3R/QJrrTBJ/meUwnf5eyciv/clZ+n6MHdPHn8c+XAtqeXbQ9oKtHzdfH2yOgkwNOU6d4HtPJ36Ws3Mq/nJXf52SegU7PLnrw+I9/+ef290A3BLT8GejYu59Ot6Anf5eyciv/clZ+n+MGtPue5eywe/fsojfdX9gnoOvj7RfQsQ//20T0BM9jKp/DTz7y+Q18hpt8fgOf4SaffEC3HoXvFO96/5fwu47CbwloZ9h7PqX/ibg/H2HgM9zk8xv4DDf55AO69TzQtni3zwoCuuM80G3PQK8Wz0QF9Isd+Aw3+fwGPsNNPvmALn1yaN61yX+vpi/hp0d4OilsbQro2ng7Azr/b/uRp7ILOh2F+/MRBj7DTT6/gc9wk08/oKufXZ8dfP9x8WH1xUme+wV0+2fhVwM6X9HiNKZB8TWZj8L9+QgDn+Emn9/AZ7jJpx/Q1asnzS77MX5R/WpxeubLSef2C+j2qzGtBnSxovZCI1//sj4ewL6OHtDF9TsXf2+Ohj8Z/2Hy8wfj1+NLx9NbmwO6Mt72gLYrGv320+WgvYQoQKb/gAJ8pgQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJ6Em5nVwYpYevrf/w+tueRm7cXF7Uv7DVbXPJlwcverjiy/TyM7/WHfTuZXvtm6rT2Bm47ix2t7hRbxaX9kXNaewOXG0WV/dq0ewJ6CmZXRT1YtNVpw4beP5FpL18i173u/2qeTvb5PpfW/Wql30xbC8eVnca24Erz+Jw5TJp9WaxM3LdaewMXG0WV/dq2ewJ6Alprrz3ZnRbP0fjgb8e/1N9+3LzFQEPNRzUD+j15Aqvd/9T/1sDxiM/eV99Xwzby3PXncZ24MqzOFy5oHi9WeyMXHcalweuM4ure7Vw9gT0hFwtLv1cORrzf7jHI/fwPaTNtf5rB3SxpcPaXxsw37tV98Xdq873G9Scxu7AVWdxaYsb1WaxO3LVaVwZuNIsru7VwtkT0NPx8dnsX9PrytFo7wzXPbzWHo/+H9WHve58WWDdJ82LvVwxze+eDwaP5sPVnMbuwFVncWmLZ6PXmcWlkWtO4+adfOgsru7V0tkT0NNxvXbvqK6Poz3DwcP6Xb7q46nyxHjnTt/sqhfQ8ZAXL67baFSbxuWBFw6fxfWBa83i8sgVp3F54B5mcbpXS2dPQE/HcH5vG/+r2MvBnl6egd5cfvW36sP2twcWL9UqvlHy8dmT9+0jr+I0Lg+8cPjuXhu42iwujVxzGpc3uYdZnN780tkT0NNx1Zm7nr5v+ar6F5GOt/XH+l1u/vm/e/ttc/5L1XEb15fN4YcP/1lxm5tvyV5/1lVhGpcGXqgwiysDV5zF7shVp3F5k+vP4nSvls6egJ6Oq8WMXfUU0JvL6gMPmxGrB3S8oS9e9nUa083z7tfC1tIJaN1pXAtorVnsDFx5FucjV5/GzibXnsXZXi2dPQE9Hb0HdO2LTg/XvPTrJ6CT01SaA6/Vd8X/TU/8u6j75PZoAa02i+3AtWexE9C609jZF5Vncb5XBfR89R3Qu/qngU5e+vUU0PlBgvrHpwZ/mD6mq77NeqyA1pvF7huKdWexG9Cq09jui8qzuNirAnq+eg5ocx+pfWRmON3QPgI6e823ONxay3VPaT5SQCvOYuewV+VZ7AS07jR2TnWoOovtXhXQ89XvQaQ++jl96ddPQGd7oPq+WByBqZzmXg4iLQ08G7PaVreZqz2LnYDWncbOTq45i5296iDS+er1NKaPzweD6ke0h4OOmp3rPCxqPxu/6inNfZzGtDzwqPIszgeuP4udo/B1p3H9aX6NWezuVacxna8+T6S/fdbDJUr6C2j7sOjhGWjPAa09jZ2A1p3F/gNafRp7CejSXnUi/fnq7aOc049x1L/g3EL98/OHPb3Q7m/k9UdepWlsh6k8i6vbV/8lfPWd3cfAy3vVRznPWG8XE+nlenMd9QO6ePes+qn/45H7PYhUexq7B8t72uL536sHtPY0dgeuNIure9XFRM5Xb5ezG/ZzGbuFHj4hOt7k736vf7LRaHICTB9nmHbPqqw6jZ1nXXVn8QgBrT2NS6cx1ZnF1b3qcnZn7G0/F1Qevyxp9fEZ8z4u8jS/YO6T2gPfvZyPXPUzTp0c1Z3GzhGZurN4jIBWnsZ24FqzuL5Xy2ZPQE9KP1/pcXO5eieprI+Ajn6b7Iufq487/zKIyiN3c1R1Gpc+1nN2Aa07jd2B68zihr3qKz0AjkFAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEBBQgJKAAIQEFCAkoQEhAAUICChASUICQgAKEeg3o9WDwdOkHdy8HX/2t4gqGg4WLRz/8XvCbH58Nvnm/a4Nuf66zicDn67MJaNPQP+3/m/cE9O7VypYDrPmcAjoY/Lj3b94T0LUtB1hz3IDWNmybeff2clBQ51lAtxFQ4H6fTUBHo5vLgqegAgoc7DMK6OhqMHi4728KKHCwT/Ie6OQ/d6+/HQwuvnuz+H9vHw0Gg8c/L7L24XXzg4vHs8PhV+PivRv/yuM37XjLAR1OA7q04Nqotz+Nx3zyfu090Lu37eZcd99SvXv3fXeETZsBfJk+WUD/erl84Odm/vevZ2VqDxBNnyqOy/V2cqz9l3a8bQFdLLht1G/+uRLQm+ezI/k/jpYDevt8eYRNmwF8mT5VQDsnH01KtCjd/EhQ9wD7ZJCrwYPJMt1X6Wsv4Z8uL7h91H9ZDuj4CWlnczoBbf/HbIRNmwF8mT5dQC9evG9Ot5wu0nTq659nx9Ifzn7wpDkz/rfns6egV80Tx5XXzRsPIrULbhy1eSbZ/H0poFfN9kyfbj5c2vLmf/ww3tDXsxE2bsYXaACfgcMfCBUeTFvtCujsrcfZy+7r+Qv1pnGzJ4Gz53jjLs4bt3bYpxPQf7y6bEs7W3Bt1OH8BzeXSwGd/e/2D/MtHy83e60+/9OmzfjifOq7PdRx+EOhwsNpq10Bnf2PcZeaHl217ymu/tK4afOArh0YXzmRfjpGu+DqqOP1zn8wXApom+tZkucbMWxfqy/eIHB8frTjjrfrPpn92jmMeDIb4qZV+rV9faqAzkM2DWj3pKLxT9r3Fz/8/c/z8+OvNpzlOdzQz3bBtVHnLV6sd75Bw9WxrxdvvC7+x2y7Nm3GF+fMHzgqc44bIqA7A9o1yd7du+/nh4BmAV0/8N0J6IPOiUazBddG7RR1+TSmtbFnW97Z0A3Plb9cZ/7AUZlz3BAB3R7QztHyeUC7P9oV0PWng1edty2XR501sLF3QBefDp39hoCOzv6BozLnuCECujOgK0dmps8eHzz+41/++eyAgC6P6hloJWf+wFGZc9wQAd35En7lOiDDxZnrH+OAro160Hug1/PT9AU0veNlv3bUlblplX7tHLbx8wloc1j+x5UF50tcxy/hN406/8G2o/CzQ0W7jsILqIdipV87h21003YPcfAIO+wd0CZUX7UftuyecHT7LA7o2qjteaDNOwSdgLane84yues8UAH1UKz0a+ewjW7a7iEOHmGH/QPaBK35aNLow6vp6UhX05fwk08AbS/XPQFdG3XySaRfR6N3Wz6J1HwyavL36/YT+O0nkWan6Quoh2KlXzuHbXTTdg9x8Ag7XC8dBR+XaWtAlxZ9uvqraUDXRm1/8G/bPgu/eOY52PZZeAH1UKz0a+ewjW7a7iEOHmGHgoCOri+XCjZ6NY/nDy/nH3EvD+jaqNNPwW+4GtPiokvT5aaXO3k62nQ1JgEFpk4moONXyc2VOx8svltzchnOB+OXzzsOf98b0LVRR7c/XW6/Hmh7lc+7n8Z/ezL50+x6oJtGB75ovQYU4HMmoAAhAQUICShASEABQgIKEBJQgJCAAoQEFCAkoAAhAQUICShASEBJNJdeuXjy+/0LVvDh9dJ1Xo7g7uXKN8z04fb7/W/V5mUXX0r7cOMvrSq5VRuW3X9tJRO2ZdmSm1ZyX9y8bOGO7BJQyk2v9jc4zoWpFpckfHr/spUMV7+iqwezS5VdrF9ObO9lr8oe9yW3asOye6+tZMK2Lbv/TSu5L25btnBHdgko5a4m1++/fX6EzjQXPGy+ROB29QuuejQc9H/Dmus4vmlu1R4P/C3LfnxW9A9Yya3asOzeayuZsG3LFty0kvvilmULd+QSAaXY+G4/ubt/fHaEZ4Xz50LjZw8rX33dk+Z7XfoP6NX01oxv1f3PerYse3NZsENKbtXGZfdeW8mEbVt2/5tWcl/ctmzRjlwhoBRbvL67Cl7zFGqrcX2cdwzePR8MHvUe0PFjePqU6/r+VW1b9rpg75fcqs3L7ru2kgnbuuz+N63kvrht2ZIduUpAyR0hoK2by2MEdFyrixd7VO1AizUs6li+7HD/9zRKbtWWZQvWNlMyYSvLlq+s6L64smywtgUBJTZ/SXQcx3kG+vHZk/f7PC080HDxTTYv733puW3Zq6/++6fLweDxr/evruRWbVm2YG0zJRO2smz5ykrui6vLlq+tJaCk3l0e6V3JqatjHLIajZpTXPoP6FUnivc9c9qybPuFsXu8EV1yqzYuW7S2+XbvvxeXly1fWcl9cXXZ4Ka1BJTI5IyQPxyxn+OnDUd7v+AYAX249qfCZcc75OKH96MPr/Z94JfcqrVli9dWNGEryxaurOS+uGHZ8pvWIaBEPv77o/Grnu+OVtD2+1OP4CwCej0/9WffZ3oHBbR4bSUTtrps4cpK7osbli2+aV0CSuyIr+Hvjnga6JkEdGHfs8kOCmjp2kombPuy+58od8hr+PK1tQSU3PWxqtY8xI73QaQzC+he55KOagV0v7WVTNiOZfe9aaOy++KWZQvWtiCg7Onmcu1jcMk9LllZ3/1cvWlncRCpu8ARA7rX2ir1s+TkpJL74oE7sktA2dOGgPZ3IujSyj4+Hwxe9LOeDWsbHSOgNU5jWji5gJZM2O5lC+5gB5wImgwxI6Dk+nsG2nX7bL9LbtRzHifSz+3R4OVxDlp2j7WVTNjuZfe9aaMqz0AL1rYgoBRbvKY8yofhm0/GHOMznB39B7TCRzkXs7DvOeQHBbRgbSUTtnnZgpWV3Be3LFu8I7sElGKd8z76T9vdXhcsqqv/gFa4mMj8wzt7X2XlwNOY9l1byYRtWbbgppXcF7csW7wjuwSUYs3d/sX70YefjnFofHjM85dmjhDQwy9nN5mFycXZ9txBBwV0/7WVTNiWZQtuWsl9ccuyxTuyS0Ap17zxf6RrHLefszviJZWPENDR24ILKi8vO38idTubhYs9j9dkAS1dW8mErS0b3LSS++LKsumO7BJQAneTr0b47gjfsnFzufIYO4ZjBDT/So/FK9G710WzcFhA911byYStLZvctJL74vKy6Y7sElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgACEBBQgJKEBIQAFCAgoQElCAkIAChAQUICSgAKH/B9wEgrHSr0LpAAAAAElFTkSuQmCC" width="672" /></p>
-<pre class="r"><code>nom.0</code></pre>
-<pre><code>## Points per unit of linear predictor: 2.452635 
-## Linear predictor units per point   : 0.4077248 
-## 
-## 
-##  Age.SN Points
-##  20     0     
-##  50     1     
-##  80     2     
-## 
-## 
-##  Breslow (SNstatus=Negative) Points
-##  0.1                         0     
-##  0.3                         2     
-##  0.6                         4     
-##  1.0                         5     
-##  2.0                         6     
-##  3.0                         7     
-##  7.0                         9     
-## 
-## 
-##  Breslow (SNstatus=Positive) Points
-##  0.1                          6    
-##  0.3                          7    
-##  0.6                          8    
-##  1.0                          8    
-##  2.0                          9    
-##  3.0                          9    
-##  7.0                         10    
-## 
-## 
-##  Rdamcrit Points
-##   0.01    0     
-##   0.10    1     
-##   0.30    2     
-##   1.00    2     
-##   3.00    3     
-##  10.00    4     
-## 
-## 
-##  Ulceration Points
-##  No         0     
-##  Yes        1     
-## 
-## 
-##  Loc_CAT     Points
-##  arm         0     
-##  leg         0     
-##  trunk       1     
-##  head &amp; neck 2</code></pre>
-<pre class="r"><code>nom</code></pre>
-<pre><code>## Points per unit of linear predictor: 2.452635 
-## Linear predictor units per point   : 0.4077248 
-## 
-## 
-##  Age Points
-##  20  0     
-##  50  1     
-##  80  2     
-## 
-## 
-##  Breslow (negative SN) Points
-##  0.1                   0     
-##  0.3                   2     
-##  0.6                   4     
-##  1.0                   5     
-##  2.0                   6     
-##  3.0                   7     
-##  7.0                   9     
-## 
-## 
-##  Breslow (positive SN) Points
-##  0.1                    6    
-##  0.3                    7    
-##  0.6                    8    
-##  1.0                    8    
-##  2.0                    9    
-##  3.0                    9    
-##  7.0                   10    
-## 
-## 
-##  Maximum diameter of largest SN metastasis Points
-##   0.01                                     0     
-##   0.10                                     1     
-##   0.30                                     2     
-##   1.00                                     2     
-##   3.00                                     3     
-##  10.00                                     4     
-## 
-## 
-##  Ulceration Points
-##  No         0     
-##  Yes        1     
-## 
-## 
-##  Location    Points
-##  arm         0     
-##  leg         0     
-##  trunk       1     
-##  head &amp; neck 2</code></pre>
+# save tables
+write.table(final.full.table.Rec.5,
+            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/final.full.table.Rec.txt&quot;, 
+            sep=&quot;,&quot;)
+write.table(final.full.table.MSM.5.refit,
+            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/final.full.table.MSM.refit.txt&quot;, 
+            sep=&quot;,&quot;)
+write.table(final.BS.table.Rec.5,
+            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/final.BS.table.Rec.txt&quot;, 
+            sep=&quot;,&quot;)
+write.table(final.BS.table.MSM.5.refit,
+            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/final.BS.table.MSM.refit.txt&quot;, 
+            sep=&quot;,&quot;)
+
+# show tables
+final.full.table.Rec.5</code></pre>
+<pre><code>##                                          HR.neg       CI.neg HR.pos
+## Positive SN status                                             3.83
+## Male                                       1.32 [1.09; 1.60]   0.98
+## Age iqr                                    1.27 [1.10; 1.47]   1.41
+## Ulceration                                 1.65 [1.36; 2.01]   1.42
+## Location                                                           
+## Arm                                       (ref)               (ref)
+## Leg                                        1.23 [0.92; 1.66]   1.00
+## Trunk                                      1.33 [1.00; 1.77]   1.04
+## Head and neck                              2.18 [1.52; 3.15]   1.60
+## Histology                                                          
+## SSM                                       (ref)               (ref)
+## NM                                         1.24 [0.98; 1.57]   1.27
+## ALM                                        1.70 [1.04; 2.76]   1.54
+## Other                                      0.92 [0.61; 1.40]   1.09
+## Breslow iqr                                2.29 [1.96; 2.67]   1.50
+## Multiple fields                            1.47 [1.07; 2.01]   1.41
+## Total number of negative nodes             0.96 [0.91; 1.02]   0.96
+## Total number of positive nodes                                 0.98
+## SN tumour burden iqr                                           3.65
+## Location metastasis in lymph node                                  
+## Subcap                                                        (ref)
+## Combined                                                       1.38
+## Parenchymal                                                    1.08
+## Multifocal                                                     0.78
+## Extensive                                                      1.29
+## Harrell&#39;s C-index                                                  
+## Harrell&#39;s optimism-corrected C-index                               
+## Uno&#39;s C-index                                                      
+## AUC                                                                
+## Harrell&#39;s C-index MSM                                              
+## Harrell&#39;s optimism-corrected C-index MSM                           
+## Uno&#39;s C-index MSM                                                  
+## AUC MSM                                                            
+##                                                CI.pos Main Int   HR
+## Positive SN status                       [2.09; 7.02]   42  27     
+## Male                                     [0.79; 1.21]    8   4     
+## Age iqr                                  [1.18; 1.69]   25   1     
+## Ulceration                               [1.13; 1.79]   34   1     
+## Location                                                23   1     
+## Arm                                                                
+## Leg                                      [0.61; 1.65]              
+## Trunk                                    [0.66; 1.62]              
+## Head and neck                            [0.91; 2.81]              
+## Histology                                               11   0     
+## SSM                                                                
+## NM                                       [0.96; 1.67]              
+## ALM                                      [0.91; 2.59]              
+## Other                                    [0.47; 2.54]              
+## Breslow iqr                              [1.25; 1.79]  124  13     
+## Multiple fields                          [1.03; 1.94]   10   0     
+## Total number of negative nodes           [0.91; 1.02]    2         
+## Total number of positive nodes           [0.82; 1.17]    0         
+## SN tumour burden iqr                     [1.42; 9.34]    7         
+## Location metastasis in lymph node                        6         
+## Subcap                                                             
+## Combined                                 [0.91; 2.09]              
+## Parenchymal                              [0.67; 1.74]              
+## Multifocal                               [0.40; 1.53]              
+## Extensive                                [0.74; 2.27]              
+## Harrell&#39;s C-index                                              0.77
+## Harrell&#39;s optimism-corrected C-index                           0.76
+## Uno&#39;s C-index                                                  0.76
+## AUC                                                            0.80
+## Harrell&#39;s C-index MSM                                          0.80
+## Harrell&#39;s optimism-corrected C-index MSM                       0.79
+## Uno&#39;s C-index MSM                                              0.79
+## AUC MSM                                                        0.82
+##                                                    CI
+## Positive SN status                                   
+## Male                                                 
+## Age iqr                                              
+## Ulceration                                           
+## Location                                             
+## Arm                                                  
+## Leg                                                  
+## Trunk                                                
+## Head and neck                                        
+## Histology                                            
+## SSM                                                  
+## NM                                                   
+## ALM                                                  
+## Other                                                
+## Breslow iqr                                          
+## Multiple fields                                      
+## Total number of negative nodes                       
+## Total number of positive nodes                       
+## SN tumour burden iqr                                 
+## Location metastasis in lymph node                    
+## Subcap                                               
+## Combined                                             
+## Parenchymal                                          
+## Multifocal                                           
+## Extensive                                            
+## Harrell&#39;s C-index                        [0.76; 0.79]
+## Harrell&#39;s optimism-corrected C-index     [0.75; 0.78]
+## Uno&#39;s C-index                            [0.75; 0.78]
+## AUC                                      [0.78; 0.82]
+## Harrell&#39;s C-index MSM                    [0.78; 0.82]
+## Harrell&#39;s optimism-corrected C-index MSM [0.77; 0.81]
+## Uno&#39;s C-index MSM                        [0.77; 0.81]
+## AUC MSM                                  [0.80; 0.84]</code></pre>
+<pre class="r"><code>final.full.table.MSM.5.refit</code></pre>
+<pre><code>##                                      HR.neg       CI.neg HR.pos        CI.pos
+## Positive SN status                                         6.04 [2.41; 15.12]
+## Male                                   1.65 [1.22; 2.23]   1.25  [0.93; 1.70]
+## Age                                    0.93 [0.74; 1.16]   1.37  [1.08; 1.74]
+## Ulceration                             2.08 [1.52; 2.84]   1.58  [1.16; 2.16]
+## Location                                                                     
+## Arm                                   (ref)               (ref)              
+## Leg                                    1.13 [0.70; 1.84]   0.96  [0.49; 1.89]
+## Trunk                                  1.80 [1.15; 2.82]   0.94  [0.52; 1.71]
+## Head and neck                          1.85 [0.99; 3.47]   1.58  [0.73; 3.41]
+## Histology                                                                    
+## SSM                                   (ref)               (ref)              
+## NM                                     1.40 [0.96; 2.04]   1.16  [0.81; 1.66]
+## ALM                                    1.69 [0.68; 4.22]   1.22  [0.56; 2.68]
+## Other                                  0.99 [0.50; 1.98]   0.71  [0.17; 3.00]
+## Breslow                                2.52 [1.99; 3.18]   1.56  [1.22; 1.99]
+## Multiple fields                        1.23 [0.76; 1.97]   1.45  [0.96; 2.21]
+## Total number of negative nodes         0.95 [0.87; 1.03]   0.95  [0.87; 1.03]
+## Total number of positive nodes                             0.98  [0.77; 1.25]
+## SN tumour burden                                           6.30 [1.37; 28.95]
+## Location metastasis in lymph node                                            
+## Subcap                                                    (ref)              
+## Combined                                                   1.24  [0.73; 2.10]
+## Parenchymal                                                1.36  [0.71; 2.60]
+## Multifocal                                                 1.23  [0.57; 2.63]
+## Extensive                                                  1.46  [0.76; 2.82]
+## Harrell&#39;s C-index                                                            
+## Harrell&#39;s optimism-corrected C-index                                         
+## Uno&#39;s C-index                                                                
+## AUC                                                                          
+##                                      Main Int   HR           CI
+## Positive SN status                     39  32                  
+## Male                                   13   2                  
+## Age                                     7   5                  
+## Ulceration                             29   1                  
+## Location                               15   6                  
+## Arm                                                            
+## Leg                                                            
+## Trunk                                                          
+## Head and neck                                                  
+## Histology                               5   1                  
+## SSM                                                            
+## NM                                                             
+## ALM                                                            
+## Other                                                          
+## Breslow                                70   8                  
+## Multiple fields                         4   0                  
+## Total number of negative nodes          2                      
+## Total number of positive nodes          0                      
+## SN tumour burden                        6                      
+## Location metastasis in lymph node       1                      
+## Subcap                                                         
+## Combined                                                       
+## Parenchymal                                                    
+## Multifocal                                                     
+## Extensive                                                      
+## Harrell&#39;s C-index                             0.81 [0.79; 0.83]
+## Harrell&#39;s optimism-corrected C-index          0.80 [0.78; 0.82]
+## Uno&#39;s C-index                                 0.80 [0.78; 0.82]
+## AUC                                           0.83 [0.80; 0.85]</code></pre>
+<pre class="r"><code>final.BS.table.Rec.5</code></pre>
+<pre><code>##                                             HR            CI Imp. p-value
+## SN status                                                     153  0.0000
+## Negative SN status                       (ref)                           
+## Positive SN status                        2.96  [2.48; 3.54]             
+## Age                                       1.37  [1.23; 1.53]   31  0.0000
+## Ulceration                                1.61  [1.39; 1.87]   41  0.0000
+## Location                                                       21  0.0001
+## Upper limb                               (ref)                           
+## Lower limb                                1.14  [0.89; 1.46]             
+## Trunk                                     1.29  [1.02; 1.63]             
+## Head and neck                             1.89  [1.41; 2.54]             
+## Breslow                                                                  
+## Breslow (negative)                        2.43  [2.14; 2.76]  199  0.0000
+## Breslow (positive)                        1.52  [1.29; 1.80]   21  0.0000
+## SN tumour burden                          5.74 [2.67; 12.30]   20  0.0000
+## Harrell&#39;s C-index                         0.77  [0.75; 0.78]             
+## Harrell&#39;s optimism-corrected C-index      0.76  [0.74; 0.78]             
+## Uno&#39;s C-index                             0.76  [0.74; 0.77]             
+## AUC                                       0.80  [0.78; 0.81]             
+## Harrell&#39;s C-index MSM                     0.79  [0.77; 0.81]             
+## Harrell&#39;s optimism-corrected C-index MSM  0.79  [0.77; 0.81]             
+## Uno&#39;s C-index MSM                         0.79  [0.76; 0.81]             
+## AUC MSM                                   0.81  [0.79; 0.84]</code></pre>
+<pre class="r"><code>final.BS.table.MSM.5.refit</code></pre>
+<pre><code>##                                         HR            CI Imp. p-value
+## SN status                                                  83  0.0000
+## Negative SN status                   (ref)                           
+## Positive SN status                    3.40  [2.60; 4.45]             
+## Age                                   1.17  [1.00; 1.37]    4  0.0555
+## Ulceration                            1.84  [1.48; 2.29]   30  0.0000
+## Location                                                   14  0.0028
+## Upper limb                           (ref)                           
+## Lower limb                            1.00  [0.68; 1.47]             
+## Trunk                                 1.44  [1.01; 2.04]             
+## Head and neck                         1.75  [1.11; 2.78]             
+## Breslow                                                              
+## Breslow (negative)                    2.79  [2.31; 3.38]  119  0.0000
+## Breslow (positive)                    1.57  [1.25; 1.98]   16  0.0001
+## SN tumour burden                      9.63 [2.85; 32.54]   13  0.0003
+## Harrell&#39;s C-index                     0.80  [0.78; 0.82]             
+## Harrell&#39;s optimism-corrected C-index  0.79  [0.77; 0.81]             
+## Uno&#39;s C-index                         0.79  [0.77; 0.81]             
+## AUC                                   0.82  [0.79; 0.84]</code></pre>
+</div>
+<div id="c-index-of-final-model-for-recurrence-stratified-by-sn-status" class="section level1">
+<h1>C-index of final model for recurrence stratified by SN status</h1>
+<pre class="r"><code>for (arm in c(&quot;Positive&quot;, &quot;Negative&quot;)){
+  f.mi.stratified &lt;- eval(parse(text=paste0(&quot;f.mi.BS.Rec.5&quot;)))
+  S.5.subset &lt;- S.Rec.5.training[last.imputed.training.data.set$SNstatus==arm,]
+
+  cindex.stratified &lt;- rep(0, m)
+  cindex.se.stratified &lt;- rep(0, m)
+  for (i in 1:m){
+    subset.imputed.training.data &lt;- as.data.frame(mice::complete(imputed.training.data, i)[last.imputed.training.data.set$SNstatus==arm,])
+    rc &lt;- Hmisc::rcorr.cens(-predict(f.mi.stratified,
+                                     newdata=subset.imputed.training.data, 
+                                     type=&quot;lp&quot;), 
+                            S.5.subset)
+    cindex.stratified[i] &lt;- rc[&quot;C Index&quot;]
+    cindex.se.stratified[i] &lt;- rc[&quot;S.D.&quot;]/2
+  }
+  cindex.mi.stratified &lt;- Rubin.combine(cindex.stratified, cindex.se.stratified)
+
+  assign(paste0(&quot;CIndex.BS.Rec.5.&quot;, arm),
+         c(sprintf(&quot;%.2f&quot;, cindex.mi.stratified$est),
+           paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.stratified$est+qnorm(.025)*cindex.mi.stratified$se),
+                  &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.stratified$est+qnorm(.975)*cindex.mi.stratified$se), &quot;]&quot;)))
+}
+
+# optimism-corrected
+CIndex.Rec.Table &lt;- rbind(CIndex.BS.Rec.5.All, CIndex.BS.Rec.5.Positive, CIndex.BS.Rec.5.Negative)
+CIndex.Rec.Table
+# utils::write.table(CIndex.Rec.Table,
+#               file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/CIndex.train.txt&quot;),
+#               row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)</code></pre>
 <pre class="r"><code>save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;, &quot;m&quot;, 
-            &quot;imputed.training.data&quot;,  &quot;last.imputed.training.data.set&quot;, 
+            &quot;imputed.training.data&quot;, &quot;last.imputed.training.data.set&quot;, 
             &quot;horizon&quot;, 
             &quot;S.Rec.training&quot;, &quot;S.MSM.training&quot;,
             &quot;S.Rec.5.training&quot;, &quot;S.MSM.5.training&quot;,
             &quot;f.mi.full.Rec.5&quot;, &quot;f.mi.BS.Rec.5&quot;, &quot;f.mi.full.MSM.5.refit&quot;, 
-            &quot;f.mi.BS.MSM.5.refit&quot;, &quot;MSM.cal.fact&quot;, &quot;c.Breslow&quot;, &quot;optimism&quot;,
+            &quot;f.mi.BS.MSM.5.refit&quot;, &quot;MSM.cal.fact&quot;, &quot;h0.Rec&quot;, &quot;h0.MSM&quot;,
+            &quot;c.Breslow&quot;, &quot;optimism&quot;,
             &quot;form.full.Rec.5&quot;, &quot;form.BS.Rec.5&quot;, 
-            &quot;form.full.MSM.5.refit&quot;, &quot;form.BS.MSM.5.refit&quot;, 
-            &quot;rc.Rec&quot;, &quot;int.Rec&quot;, &quot;h0.Rec&quot;),
+            &quot;form.full.MSM.5.refit&quot;, &quot;form.BS.MSM.5.refit&quot;),
      file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;, compress=TRUE)</code></pre>
 </div>
 

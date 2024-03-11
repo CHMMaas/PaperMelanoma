@@ -12,7 +12,7 @@
 <meta name="author" content="Carolien C.H.M. Maas" />
 
 
-<title>Fit models and plots</title>
+<title>Prepare Training Data</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -349,731 +349,210 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Fit models and plots</h1>
+<h1 class="title toc-ignore">Prepare Training Data</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
 <h4 class="date">November 2023</h4>
 
 </div>
 
 
-<div id="fit-models" class="section level2">
-<h2>Fit models</h2>
+<div id="training-data-preparation" class="section level2">
+<h2>Training data preparation</h2>
 <div id="load-packages-functions-and-data" class="section level3">
 <h3>Load packages, functions, and data</h3>
 <pre class="r"><code># erase memory
-rm(list = ls(all.names = TRUE))
+# rm(list = ls(all.names = TRUE))
 
 # for reproducibility
 set.seed(100)
 
 # load libraries
-library(Hmisc)
-library(stats)
+library(foreign)
 library(rms)
-library(utils)
-library(PredictionTools)</code></pre>
+source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quot;)
+
+# load data file
+original.training.data &lt;- foreign::read.spss(file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/Dataset Predictiemodel.sav&quot;,
+                                    to.data.frame=TRUE, origin=&quot;01-01-1970&quot;)
+
+# Select necessary variables
+selected.vars &lt;- c(&quot;EXCLUSIE&quot;, &quot;DatabaseNR&quot;, &quot;Center&quot;, &quot;Sex&quot;, &quot;Age&quot;, &quot;DOB&quot;,
+                   &quot;Ulceration&quot;, &quot;Loc_CAT&quot;,            # OLD data set: Loc_CAT2
+                   &quot;Histology&quot;, &quot;Breslow&quot;, &quot;Tot_nr_SNs&quot;,
+                   &quot;nr_SNs_Field_1&quot;, &quot;nr_SNs_Field_2&quot;, &quot;nr_SNs_Field_3&quot;,
+                   &quot;Mitosis&quot;,                          # needed for AJCC.7.i
+                   &quot;SNdate&quot;, &quot;Recurrence&quot;, &quot;Date_1st_Rec&quot;, &quot;Last_FU&quot;,
+                   &quot;dead&quot;, &quot;Status&quot;,
+                   &quot;SNstatus&quot;,                         # distinguish between positive and negative SN patients
+                   &quot;Tot_SNs_pos&quot;, &quot;Rdamcrit&quot;, &quot;Dewar&quot;) # additional for positive SN patients</code></pre>
+</div>
+<div id="inclusion-criteria" class="section level3">
+<h3>Inclusion criteria</h3>
+<p>Exclude when Exclusion = 2: based on duplicates, urogenital melanoma,
+etc. Note: Leave the patients included that have EXCLUSIE = 1 and
+Dbstatus = 8 (Dbstatus=0: negative, Dbstatus=1: positive), even though
+diagnosis and operation date are very close.</p>
+<pre class="r"><code>sel.train.data &lt;- original.training.data[original.training.data$EXCLUSIE!=&quot;Exclusion&quot;, selected.vars]
+cat(&quot;Number of patients excluded:&quot;, nrow(original.training.data)-nrow(sel.train.data), &quot;\n&quot;)</code></pre>
+<pre><code>## Number of patients excluded: 46</code></pre>
+<p>Omit one patient that has no last follow-up date</p>
+</div>
+<div id="recode" class="section level3">
+<h3>Recode</h3>
+<div id="use-age-at-sn-instead-of-age-at-diagnosis" class="section level4">
+<h4>Use age at SN instead of age at diagnosis</h4>
+<pre class="r"><code>sel.train.data$Age.SN &lt;- floor((sel.train.data$SNdate-sel.train.data$DOB)/(24*60*60)/365.25)</code></pre>
+</div>
+<div id="location" class="section level4">
+<h4>Location</h4>
+<p>Merge location other with trunk</p>
+<pre class="r"><code>sel.train.data$Loc_CAT[sel.train.data$Loc_CAT==&quot;other&quot;] &lt;- &quot;trunk&quot;</code></pre>
+<p>Merge LMM other with other</p>
+<pre class="r"><code>sel.train.data$Histology[sel.train.data$Histology==&quot;LMM&quot;] &lt;- &quot;other&quot;</code></pre>
+</div>
+<div id="define-multiple-fields" class="section level4">
+<h4>Define multiple fields</h4>
+<pre class="r"><code># 11 patients for which it doesn&quot;t hold that Tot_nr_SNs = nr_SNs_Field_1 + nr_SNs_Field_2 + nr_SNs_Field_3
+sel.train.data$multiple.fields &lt;- ifelse(!is.na(sel.train.data$nr_SNs_Field_2)&amp;sel.train.data$nr_SNs_Field_2&gt;0,1,0)</code></pre>
+</div>
+<div id="number-of-positive-and-negative-nodes" class="section level4">
+<h4>Number of positive and negative nodes</h4>
+<p>Check: there are no negative patients that have positive nodes</p>
+<pre class="r"><code>sum(!is.na(sel.train.data$Tot_SNs_pos)&amp;sel.train.data$Tot_SNs_pos&gt;0&amp;sel.train.data$SNstatus==&quot;Negative&quot;)</code></pre>
+<pre><code>## [1] 0</code></pre>
+<p>Create number of negative nodes removed</p>
+<pre class="r"><code>sel.train.data$Tot_SNs_neg &lt;- sel.train.data$Tot_nr_SNs - sel.train.data$Tot_SNs_pos</code></pre>
+<p>467 positive SN patients have negative nodes</p>
+<pre class="r"><code>sum(!is.na(sel.train.data$Tot_SNs_neg)&amp;sel.train.data$Tot_SNs_neg&gt;0&amp;sel.train.data$SNstatus==&quot;Positive&quot;)</code></pre>
+<pre><code>## [1] 467</code></pre>
+</div>
+<div id="sn-tumour-burden" class="section level4">
+<h4>SN tumour burden</h4>
+<p>11 patients with positive SN have SN tumour burden (maximum diameter)
+of exactly 1</p>
+<pre class="r"><code>sum(sel.train.data$Rdamcrit==1&amp;sel.train.data$SNstatus==&quot;Positive&quot;&amp;!is.na(sel.train.data$Rdamcrit))</code></pre>
+<pre><code>## [1] 11</code></pre>
+<p>Set Rdamcrit of negative SN patients equal to 0</p>
+<pre class="r"><code>sel.train.data$Rdamcrit[sel.train.data$SNstatus==&quot;Negative&quot;] &lt;- 1 # since log(1) = 0</code></pre>
+</div>
+<div id="location-of-metastasis" class="section level4">
+<h4>Location of metastasis</h4>
+<p>Set Dewar for negative patients to subcap</p>
+<pre class="r"><code>sum(sel.train.data$SNstatus==&quot;Positive&quot;&amp;sel.train.data$Dewar==&quot;subcap&quot;&amp;!is.na(sel.train.data$Dewar))</code></pre>
+<pre><code>## [1] 135</code></pre>
+<pre class="r"><code>sel.train.data$Dewar[sel.train.data$SNstatus==&quot;Negative&quot;] &lt;- &quot;subcap&quot;</code></pre>
+<p>Merge single cells with subcap</p>
+<pre class="r"><code>sel.train.data$Dewar[sel.train.data$Dewar==&quot;single cells&quot;] &lt;- &quot;subcap&quot;</code></pre>
+</div>
+<div id="recurrence" class="section level4">
+<h4>Recurrence</h4>
+<p>Define time since diagnosis in years (follow-up time)</p>
+<pre class="r"><code>sel.train.data$FU.time &lt;- (sel.train.data$Last_FU-sel.train.data$SNdate)/(24*60*60)/365.25</code></pre>
+<p>Define recurrence time in years</p>
+<pre class="r"><code>sel.train.data$Recurrence.time &lt;- (sel.train.data$Date_1st_Rec-sel.train.data$SNdate)/(24*60*60)/365.25</code></pre>
+<p>Omit five patients with Rec date before SN date</p>
+<pre class="r"><code>old.n &lt;- nrow(sel.train.data)
+sel.train.data &lt;- sel.train.data[!(sel.train.data$Recurrence.time&lt;0&amp;!is.na(sel.train.data$Recurrence.time)),]
+cat(&quot;Number of patients excluded:&quot;, old.n-nrow(sel.train.data), &quot;\n&quot;)</code></pre>
+<pre><code>## Number of patients excluded: 5</code></pre>
+<p>Impute recurrence time for 45 patients with missing Recurrence.time
+but Recurrence==“recurred”</p>
+<pre class="r"><code>cat(&quot;Number of patients dead with recurrence without Date_1st_Rec:&quot;, sum(is.na(sel.train.data$Date_1st_Rec)&amp;sel.train.data$Recurrence==&quot;recurred&quot;&amp;sel.train.data$dead==&quot;Yes&quot;), &quot;\n&quot;)</code></pre>
+<pre><code>## Number of patients dead with recurrence without Date_1st_Rec: 43</code></pre>
+<pre class="r"><code>cat(&quot;Number of patients alive with recurrence without Date_1st_Rec:&quot;, sum(is.na(sel.train.data$Date_1st_Rec)&amp;sel.train.data$Recurrence==&quot;recurred&quot;&amp;sel.train.data$dead==&quot;No&quot;))</code></pre>
+<pre><code>## Number of patients alive with recurrence without Date_1st_Rec: 2</code></pre>
+<p>Create composite Recurrence</p>
+<pre class="r"><code># event = 1 if recurrence or death, whichever occurs first
+sel.train.data$Rec.composite &lt;- ifelse(sel.train.data$Recurrence==&quot;recurred&quot; | sel.train.data$dead==&quot;Yes&quot;, 1, 0)
+
+# if patient has recurrence, set time to Recurrence.time
+# if patient has no recurrence, but died, set time to FU.time
+# if patient has no recurrence, and did not die, set to FU.time
+sel.train.data$Rec.composite.time &lt;- ifelse(sel.train.data$Recurrence==&quot;recurred&quot;, 
+       sel.train.data$Recurrence.time,
+       sel.train.data$FU.time)</code></pre>
+</div>
+<div id="melanoma-specific-mortality-msm" class="section level4">
+<h4>Melanoma specific mortality (MSM)</h4>
+<pre class="r"><code># 504 patients died due to melanoma, 102 patients died from other causes
+table(sel.train.data$Status, sel.train.data$dead)</code></pre>
+<pre><code>##          
+##             No  Yes
+##   NED     3303    0
+##   AWD      162    0
+##   DOD        0  504
+##   DOC        0  102
+##   unknown    0    0</code></pre>
+<pre class="r"><code>sel.train.data$MSM &lt;- 1*(sel.train.data$Status==&quot;DOD&quot;)</code></pre>
+</div>
+<div id="relation-between-outcome-and-covariates" class="section level4">
+<h4>Relation between outcome and covariates</h4>
+<pre class="r"><code>sel.train.data$logRec.composite.time &lt;- log(sel.train.data$Rec.composite.time+1/365.25)
+sel.train.data$logFU.time &lt;- log(sel.train.data$FU.time+1/365.25)</code></pre>
+</div>
+<div id="mitosis" class="section level4">
+<h4>Mitosis</h4>
+<p>Set Mitosis to Unknown if missing</p>
+<pre class="r"><code>sel.train.data$Mitosis[is.na(sel.train.data$Mitosis)] &lt;- &quot;Unknown&quot; # mitosis unknown for 80% of patients</code></pre>
+</div>
+<div id="replace-unknown-by-na" class="section level4">
+<h4>Replace “Unknown” by NA</h4>
+<pre class="r"><code>sel.train.data$Ulceration[sel.train.data$Ulceration==&quot;unknown&quot;]&lt;-NA
+sel.train.data$Loc_CAT[sel.train.data$Loc_CAT==&quot;unknown&quot;]&lt;-NA
+sel.train.data$Histology[sel.train.data$Histology==&quot;unknown&quot;]&lt;-NA
+sel.train.data$Dewar[sel.train.data$Dewar==&quot;unknown&quot;] &lt;- NA
+sel.train.data$Mitosis[sel.train.data$Mitosis==&quot;Unknown&quot;] &lt;- NA</code></pre>
+</div>
+<div id="delete-unused-levels" class="section level4">
+<h4>Delete unused levels</h4>
+<pre class="r"><code>sel.train.data &lt;- droplevels(sel.train.data)
+
+# set levels for multiple.fields
+sel.train.data$multiple.fields &lt;- factor(sel.train.data$multiple.fields, 
+                                         labels=c(&quot;Other&quot;, &quot;Multiple SN fields&quot;))
+sel.train.data$MSM &lt;- factor(sel.train.data$MSM, 
+                             labels=c(&quot;Other&quot;, &quot;Death by melanoma&quot;))</code></pre>
 </div>
 </div>
-<div id="full-model-for-recurrence" class="section level1">
-<h1>Full model for recurrence</h1>
-<pre class="r"><code>load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
+</div>
+<div id="prepare-multiple-imputation" class="section level1">
+<h1>Prepare Multiple imputation</h1>
+<pre class="r"><code>variables.to.be.imputed &lt;- c(&quot;Center&quot;, &quot;SNstatus&quot;, &quot;Sex&quot;, &quot;Age.SN&quot;, &quot;Ulceration&quot;,
+                             &quot;Loc_CAT&quot;, &quot;Histology&quot;, &quot;Breslow&quot;, &quot;multiple.fields&quot;,
+                             &quot;Tot_SNs_neg&quot;, &quot;Tot_SNs_pos&quot;, &quot;Rdamcrit&quot;, &quot;Dewar&quot;,
+                             &quot;Mitosis&quot;, &quot;Status&quot;, 
+                             &quot;Rec.composite&quot;, &quot;logRec.composite.time&quot;,
+                             &quot;MSM&quot;, &quot;logFU.time&quot;)
+training.data.to.be.imputed &lt;- sel.train.data[, variables.to.be.imputed]
+missings.table(training.data.to.be.imputed)</code></pre>
+<pre><code>##                          m
+## Mitosis               3895
+## Histology              353
+## Dewar                  303
+## Rdamcrit               301
+## Tot_SNs_neg            162
+## Ulceration             141
+## Loc_CAT                138
+## Breslow                 59
+## logRec.composite.time   45
+## Tot_SNs_pos              1
+## Center                   0
+## SNstatus                 0
+## Sex                      0
+## Age.SN                   0
+## multiple.fields          0
+## Status                   0
+## Rec.composite            0
+## MSM                      0
+## logFU.time               0</code></pre>
+<p>Save distributions of all variables, necessary for Harrell
+summaries</p>
+<pre class="r"><code>dd.training&lt;-rms::datadist(training.data.to.be.imputed)
 options(datadist=&quot;dd.training&quot;)
-
-form.full.Rec.5 &lt;- S.Rec.5.training ~
-  SNstatus +
-  Sex +
-  Age.SN +
-  Ulceration +
-  Loc_CAT +
-  Histology +
-  log(Breslow) +
-  multiple.fields +
-  Tot_SNs_neg +
-  Tot_SNs_pos +
-  log(Rdamcrit) +
-  Dewar +
-  SNstatus:Sex +
-  SNstatus:Age.SN +
-  SNstatus:Ulceration +
-  SNstatus:Loc_CAT +
-  SNstatus:Histology +
-  SNstatus:log(Breslow) +
-  SNstatus:multiple.fields
-f.mi.full.Rec.5 &lt;- Hmisc::fit.mult.impute(form.full.Rec.5, cph, 
-                                          xtrans=imputed.training.data,
-                                          data=training.data.to.be.imputed,
-                                          n.impute=m, pr=FALSE, fit.reps=TRUE, 
-                                          fitargs=list(y=TRUE, x=TRUE, 
-                                                       se.fit=TRUE))
-stats::anova(f.mi.full.Rec.5)</code></pre>
-<pre><code>##                 Wald Statistics          Response: S.Rec.5.training 
-## 
-##  Factor                                                    Chi-Square d.f.
-##  SNstatus  (Factor+Higher Order Factors)                    42.30     12  
-##   All Interactions                                          26.94     11  
-##  Sex  (Factor+Higher Order Factors)                          7.99      2  
-##   All Interactions                                           4.09      1  
-##  Age.SN  (Factor+Higher Order Factors)                      24.87      2  
-##   All Interactions                                           0.80      1  
-##  Ulceration  (Factor+Higher Order Factors)                  33.56      2  
-##   All Interactions                                           0.92      1  
-##  Loc_CAT  (Factor+Higher Order Factors)                     23.37      6  
-##   All Interactions                                           1.04      3  
-##  Histology  (Factor+Higher Order Factors)                   11.34      6  
-##   All Interactions                                           0.22      3  
-##  Breslow  (Factor+Higher Order Factors)                    124.05      2  
-##   All Interactions                                          13.10      1  
-##  multiple.fields  (Factor+Higher Order Factors)              9.83      2  
-##   All Interactions                                           0.03      1  
-##  Tot_SNs_neg                                                 1.96      1  
-##  Tot_SNs_pos                                                 0.04      1  
-##  Rdamcrit                                                    7.27      1  
-##  Dewar                                                       5.91      4  
-##  SNstatus * Sex  (Factor+Higher Order Factors)               4.09      1  
-##  SNstatus * Age.SN  (Factor+Higher Order Factors)            0.80      1  
-##  SNstatus * Ulceration  (Factor+Higher Order Factors)        0.92      1  
-##  SNstatus * Loc_CAT  (Factor+Higher Order Factors)           1.04      3  
-##  SNstatus * Histology  (Factor+Higher Order Factors)         0.22      3  
-##  SNstatus * Breslow  (Factor+Higher Order Factors)          13.10      1  
-##  SNstatus * multiple.fields  (Factor+Higher Order Factors)   0.03      1  
-##  TOTAL INTERACTION                                          26.94     11  
-##  TOTAL                                                     751.33     30  
-##  P     
-##  &lt;.0001
-##  0.0047
-##  0.0184
-##  0.0432
-##  &lt;.0001
-##  0.3718
-##  &lt;.0001
-##  0.3379
-##  0.0007
-##  0.7925
-##  0.0785
-##  0.9735
-##  &lt;.0001
-##  0.0003
-##  0.0073
-##  0.8610
-##  0.1612
-##  0.8462
-##  0.0070
-##  0.2057
-##  0.0432
-##  0.3718
-##  0.3379
-##  0.7925
-##  0.9735
-##  0.0003
-##  0.8610
-##  0.0047
-##  &lt;.0001</code></pre>
-<pre class="r"><code>summary(f.mi.full.Rec.5, Tot_SNs_pos=c(0, 1))</code></pre>
-<pre><code>##              Effects              Response : S.Rec.5.training 
-## 
-##  Factor                                     Low   High Diff. Effect    S.E.    
-##  Age.SN                                     43.00 66.0 23.00  0.239730 0.074985
-##   Hazard Ratio                              43.00 66.0 23.00  1.270900       NA
-##  Breslow                                     1.20  3.5  2.30  0.828950 0.078947
-##   Hazard Ratio                               1.20  3.5  2.30  2.290900       NA
-##  Tot_SNs_neg                                 1.00  2.0  1.00 -0.039295 0.028047
-##   Hazard Ratio                               1.00  2.0  1.00  0.961470       NA
-##  Tot_SNs_pos                                 0.00  1.0  1.00 -0.017461 0.090039
-##   Hazard Ratio                               0.00  1.0  1.00  0.982690       NA
-##  Rdamcrit                                    0.01 38.0 37.99  1.293800 0.479740
-##   Hazard Ratio                               0.01 38.0 37.99  3.646400       NA
-##  SNstatus - Positive:Negative                1.00  2.0    NA  1.095200 0.248880
-##   Hazard Ratio                               1.00  2.0    NA  2.989800       NA
-##  Sex - male:female                           1.00  2.0    NA  0.277600 0.098421
-##   Hazard Ratio                               1.00  2.0    NA  1.320000       NA
-##  Ulceration - Yes:No                         1.00  2.0    NA  0.501180 0.100660
-##   Hazard Ratio                               1.00  2.0    NA  1.650700       NA
-##  Loc_CAT - arm:trunk                         3.00  1.0    NA -0.283670 0.146900
-##   Hazard Ratio                               3.00  1.0    NA  0.753010       NA
-##  Loc_CAT - leg:trunk                         3.00  2.0    NA -0.074300 0.120410
-##   Hazard Ratio                               3.00  2.0    NA  0.928390       NA
-##  Loc_CAT - head &amp; neck:trunk                 3.00  4.0    NA  0.497680 0.155820
-##   Hazard Ratio                               3.00  4.0    NA  1.644900       NA
-##  Histology - NM:SSM                          1.00  2.0    NA  0.214620 0.119440
-##   Hazard Ratio                               1.00  2.0    NA  1.239400       NA
-##  Histology - ALM:SSM                         1.00  3.0    NA  0.528580 0.248380
-##   Hazard Ratio                               1.00  3.0    NA  1.696500       NA
-##  Histology - other:SSM                       1.00  4.0    NA -0.082643 0.214000
-##   Hazard Ratio                               1.00  4.0    NA  0.920680       NA
-##  multiple.fields - Multiple SN fields:Other  1.00  2.0    NA  0.385350 0.160400
-##   Hazard Ratio                               1.00  2.0    NA  1.470100       NA
-##  Dewar - combined:subcap                     1.00  2.0    NA  0.322700 0.211150
-##   Hazard Ratio                               1.00  2.0    NA  1.380900       NA
-##  Dewar - parenchymal:subcap                  1.00  3.0    NA  0.072871 0.244070
-##   Hazard Ratio                               1.00  3.0    NA  1.075600       NA
-##  Dewar - multifocal:subcap                   1.00  4.0    NA -0.248450 0.342530
-##   Hazard Ratio                               1.00  4.0    NA  0.780010       NA
-##  Dewar - extensive:subcap                    1.00  5.0    NA  0.257540 0.286940
-##   Hazard Ratio                               1.00  5.0    NA  1.293700       NA
-##  Lower 0.95 Upper 0.95
-##   0.092767  0.3867000 
-##   1.097200  1.4721000 
-##   0.674210  0.9836800 
-##   1.962500  2.6743000 
-##  -0.094267  0.0156770 
-##   0.910040  1.0158000 
-##  -0.193930  0.1590100 
-##   0.823710  1.1724000 
-##   0.353490  2.2340000 
-##   1.424000  9.3373000 
-##   0.607410  1.5830000 
-##   1.835700  4.8695000 
-##   0.084703  0.4705100 
-##   1.088400  1.6008000 
-##   0.303880  0.6984800 
-##   1.355100  2.0107000 
-##  -0.571590  0.0042486 
-##   0.564630  1.0043000 
-##  -0.310300  0.1617000 
-##   0.733220  1.1755000 
-##   0.192280  0.8030800 
-##   1.212000  2.2324000 
-##  -0.019488  0.4487200 
-##   0.980700  1.5663000 
-##   0.041774  1.0154000 
-##   1.042700  2.7604000 
-##  -0.502080  0.3368000 
-##   0.605270  1.4005000 
-##   0.070972  0.6997300 
-##   1.073600  2.0132000 
-##  -0.091135  0.7365400 
-##   0.912890  2.0887000 
-##  -0.405500  0.5512400 
-##   0.666640  1.7354000 
-##  -0.919800  0.4229000 
-##   0.398600  1.5264000 
-##  -0.304840  0.8199300 
-##   0.737240  2.2703000 
-## 
-## Adjusted to: SNstatus=Negative Sex=female Age.SN=55 Ulceration=No Loc_CAT=trunk Histology=SSM Breslow=2 multiple.fields=Other</code></pre>
-</div>
-<div id="final-model-for-recurrence-selected-by-backward-selection-with-p-0.01" class="section level1">
-<h1>Final model for recurrence selected by backward selection with p =
-0.01</h1>
-<pre class="r"><code># center Breslow by using all imputated data sets
-c.Breslow.all &lt;- c()
-for (i in 1:m){
-  c.Breslow.all &lt;- c(c.Breslow.all, 
-                     mean(log(mice::complete(imputed.training.data, i)$Breslow)))
-}
-c.Breslow &lt;- mean(c.Breslow.all)
-
-form.BS.Rec.5 &lt;- S.Rec.5.training ~
-  SNstatus +
-  Age.SN +
-  Ulceration +
-  Loc_CAT +
-  I(log(Breslow)-c.Breslow) +
-  log(Rdamcrit) +
-  SNstatus:I(log(Breslow)-c.Breslow)
-f.mi.BS.Rec.5 &lt;- Hmisc::fit.mult.impute(form.BS.Rec.5,cph,
-                                        xtrans=imputed.training.data,
-                                        data=training.data.to.be.imputed,
-                                        n.impute=m, pr=FALSE,fit.reps=TRUE,
-                                        fitargs=list(y=TRUE,x=TRUE,se.fit=TRUE))
-
-# check Cox Proportional Hazards Assumption
-PH.assumption &lt;- survival::cox.zph(f.mi.BS.Rec.5)
-
-# backward selection
-# round(stats::anova(f.mi.BS.Rec.5)[order(stats::anova(f.mi.BS.Rec.5)[, &quot;P&quot;]),], 3)
-summary(f.mi.BS.Rec.5, Breslow=exp(c.Breslow))</code></pre>
-<pre><code>##              Effects              Response : S.Rec.5.training 
-## 
-##  Factor                       Low   High Diff. Effect   S.E.     Lower 0.95
-##  Age.SN                       43.00 66.0 23.00  0.31439 0.056105  0.20443  
-##   Hazard Ratio                43.00 66.0 23.00  1.36940       NA  1.22680  
-##  Breslow                       1.20  3.5  2.30  0.88875 0.065066  0.76122  
-##   Hazard Ratio                 1.20  3.5  2.30  2.43210       NA  2.14090  
-##  Rdamcrit                      0.01 38.0 37.99  1.74660 0.389130  0.98394  
-##   Hazard Ratio                 0.01 38.0 37.99  5.73530       NA  2.67500  
-##  SNstatus - Positive:Negative  1.00  2.0    NA  1.08620 0.090288  0.90925  
-##   Hazard Ratio                 1.00  2.0    NA  2.96300       NA  2.48250  
-##  Ulceration - Yes:No           1.00  2.0    NA  0.47863 0.074800  0.33202  
-##   Hazard Ratio                 1.00  2.0    NA  1.61390       NA  1.39380  
-##  Loc_CAT - arm:trunk           3.00  1.0    NA -0.25329 0.119140 -0.48680  
-##   Hazard Ratio                 3.00  1.0    NA  0.77624       NA  0.61459  
-##  Loc_CAT - leg:trunk           3.00  2.0    NA -0.12495 0.082706 -0.28705  
-##   Hazard Ratio                 3.00  2.0    NA  0.88255       NA  0.75048  
-##  Loc_CAT - head &amp; neck:trunk   3.00  4.0    NA  0.38243 0.119880  0.14748  
-##   Hazard Ratio                 3.00  4.0    NA  1.46580       NA  1.15890  
-##  Upper 0.95
-##   0.424360 
-##   1.528600 
-##   1.016300 
-##   2.762900 
-##   2.509300 
-##  12.297000 
-##   1.263200 
-##   3.536600 
-##   0.625230 
-##   1.868700 
-##  -0.019787 
-##   0.980410 
-##   0.037156 
-##   1.037900 
-##   0.617390 
-##   1.854100 
-## 
-## Adjusted to: SNstatus=Negative Breslow=2.04991</code></pre>
-<pre class="r"><code>coef(f.mi.BS.Rec.5)</code></pre>
-<pre><code>##           SNstatus=Positive                      Age.SN 
-##                  1.08621071                  0.01366932 
-##              Ulceration=Yes                 Loc_CAT=leg 
-##                  0.47862830                  0.12834775 
-##               Loc_CAT=trunk         Loc_CAT=head &amp; neck 
-##                  0.25329321                  0.63572751 
-##                     Breslow                    Rdamcrit 
-##                  0.83026128                  0.21189902 
-## SNstatus=Positive * Breslow 
-##                 -0.43670541</code></pre>
-<pre class="r"><code>stats::anova(f.mi.BS.Rec.5)</code></pre>
-<pre><code>##                 Wald Statistics          Response: S.Rec.5.training 
-## 
-##  Factor                                            Chi-Square d.f. P     
-##  SNstatus  (Factor+Higher Order Factors)           152.72     2    &lt;.0001
-##   All Interactions                                  21.22     1    &lt;.0001
-##  Age.SN                                             31.40     1    &lt;.0001
-##  Ulceration                                         40.94     1    &lt;.0001
-##  Loc_CAT                                            21.41     3    1e-04 
-##  Breslow  (Factor+Higher Order Factors)            198.65     2    &lt;.0001
-##   All Interactions                                  21.22     1    &lt;.0001
-##  Rdamcrit                                           20.15     1    &lt;.0001
-##  SNstatus * Breslow  (Factor+Higher Order Factors)  21.22     1    &lt;.0001
-##  TOTAL                                             736.39     9    &lt;.0001</code></pre>
-</div>
-<div id="refitted-full-model-for-melanoma-specific-mortality" class="section level1">
-<h1>Refitted full model for melanoma specific mortality</h1>
-<pre class="r"><code>form.full.MSM.5.refit &lt;- S.MSM.5.training ~
-  SNstatus +
-  Sex +
-  Age.SN +
-  Ulceration +
-  Loc_CAT +
-  Histology +
-  log(Breslow) +
-  multiple.fields +
-  Tot_SNs_neg +
-  Tot_SNs_pos +
-  log(Rdamcrit) +
-  Dewar +
-  SNstatus:Sex +
-  SNstatus:Age.SN +
-  SNstatus:Ulceration +
-  SNstatus:Loc_CAT +
-  SNstatus:Histology +
-  SNstatus:log(Breslow) +
-  SNstatus:multiple.fields
-f.mi.full.MSM.5.refit &lt;- Hmisc::fit.mult.impute(form.full.MSM.5.refit,cph,
-                                                xtrans=imputed.training.data,
-                                                data=training.data.to.be.imputed,
-                                                n.impute=m, pr=FALSE,
-                                                fit.reps=TRUE,
-                                                fitargs=list(y=TRUE,x=TRUE,
-                                                             se.fit=TRUE))
-summary(f.mi.full.MSM.5.refit, Tot_SNs_pos=c(0, 1))</code></pre>
-<pre><code>##              Effects              Response : S.MSM.5.training 
-## 
-##  Factor                                     Low   High Diff. Effect    S.E.    
-##  Age.SN                                     43.00 66.0 23.00 -0.074008 0.114610
-##   Hazard Ratio                              43.00 66.0 23.00  0.928660       NA
-##  Breslow                                     1.20  3.5  2.30  0.922350 0.120300
-##   Hazard Ratio                               1.20  3.5  2.30  2.515200       NA
-##  Tot_SNs_neg                                 1.00  2.0  1.00 -0.054962 0.043042
-##   Hazard Ratio                               1.00  2.0  1.00  0.946520       NA
-##  Tot_SNs_pos                                 0.00  1.0  1.00 -0.019292 0.122920
-##   Hazard Ratio                               0.00  1.0  1.00  0.980890       NA
-##  Rdamcrit                                    0.01 38.0 37.99  1.840300 0.778160
-##   Hazard Ratio                               0.01 38.0 37.99  6.298300       NA
-##  SNstatus - Positive:Negative                1.00  2.0    NA  1.148700 0.367480
-##   Hazard Ratio                               1.00  2.0    NA  3.154100       NA
-##  Sex - male:female                           1.00  2.0    NA  0.500510 0.154850
-##   Hazard Ratio                               1.00  2.0    NA  1.649600       NA
-##  Ulceration - Yes:No                         1.00  2.0    NA  0.730720 0.159610
-##   Hazard Ratio                               1.00  2.0    NA  2.076600       NA
-##  Loc_CAT - arm:trunk                         3.00  1.0    NA -0.589680 0.228640
-##   Hazard Ratio                               3.00  1.0    NA  0.554510       NA
-##  Loc_CAT - leg:trunk                         3.00  2.0    NA -0.467750 0.190220
-##   Hazard Ratio                               3.00  2.0    NA  0.626410       NA
-##  Loc_CAT - head &amp; neck:trunk                 3.00  4.0    NA  0.026016 0.261420
-##   Hazard Ratio                               3.00  4.0    NA  1.026400       NA
-##  Histology - NM:SSM                          1.00  2.0    NA  0.335790 0.192350
-##   Hazard Ratio                               1.00  2.0    NA  1.399100       NA
-##  Histology - ALM:SSM                         1.00  3.0    NA  0.524250 0.467130
-##   Hazard Ratio                               1.00  3.0    NA  1.689200       NA
-##  Histology - other:SSM                       1.00  4.0    NA -0.008154 0.353350
-##   Hazard Ratio                               1.00  4.0    NA  0.991880       NA
-##  multiple.fields - Multiple SN fields:Other  1.00  2.0    NA  0.203130 0.242330
-##   Hazard Ratio                               1.00  2.0    NA  1.225200       NA
-##  Dewar - combined:subcap                     1.00  2.0    NA  0.211540 0.270050
-##   Hazard Ratio                               1.00  2.0    NA  1.235600       NA
-##  Dewar - parenchymal:subcap                  1.00  3.0    NA  0.305310 0.331580
-##   Hazard Ratio                               1.00  3.0    NA  1.357000       NA
-##  Dewar - multifocal:subcap                   1.00  4.0    NA  0.203050 0.390050
-##   Hazard Ratio                               1.00  4.0    NA  1.225100       NA
-##  Dewar - extensive:subcap                    1.00  5.0    NA  0.379020 0.335430
-##   Hazard Ratio                               1.00  5.0    NA  1.460900       NA
-##  Lower 0.95 Upper 0.95
-##  -0.298650   0.150630 
-##   0.741820   1.162600 
-##   0.686570   1.158100 
-##   1.986900   3.184000 
-##  -0.139320   0.029399 
-##   0.869950   1.029800 
-##  -0.260200   0.221620 
-##   0.770890   1.248100 
-##   0.315110   3.365400 
-##   1.370400  28.946000 
-##   0.428450   1.869000 
-##   1.534900   6.481500 
-##   0.197010   0.804010 
-##   1.217800   2.234500 
-##   0.417880   1.043600 
-##   1.518700   2.839300 
-##  -1.037800  -0.141550 
-##   0.354230   0.868010 
-##  -0.840580  -0.094926 
-##   0.431460   0.909440 
-##  -0.486360   0.538390 
-##   0.614860   1.713200 
-##  -0.041199   0.712790 
-##   0.959640   2.039700 
-##  -0.391310   1.439800 
-##   0.676170   4.219900 
-##  -0.700700   0.684390 
-##   0.496240   1.982600 
-##  -0.271830   0.678080 
-##   0.761990   1.970100 
-##  -0.317750   0.740830 
-##   0.727780   2.097700 
-##  -0.344580   0.955200 
-##   0.708520   2.599200 
-##  -0.561430   0.967520 
-##   0.570390   2.631400 
-##  -0.278400   1.036400 
-##   0.756990   2.819200 
-## 
-## Adjusted to: SNstatus=Negative Sex=female Age.SN=55 Ulceration=No Loc_CAT=trunk Histology=SSM Breslow=2 multiple.fields=Other</code></pre>
-<pre class="r"><code>stats::anova(f.mi.full.MSM.5.refit)</code></pre>
-<pre><code>##                 Wald Statistics          Response: S.MSM.5.training 
-## 
-##  Factor                                                    Chi-Square d.f.
-##  SNstatus  (Factor+Higher Order Factors)                    38.82     12  
-##   All Interactions                                          31.68     11  
-##  Sex  (Factor+Higher Order Factors)                         12.55      2  
-##   All Interactions                                           1.57      1  
-##  Age.SN  (Factor+Higher Order Factors)                       6.92      2  
-##   All Interactions                                           5.29      1  
-##  Ulceration  (Factor+Higher Order Factors)                  29.41      2  
-##   All Interactions                                           1.45      1  
-##  Loc_CAT  (Factor+Higher Order Factors)                     14.79      6  
-##   All Interactions                                           5.59      3  
-##  Histology  (Factor+Higher Order Factors)                    5.37      6  
-##   All Interactions                                           0.77      3  
-##  Breslow  (Factor+Higher Order Factors)                     69.51      2  
-##   All Interactions                                           7.95      1  
-##  multiple.fields  (Factor+Higher Order Factors)              3.65      2  
-##   All Interactions                                           0.30      1  
-##  Tot_SNs_neg                                                 1.63      1  
-##  Tot_SNs_pos                                                 0.02      1  
-##  Rdamcrit                                                    5.59      1  
-##  Dewar                                                       1.45      4  
-##  SNstatus * Sex  (Factor+Higher Order Factors)               1.57      1  
-##  SNstatus * Age.SN  (Factor+Higher Order Factors)            5.29      1  
-##  SNstatus * Ulceration  (Factor+Higher Order Factors)        1.45      1  
-##  SNstatus * Loc_CAT  (Factor+Higher Order Factors)           5.59      3  
-##  SNstatus * Histology  (Factor+Higher Order Factors)         0.77      3  
-##  SNstatus * Breslow  (Factor+Higher Order Factors)           7.95      1  
-##  SNstatus * multiple.fields  (Factor+Higher Order Factors)   0.30      1  
-##  TOTAL INTERACTION                                          31.68     11  
-##  TOTAL                                                     456.56     30  
-##  P     
-##  0.0001
-##  0.0009
-##  0.0019
-##  0.2101
-##  0.0314
-##  0.0214
-##  &lt;.0001
-##  0.2291
-##  0.0220
-##  0.1331
-##  0.4976
-##  0.8563
-##  &lt;.0001
-##  0.0048
-##  0.1611
-##  0.5860
-##  0.2016
-##  0.8753
-##  0.0180
-##  0.8356
-##  0.2101
-##  0.0214
-##  0.2291
-##  0.1331
-##  0.8563
-##  0.0048
-##  0.5860
-##  0.0009
-##  &lt;.0001</code></pre>
-</div>
-<div id="refitted-final-model-for-melanoma-specific-mortality" class="section level1">
-<h1>Refitted final model for melanoma specific mortality</h1>
-<pre class="r"><code>form.BS.MSM.5.refit &lt;- S.MSM.5.training ~
-  SNstatus +
-  Age.SN +
-  Ulceration +
-  Loc_CAT +
-  I(log(Breslow)-c.Breslow) +
-  log(Rdamcrit) +
-  SNstatus:I(log(Breslow)-c.Breslow)
-f.mi.BS.MSM.5.refit &lt;- Hmisc::fit.mult.impute(form.BS.MSM.5.refit,cph,
-                                              xtrans=imputed.training.data,
-                                              data=training.data.to.be.imputed,
-                                              n.impute=m,
-                                              pr=FALSE,fit.reps=TRUE,
-                                              fitargs=list(y=TRUE,x=TRUE,
-                                                           se.fit=TRUE))
-summary(f.mi.BS.MSM.5.refit, Breslow=exp(c.Breslow))</code></pre>
-<pre><code>##              Effects              Response : S.MSM.5.training 
-## 
-##  Factor                       Low   High Diff. Effect   S.E.     Lower 0.95
-##  Age.SN                       43.00 66.0 23.00  0.15699 0.081982 -0.0036913
-##   Hazard Ratio                43.00 66.0 23.00  1.17000       NA  0.9963200
-##  Breslow                       1.20  3.5  2.30  1.02650 0.097584  0.8352600
-##   Hazard Ratio                 1.20  3.5  2.30  2.79130       NA  2.3054000
-##  Rdamcrit                      0.01 38.0 37.99  2.26520 0.621150  1.0477000
-##   Hazard Ratio                 0.01 38.0 37.99  9.63270       NA  2.8512000
-##  SNstatus - Positive:Negative  1.00  2.0    NA  1.22360 0.136990  0.9551200
-##   Hazard Ratio                 1.00  2.0    NA  3.39940       NA  2.5990000
-##  Ulceration - Yes:No           1.00  2.0    NA  0.60950 0.110870  0.3921900
-##   Hazard Ratio                 1.00  2.0    NA  1.83950       NA  1.4802000
-##  Loc_CAT - arm:trunk           3.00  1.0    NA -0.36347 0.178660 -0.7136400
-##   Hazard Ratio                 3.00  1.0    NA  0.69526       NA  0.4898600
-##  Loc_CAT - leg:trunk           3.00  2.0    NA -0.36067 0.125410 -0.6064700
-##   Hazard Ratio                 3.00  2.0    NA  0.69721       NA  0.5452700
-##  Loc_CAT - head &amp; neck:trunk   3.00  4.0    NA  0.19758 0.178110 -0.1515000
-##   Hazard Ratio                 3.00  4.0    NA  1.21850       NA  0.8594200
-##  Upper 0.95
-##   0.317670 
-##   1.373900 
-##   1.217800 
-##   3.379700 
-##   3.482600 
-##  32.544000 
-##   1.492100 
-##   4.446400 
-##   0.826800 
-##   2.286000 
-##  -0.013307 
-##   0.986780 
-##  -0.114860 
-##   0.891490 
-##   0.546670 
-##   1.727500 
-## 
-## Adjusted to: SNstatus=Negative Breslow=2.04991</code></pre>
-<pre class="r"><code>stats::anova(f.mi.BS.MSM.5.refit)</code></pre>
-<pre><code>##                 Wald Statistics          Response: S.MSM.5.training 
-## 
-##  Factor                                            Chi-Square d.f. P     
-##  SNstatus  (Factor+Higher Order Factors)            83.39     2    &lt;.0001
-##   All Interactions                                  15.53     1    0.0001
-##  Age.SN                                              3.67     1    0.0555
-##  Ulceration                                         30.22     1    &lt;.0001
-##  Loc_CAT                                            14.11     3    0.0028
-##  Breslow  (Factor+Higher Order Factors)            118.69     2    &lt;.0001
-##   All Interactions                                  15.53     1    0.0001
-##  Rdamcrit                                           13.30     1    0.0003
-##  SNstatus * Breslow  (Factor+Higher Order Factors)  15.53     1    0.0001
-##  TOTAL                                             423.48     9    &lt;.0001</code></pre>
-</div>
-<div id="calibrated-final-model-for-melanoma-specific-mortality" class="section level1">
-<h1>Calibrated final model for melanoma specific mortality</h1>
-<p>Fit disease specific mortality to the linear predictor of
-recurrence</p>
-<pre class="r"><code># Combine calibration coefficients for all imputated data sets 
-MSM.cal.fact.all &lt;- c()
-MSM.cal.fact.SE &lt;- c()
-for (i in 1:m){
-  lp.i&lt;-predict(f.mi.BS.Rec.5,
-                newdata=mice::complete(imputed.training.data,i), 
-                type=&quot;lp&quot;)
-  f.mi.i &lt;- rms::cph(S.MSM.5.training~lp.i,y=TRUE,x=TRUE) 
-  MSM.cal.fact.all &lt;- c(MSM.cal.fact.all, stats::coef(f.mi.i))
-  MSM.cal.fact.SE &lt;- c(MSM.cal.fact.SE, sqrt(diag(vcov(f.mi.i))))
-}
-MSM.cal.fact.combined &lt;- Rubin.combine(MSM.cal.fact.all, MSM.cal.fact.SE)
-MSM.cal.fact &lt;- MSM.cal.fact.combined$est
-
-utils::write.table(paste0(sprintf(&quot;%.2f&quot;, MSM.cal.fact), &quot; [&quot;,
-            sprintf(&quot;%.2f&quot;, MSM.cal.fact.combined$est+qnorm(.025)*MSM.cal.fact.combined$se), &quot;; &quot;,
-            sprintf(&quot;%.2f&quot;, MSM.cal.fact.combined$est+qnorm(.975)*MSM.cal.fact.combined$se), &quot;]&quot;),
-            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/calibration.MSS.txt&quot;, 
-            row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)
-
-save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;, &quot;m&quot;, 
-            &quot;imputed.training.data&quot;, &quot;last.imputed.training.data.set&quot;, 
-            &quot;horizon&quot;, 
-            &quot;S.Rec.training&quot;, &quot;S.MSM.training&quot;,
-            &quot;S.Rec.5.training&quot;, &quot;S.MSM.5.training&quot;,
-            &quot;f.mi.full.Rec.5&quot;, &quot;f.mi.BS.Rec.5&quot;, &quot;f.mi.full.MSM.5.refit&quot;, 
-            &quot;f.mi.BS.MSM.5.refit&quot;, &quot;MSM.cal.fact&quot;, &quot;c.Breslow&quot;, 
-            &quot;form.full.Rec.5&quot;, &quot;form.BS.Rec.5&quot;, &quot;form.full.MSM.5.refit&quot;, &quot;form.BS.MSM.5.refit&quot;),
-     file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;, compress=TRUE)
-load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;)
-save(list=c(&quot;dd.validation&quot;, &quot;validation.data.to.be.imputed&quot;, &quot;m&quot;, 
-            &quot;imputed.validation.data&quot;, &quot;last.imputed.validation.data.set&quot;, &quot;horizon&quot;, 
-            &quot;S.Rec.validation&quot;, &quot;S.MSM.validation&quot;, 
-            &quot;S.Rec.5.validation&quot;, &quot;S.MSM.5.validation&quot;, &quot;f.mi.BS.Rec.5&quot;),
-     file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata&quot;), compress=TRUE)</code></pre>
-</div>
-<div id="redevelop-model" class="section level1">
-<h1>Redevelop model</h1>
-<pre class="r"><code>form.full.MSM.5.redev &lt;- S.MSM.5.training ~
-  SNstatus +
-  Sex +
-  Age.SN +
-  Ulceration +
-  # Loc_CAT +
-  # Histology +
-  log(Breslow) +
-  # multiple.fields +
-  # Tot_SNs_neg +
-  # Tot_SNs_pos +
-  log(Rdamcrit) +
-  # Dewar +
-  # SNstatus:Sex +
-  SNstatus:Age.SN +
-  # SNstatus:Ulceration +
-  # SNstatus:Loc_CAT +
-  # SNstatus:Histology +
-  SNstatus:log(Breslow) 
-  # SNstatus:multiple.fields
-f.mi.full.MSM.5.redev &lt;- Hmisc::fit.mult.impute(form.full.MSM.5.redev,cph,
-                                                xtrans=imputed.training.data,
-                                                data=training.data.to.be.imputed,
-                                                n.impute=m,pr=FALSE,fit.reps=TRUE,
-                                                fitargs=list(y=TRUE,x=TRUE,se.fit=TRUE))
-# summary(f.mi.full.MSM.5.redev)
-stats::anova(f.mi.full.MSM.5.redev)</code></pre>
-<pre><code>##                 Wald Statistics          Response: S.MSM.5.training 
-## 
-##  Factor                                            Chi-Square d.f. P     
-##  SNstatus  (Factor+Higher Order Factors)            98.42     3    &lt;.0001
-##   All Interactions                                  21.00     2    &lt;.0001
-##  Sex                                                18.96     1    &lt;.0001
-##  Age.SN  (Factor+Higher Order Factors)               8.68     2    0.0130
-##   All Interactions                                   6.35     1    0.0117
-##  Ulceration                                         29.19     1    &lt;.0001
-##  Breslow  (Factor+Higher Order Factors)            118.79     2    &lt;.0001
-##   All Interactions                                  16.50     1    &lt;.0001
-##  Rdamcrit                                           14.44     1    0.0001
-##  SNstatus * Age.SN  (Factor+Higher Order Factors)    6.35     1    0.0117
-##  SNstatus * Breslow  (Factor+Higher Order Factors)  16.50     1    &lt;.0001
-##  TOTAL INTERACTION                                  21.00     2    &lt;.0001
-##  TOTAL                                             453.82     8    &lt;.0001</code></pre>
-<pre class="r"><code># backward selection
-# round(stats::anova(f.mi.full.MSM.5.redev)[order(stats::anova(f.mi.full.MSM.5.redev)[, &quot;P&quot;]),], 3)
-
-# c-index
-p.MSM.5.redev&lt;- matrix(NA, nrow(training.data.to.be.imputed), m)
-f.MSM.basehaz &lt;- survival::basehaz(cph(form.full.MSM.5.redev, 
-                             data=mice::complete(imputed.training.data, 1), 
-                             se.fit=TRUE, x=TRUE, y=TRUE))
-h0.MSM.redev &lt;- f.MSM.basehaz$hazard[f.MSM.basehaz$time==max(f.MSM.basehaz$time[f.MSM.basehaz$time&lt;=horizon])]
-for (i in 1:m){
-  lp.val.i &lt;- predict(f.mi.full.MSM.5.redev,
-                      newdata=mice::complete(imputed.training.data, i),
-                      type=&quot;lp&quot;)
-  p.MSM.5.redev[, i] &lt;- 1-exp(-h0.MSM.redev*exp(lp.val.i))
-}
-PredictionTools::val.surv.mi(p.MSM.5.redev, S.MSM.training, g=5,
-                             main=&quot;All patients&quot;, time=5, lim=c(0, 1),
-                             dist=TRUE)</code></pre>
-<p><img src="data:image/png;base64,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" width="672" /></p>
-<pre><code>## $main
-## [1] &quot;All patients&quot;
-## 
-## $n
-## [1] 4071
-## 
-## $quants
-##        20%        40%        60%        80% 
-## 0.03243131 0.05254630 0.09912698 0.21349019 
-## 
-## $p.mi
-##          1          2          3          4          5 
-## 0.02329410 0.04164697 0.07301327 0.14792330 0.38615764 
-## 
-## $obs.mi
-## [1] 0.01573790 0.03697682 0.06854644 0.16683752 0.38520680
-## 
-## $obs.mi.lower
-## [1] 0.007718561 0.023846488 0.049605306 0.137086748 0.345636264
-## 
-## $obs.mi.upper
-## [1] 0.03195383 0.05712241 0.09435266 0.20225088 0.42765969
-## 
-## $int
-## [1] 0.01268791
-## 
-## $int.lower
-## [1] -0.09006291
-## 
-## $int.upper
-## [1] 0.1154387
-## 
-## $slope
-## [1] 0.999829
-## 
-## $slope.lower
-## [1] 0.9076966
-## 
-## $slope.upper
-## [1] 1.091961
-## 
-## $cindex
-## [1] 0.7992567
-## 
-## $cindex.se
-## [1] 0.0105708
-## 
-## $cindex.lower
-## [1] 0.7785383
-## 
-## $cindex.upper
-## [1] 0.8199751
-## 
-## $unoC
-## [1] 0.7927573
-## 
-## $unoC.se
-## [1] 0
-## 
-## $unoC.lower
-## [1] 0.7927573
-## 
-## $unoC.upper
-## [1] 0.7927573
-## 
-## $AUC
-## [1] 0.8171382
-## 
-## $AUC.se
-## [1] 0
-## 
-## $AUC.lower
-## [1] 0.8171382
-## 
-## $AUC.upper
-## [1] 0.8171382</code></pre>
+options(digits=8)
+save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;),
+     file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;,
+     compress=TRUE)</code></pre>
 </div>
 
 

@@ -378,26 +378,7 @@ source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quo
 <pre class="r"><code>load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
 options(datadist=&quot;dd.training&quot;)
 
-# baseline hazard of MSM
-h0.MSM.all &lt;- c()
-lp.MSM.all &lt;- c()
-for (i in 1:m){
-  lp.i&lt;-predict(f.mi.BS.Rec.5,
-                newdata=mice::complete(imputed.training.data,i), 
-                type=&quot;lp&quot;)
-  lp.MSM.all &lt;- cbind(lp.MSM.all, lp.i)
-  f.MSM.basehaz.i &lt;- basehaz(rms::cph(S.MSM.5.training~lp.i,y=TRUE,x=TRUE))
-  h0.MSM.i &lt;- f.MSM.basehaz.i$hazard[f.MSM.basehaz.i$time==max(f.MSM.basehaz.i$time[f.MSM.basehaz.i$time&lt;=horizon])]
-  h0.MSM.all &lt;- c(h0.MSM.all, h0.MSM.i)
-}
-h0.MSM &lt;- mean(h0.MSM.all)
-lp.MSM &lt;- rowMeans(lp.MSM.all)
-
-# TODO: Is this correct?
-lp.MSM.all[3,]</code></pre>
-<pre><code>##       lp.i       lp.i       lp.i       lp.i       lp.i 
-##  0.2537875 -0.2248408  0.2537875  0.2537875 -0.2248408</code></pre>
-<pre class="r"><code># lp range MSM
+# lp range MSM
 rc.MSM &lt;- MSM.cal.fact*rc.Rec
 int.MSM &lt;- MSM.cal.fact*int.Rec
 max.range &lt;- 17
@@ -482,10 +463,6 @@ grDevices::dev.off()</code></pre>
 <pre class="r"><code>coef.Rec &lt;- stats::coef(f.mi.BS.Rec.5)
 center.Rec &lt;- f.mi.BS.Rec.5$center
 
-save(rc.Rec, int.Rec, f.mi.BS.Rec.5, MSM.cal.fact, max.range,
-     file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/model.Rdata&quot;, 
-     compress=TRUE)
-
 save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;, &quot;m&quot;, 
             &quot;imputed.training.data&quot;, &quot;last.imputed.training.data.set&quot;, 
             &quot;horizon&quot;, 
@@ -498,7 +475,7 @@ save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;, &q
             &quot;form.full.MSM.5.refit&quot;, &quot;form.BS.MSM.5.refit&quot;, 
             &quot;rc.Rec&quot;, &quot;int.Rec&quot;, &quot;h0.Rec&quot;, &quot;lp.points.Rec.5&quot;,
             &quot;rc.MSM&quot;, &quot;rc.Rec&quot;, &quot;h0.MSM&quot;, &quot;lp.points.MSM.5&quot;,
-            &quot;lp.Rec&quot;, &quot;lp.MSM&quot;, &quot;max.breaks&quot;, &quot;h.Rec&quot;,
+            &quot;max.breaks&quot;, &quot;h.Rec&quot;,
             &quot;h.plot&quot;, &quot;y.lim.hist&quot;, &quot;x.lim&quot;, &quot;coef.Rec&quot;, &quot;center.Rec&quot;),
      file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;, compress=TRUE)</code></pre>
 </div>

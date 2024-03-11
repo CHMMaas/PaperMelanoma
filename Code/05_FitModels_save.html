@@ -12,7 +12,7 @@
 <meta name="author" content="Carolien C.H.M. Maas" />
 
 
-<title>Create Tables</title>
+<title>Fit models and plots</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -349,15 +349,15 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Create Tables</h1>
+<h1 class="title toc-ignore">Fit models and plots</h1>
 <h4 class="author">Carolien C.H.M. Maas</h4>
 <h4 class="date">November 2023</h4>
 
 </div>
 
 
-<div id="create-tables" class="section level2">
-<h2>Create Tables</h2>
+<div id="fit-models" class="section level2">
+<h2>Fit models</h2>
 <div id="load-packages-functions-and-data" class="section level3">
 <h3>Load packages, functions, and data</h3>
 <pre class="r"><code># erase memory
@@ -367,896 +367,740 @@ rm(list = ls(all.names = TRUE))
 set.seed(100)
 
 # load libraries
-library(foreign)
-library(mice)
-library(survminer)
-library(prodlim)
-library(rms)
 library(Hmisc)
-library(png)
-# remotes::install_github(&quot;CHMMaas/PredictionTools&quot;)
-library(PredictionTools)
-source(&quot;Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R&quot;)</code></pre>
+library(stats)
+library(rms)
+library(utils)
+library(PredictionTools)</code></pre>
 </div>
-<div id="create-variables-with-results" class="section level3">
-<h3>Create variables with results</h3>
-<div id="put-hazard-ratios-and-anova-chi-square-statistics-of-positive-and-negative-sn-patients-in-table-of-final-recurrence-model-and-refitted-msm-model" class="section level5">
-<h5>Put hazard ratio”s and anova Chi-square statistics of positive and
-negative SN patients in Table of final recurrence model and refitted MSM
-model</h5>
+</div>
+<div id="full-model-for-recurrence" class="section level1">
+<h1>Full model for recurrence</h1>
 <pre class="r"><code>load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.RData&quot;)
 options(datadist=&quot;dd.training&quot;)
 
-for (model in c(&quot;Rec.5&quot;, &quot;MSM.5.refit&quot;)){
-  # load model
-  f.mi.full &lt;- eval(parse(text=paste0(&quot;f.mi.full.&quot;, model)))
-
-  # Coefficients with CI
-  # Negative results
-  neg.results &lt;- summary(f.mi.full, SNstatus=&quot;Negative&quot;, Loc_CAT=&quot;arm&quot;)
-  neg.table &lt;- rbind(rep(NA, 3), # SN status
-                     exp(neg.results[c(&quot;Sex - male:female&quot;,
-                                       &quot;Age.SN&quot;,
-                                       &quot;Ulceration - Yes:No&quot;,
-                                       &quot;Loc_CAT - leg:arm&quot;,
-                                       &quot;Loc_CAT - trunk:arm&quot;,
-                                       &quot;Loc_CAT - head &amp; neck:arm&quot;,
-                                       &quot;Histology - NM:SSM&quot;,
-                                       &quot;Histology - ALM:SSM&quot;,
-                                       &quot;Histology - other:SSM&quot;,
-                                       &quot;Breslow&quot;,
-                                       &quot;multiple.fields - Multiple SN fields:Other&quot;,
-                                       &quot;Tot_SNs_neg&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
-                     matrix(NA, nrow=6, ncol=3)) # Tot_SNs_pos, Rdamcrit, Combined, Parenchymal, Multifocal, Extensive
-  # add CI
-  neg.table &lt;- cbind(sprintf(&quot;%.2f&quot;, neg.table[, 1]),
-                     paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, neg.table[, 2]), &quot;; &quot;, 
-                            sprintf(&quot;%.2f&quot;, neg.table[, 3]), &quot;]&quot;))
-
-  # Positive results
-  pos.results &lt;- summary(f.mi.full, SNstatus=&quot;Positive&quot;, Loc_CAT=&quot;arm&quot;, Tot_SNs_pos=c(0, 1))
-  pos.table &lt;- rbind(exp(neg.results[&quot;SNstatus - Positive:Negative&quot;, c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
-                     exp(pos.results[c(&quot;Sex - male:female&quot;,
-                                       &quot;Age.SN&quot;,
-                                       &quot;Ulceration - Yes:No&quot;,
-                                       &quot;Loc_CAT - leg:arm&quot;,
-                                       &quot;Loc_CAT - trunk:arm&quot;,
-                                       &quot;Loc_CAT - head &amp; neck:arm&quot;,
-                                       &quot;Histology - NM:SSM&quot;,
-                                       &quot;Histology - ALM:SSM&quot;,
-                                       &quot;Histology - other:SSM&quot;,
-                                       &quot;Breslow&quot;,
-                                       &quot;multiple.fields - Multiple SN fields:Other&quot;,
-                                       &quot;Tot_SNs_neg&quot;,
-                                       &quot;Tot_SNs_pos&quot;,
-                                       &quot;Rdamcrit&quot;,
-                                       &quot;Dewar - combined:subcap&quot;,
-                                       &quot;Dewar - parenchymal:subcap&quot;,
-                                       &quot;Dewar - multifocal:subcap&quot;,
-                                       &quot;Dewar - extensive:subcap&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]))
-  # add CI
-  pos.table &lt;- cbind(sprintf(&quot;%.2f&quot;, pos.table[, 1]),
-                     paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, pos.table[, 2]), &quot;; &quot;, sprintf(&quot;%.2f&quot;, pos.table[, 3]), &quot;]&quot;))
-
-  # combine postive with negative
-  full.table &lt;- cbind(neg.table, pos.table)
-
-  # add reference rows
-  final.table &lt;- rbind(full.table[1:4,],
-                       rep(NA, 4),     # location
-                       c(&quot;(ref)&quot;, NA, &quot;(ref)&quot;, NA), # ref arm
-                       full.table[5:7,],   # other locations
-                       rep(NA, 4),     # histology
-                       c(&quot;(ref)&quot;, NA, &quot;(ref)&quot;, NA), # ref SMM
-                       full.table[8:15,],
-                       rep(NA, 4),     # Dewar
-                       c(rep(NA, 2), &quot;(ref)&quot;, NA), # ref subcap
-                       full.table[16:nrow(full.table),]) # other Dewar
-
-  # add Chi-square statistics
-  anova.out &lt;- anova(f.mi.full)[, &quot;Chi-Square&quot;]
-  anova.main &lt;- c(anova.out[c(&quot;SNstatus  (Factor+Higher Order Factors)&quot;,
-                              &quot;Sex  (Factor+Higher Order Factors)&quot;,
-                              &quot;Age.SN  (Factor+Higher Order Factors)&quot;,
-                              &quot;Ulceration  (Factor+Higher Order Factors)&quot;,
-                              &quot;Loc_CAT  (Factor+Higher Order Factors)&quot;)],
-                  rep(NA, 4),
-                  anova.out[&quot;Histology  (Factor+Higher Order Factors)&quot;],
-                  rep(NA, 4),
-                  anova.out[c(&quot;Breslow  (Factor+Higher Order Factors)&quot;,
-                              &quot;multiple.fields  (Factor+Higher Order Factors)&quot;,
-                              &quot;Tot_SNs_neg&quot;,
-                              &quot;Tot_SNs_pos&quot;,
-                              &quot;Rdamcrit&quot;,
-                              &quot;Dewar&quot;)],
-                  rep(NA, 5))
-  anova.int &lt;- c(anova.out[c(&quot;TOTAL INTERACTION&quot;,
-                             &quot;SNstatus * Sex  (Factor+Higher Order Factors)&quot;,
-                             &quot;SNstatus * Age.SN  (Factor+Higher Order Factors)&quot;,
-                             &quot;SNstatus * Ulceration  (Factor+Higher Order Factors)&quot;,
-                             &quot;SNstatus * Loc_CAT  (Factor+Higher Order Factors)&quot;)],
-                 rep(NA, 4),
-                 anova.out[&quot;SNstatus * Histology  (Factor+Higher Order Factors)&quot;],
-                 rep(NA, 4),
-                 anova.out[c(&quot;SNstatus * Breslow  (Factor+Higher Order Factors)&quot;,
-                             &quot;SNstatus * multiple.fields  (Factor+Higher Order Factors)&quot;)],
-                 rep(NA, 9))
-  final.table &lt;- cbind(final.table, sprintf(&quot;%.0f&quot;, anova.main), sprintf(&quot;%.0f&quot;, anova.int))
-
-  colnames(final.table) &lt;- c(&quot;HR.neg&quot;, &quot;CI.neg&quot;, &quot;HR.pos&quot;, &quot;CI.pos&quot;, &quot;Main&quot;, &quot;Int&quot;)
-  assign(paste0(&quot;final.full.table.&quot;, model), as.data.frame(final.table))
-}</code></pre>
+form.full.Rec.5 &lt;- S.Rec.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  log(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  log(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:log(Breslow) +
+  SNstatus:multiple.fields
+f.mi.full.Rec.5 &lt;- Hmisc::fit.mult.impute(form.full.Rec.5, cph, 
+                                          xtrans=imputed.training.data,
+                                          data=training.data.to.be.imputed,
+                                          n.impute=m, pr=FALSE, fit.reps=TRUE, 
+                                          fitargs=list(y=TRUE, x=TRUE, 
+                                                       se.fit=TRUE))
+stats::anova(f.mi.full.Rec.5)</code></pre>
+<pre><code>##                 Wald Statistics          Response: S.Rec.5.training 
+## 
+##  Factor                                                    Chi-Square d.f.
+##  SNstatus  (Factor+Higher Order Factors)                    42.30     12  
+##   All Interactions                                          26.94     11  
+##  Sex  (Factor+Higher Order Factors)                          7.99      2  
+##   All Interactions                                           4.09      1  
+##  Age.SN  (Factor+Higher Order Factors)                      24.87      2  
+##   All Interactions                                           0.80      1  
+##  Ulceration  (Factor+Higher Order Factors)                  33.56      2  
+##   All Interactions                                           0.92      1  
+##  Loc_CAT  (Factor+Higher Order Factors)                     23.37      6  
+##   All Interactions                                           1.04      3  
+##  Histology  (Factor+Higher Order Factors)                   11.34      6  
+##   All Interactions                                           0.22      3  
+##  Breslow  (Factor+Higher Order Factors)                    124.05      2  
+##   All Interactions                                          13.10      1  
+##  multiple.fields  (Factor+Higher Order Factors)              9.83      2  
+##   All Interactions                                           0.03      1  
+##  Tot_SNs_neg                                                 1.96      1  
+##  Tot_SNs_pos                                                 0.04      1  
+##  Rdamcrit                                                    7.27      1  
+##  Dewar                                                       5.91      4  
+##  SNstatus * Sex  (Factor+Higher Order Factors)               4.09      1  
+##  SNstatus * Age.SN  (Factor+Higher Order Factors)            0.80      1  
+##  SNstatus * Ulceration  (Factor+Higher Order Factors)        0.92      1  
+##  SNstatus * Loc_CAT  (Factor+Higher Order Factors)           1.04      3  
+##  SNstatus * Histology  (Factor+Higher Order Factors)         0.22      3  
+##  SNstatus * Breslow  (Factor+Higher Order Factors)          13.10      1  
+##  SNstatus * multiple.fields  (Factor+Higher Order Factors)   0.03      1  
+##  TOTAL INTERACTION                                          26.94     11  
+##  TOTAL                                                     751.33     30  
+##  P     
+##  &lt;.0001
+##  0.0047
+##  0.0184
+##  0.0432
+##  &lt;.0001
+##  0.3718
+##  &lt;.0001
+##  0.3379
+##  0.0007
+##  0.7925
+##  0.0785
+##  0.9735
+##  &lt;.0001
+##  0.0003
+##  0.0073
+##  0.8610
+##  0.1612
+##  0.8462
+##  0.0070
+##  0.2057
+##  0.0432
+##  0.3718
+##  0.3379
+##  0.7925
+##  0.9735
+##  0.0003
+##  0.8610
+##  0.0047
+##  &lt;.0001</code></pre>
+<pre class="r"><code>summary(f.mi.full.Rec.5, Tot_SNs_pos=c(0, 1))</code></pre>
+<pre><code>##              Effects              Response : S.Rec.5.training 
+## 
+##  Factor                                     Low   High Diff. Effect    S.E.    
+##  Age.SN                                     43.00 66.0 23.00  0.239730 0.074985
+##   Hazard Ratio                              43.00 66.0 23.00  1.270900       NA
+##  Breslow                                     1.20  3.5  2.30  0.828950 0.078947
+##   Hazard Ratio                               1.20  3.5  2.30  2.290900       NA
+##  Tot_SNs_neg                                 1.00  2.0  1.00 -0.039295 0.028047
+##   Hazard Ratio                               1.00  2.0  1.00  0.961470       NA
+##  Tot_SNs_pos                                 0.00  1.0  1.00 -0.017461 0.090039
+##   Hazard Ratio                               0.00  1.0  1.00  0.982690       NA
+##  Rdamcrit                                    0.01 38.0 37.99  1.293800 0.479740
+##   Hazard Ratio                               0.01 38.0 37.99  3.646400       NA
+##  SNstatus - Positive:Negative                1.00  2.0    NA  1.095200 0.248880
+##   Hazard Ratio                               1.00  2.0    NA  2.989800       NA
+##  Sex - male:female                           1.00  2.0    NA  0.277600 0.098421
+##   Hazard Ratio                               1.00  2.0    NA  1.320000       NA
+##  Ulceration - Yes:No                         1.00  2.0    NA  0.501180 0.100660
+##   Hazard Ratio                               1.00  2.0    NA  1.650700       NA
+##  Loc_CAT - arm:trunk                         3.00  1.0    NA -0.283670 0.146900
+##   Hazard Ratio                               3.00  1.0    NA  0.753010       NA
+##  Loc_CAT - leg:trunk                         3.00  2.0    NA -0.074300 0.120410
+##   Hazard Ratio                               3.00  2.0    NA  0.928390       NA
+##  Loc_CAT - head &amp; neck:trunk                 3.00  4.0    NA  0.497680 0.155820
+##   Hazard Ratio                               3.00  4.0    NA  1.644900       NA
+##  Histology - NM:SSM                          1.00  2.0    NA  0.214620 0.119440
+##   Hazard Ratio                               1.00  2.0    NA  1.239400       NA
+##  Histology - ALM:SSM                         1.00  3.0    NA  0.528580 0.248380
+##   Hazard Ratio                               1.00  3.0    NA  1.696500       NA
+##  Histology - other:SSM                       1.00  4.0    NA -0.082643 0.214000
+##   Hazard Ratio                               1.00  4.0    NA  0.920680       NA
+##  multiple.fields - Multiple SN fields:Other  1.00  2.0    NA  0.385350 0.160400
+##   Hazard Ratio                               1.00  2.0    NA  1.470100       NA
+##  Dewar - combined:subcap                     1.00  2.0    NA  0.322700 0.211150
+##   Hazard Ratio                               1.00  2.0    NA  1.380900       NA
+##  Dewar - parenchymal:subcap                  1.00  3.0    NA  0.072871 0.244070
+##   Hazard Ratio                               1.00  3.0    NA  1.075600       NA
+##  Dewar - multifocal:subcap                   1.00  4.0    NA -0.248450 0.342530
+##   Hazard Ratio                               1.00  4.0    NA  0.780010       NA
+##  Dewar - extensive:subcap                    1.00  5.0    NA  0.257540 0.286940
+##   Hazard Ratio                               1.00  5.0    NA  1.293700       NA
+##  Lower 0.95 Upper 0.95
+##   0.092767  0.3867000 
+##   1.097200  1.4721000 
+##   0.674210  0.9836800 
+##   1.962500  2.6743000 
+##  -0.094267  0.0156770 
+##   0.910040  1.0158000 
+##  -0.193930  0.1590100 
+##   0.823710  1.1724000 
+##   0.353490  2.2340000 
+##   1.424000  9.3373000 
+##   0.607410  1.5830000 
+##   1.835700  4.8695000 
+##   0.084703  0.4705100 
+##   1.088400  1.6008000 
+##   0.303880  0.6984800 
+##   1.355100  2.0107000 
+##  -0.571590  0.0042486 
+##   0.564630  1.0043000 
+##  -0.310300  0.1617000 
+##   0.733220  1.1755000 
+##   0.192280  0.8030800 
+##   1.212000  2.2324000 
+##  -0.019488  0.4487200 
+##   0.980700  1.5663000 
+##   0.041774  1.0154000 
+##   1.042700  2.7604000 
+##  -0.502080  0.3368000 
+##   0.605270  1.4005000 
+##   0.070972  0.6997300 
+##   1.073600  2.0132000 
+##  -0.091135  0.7365400 
+##   0.912890  2.0887000 
+##  -0.405500  0.5512400 
+##   0.666640  1.7354000 
+##  -0.919800  0.4229000 
+##   0.398600  1.5264000 
+##  -0.304840  0.8199300 
+##   0.737240  2.2703000 
+## 
+## Adjusted to: SNstatus=Negative Sex=female Age.SN=55 Ulceration=No Loc_CAT=trunk Histology=SSM Breslow=2 multiple.fields=Other</code></pre>
 </div>
-<div id="put-hazard-ratios-and-anova-chi-square-statistics-of-positive-and-negative-sn-patients-in-table-of-final-recurrence-model-and-refitted-msm-model-1" class="section level5">
-<h5>Put hazard ratio”s and anova Chi-square statistics of positive and
-negative SN patients in Table of final recurrence model and refitted MSM
-model</h5>
-<pre class="r"><code>for (model in c(&quot;Rec.5&quot;, &quot;MSM.5.refit&quot;)){
-  f.mi.BS &lt;- eval(parse(text=paste0(&quot;f.mi.BS.&quot;, model)))
-
-  # Coefficients with CI
-  # Negative results
-  neg.results.BS &lt;- summary(f.mi.BS, SNstatus=&quot;Negative&quot;, Breslow=exp(c.Breslow), Loc_CAT=&quot;arm&quot;)
-  pos.results.BS &lt;- summary(f.mi.BS, SNstatus=&quot;Positive&quot;, Breslow=exp(c.Breslow), Loc_CAT=&quot;arm&quot;)
-  table.BS &lt;- rbind(exp(neg.results.BS[&quot;SNstatus - Positive:Negative&quot;, c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
-                    exp(neg.results.BS[c(&quot;Age.SN&quot;,
-                                             &quot;Ulceration - Yes:No&quot;,
-                                             &quot;Loc_CAT - leg:arm&quot;,
-                                             &quot;Loc_CAT - trunk:arm&quot;,
-                                             &quot;Loc_CAT - head &amp; neck:arm&quot;,
-                                             &quot;Breslow&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]),
-                    exp(pos.results.BS[c(&quot;Breslow&quot;,
-                                         &quot;Rdamcrit&quot;), c(&quot;Effect&quot;, &quot;Lower 0.95&quot;, &quot;Upper 0.95&quot;)]))
-  # add CI
-  BS.table &lt;- cbind(sprintf(&quot;%.2f&quot;, table.BS[, 1]),
-                        paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, table.BS[, 2]), &quot;; &quot;, 
-                               sprintf(&quot;%.2f&quot;, table.BS[, 3]), &quot;]&quot;))
-
-  # add reference rows
-  BS.table &lt;- rbind(rep(NA, 2),             # SN status title
-                    c(&quot;(ref)&quot;, NA),         # Negative SN status
-                    BS.table[1:3,],         # Positive SN status, Age, Ulceration
-                    rep(NA, 2),             # Location title
-                    c(&quot;(ref)&quot;, NA),         # Upper limb ref
-                    BS.table[4:6,],         # Lower limb, tunk, head&amp;neck
-                    rep(NA, 2),             # Breslow title
-                    BS.table[7:9,])         # Breslow negative and positive, tumour burden
-
-  # add Chi-square statistics
-  anova.out &lt;- anova(f.mi.BS)[, &quot;Chi-Square&quot;]
-  anova.main &lt;- c(anova.out[c(&quot;SNstatus  (Factor+Higher Order Factors)&quot;)], # SN status
-                  NA,               # negative SN
-                  NA,               # positive SN
-                  anova.out[c(&quot;Age.SN&quot;,     # Age
-                              &quot;Ulceration&quot;, # Ulceration
-                              &quot;Loc_CAT&quot;)],  # Location
-                  NA,               # upper limb
-                  NA,               # lower limb
-                  NA,               # trunk
-                  NA,               # head &amp; neck
-                  NA,               # Breslow title
-                  anova.out[c(&quot;Breslow  (Factor+Higher Order Factors)&quot;)], # Breslow negative
-                  anova.out[&quot;SNstatus * Breslow  (Factor+Higher Order Factors)&quot;], # Breslow positive
-                  anova.out[c(&quot;Rdamcrit&quot;)])
-  BS.table &lt;- cbind(BS.table, sprintf(&quot;%.0f&quot;, anova.main))
-
-  colnames(BS.table) &lt;- c(&quot;HR&quot;, &quot;CI&quot;, &quot;Imp.&quot;)
-  assign(paste0(&quot;final.BS.table.&quot;, model), as.data.frame(BS.table))
-}</code></pre>
-</div>
-</div>
-</div>
-<div id="calculate-optimism-using-bootstrap-using-full-model-and-doing-backward-selection-for-each-bootstrap" class="section level1">
-<h1>Calculate optimism using bootstrap using full model and doing
-backward selection for each bootstrap</h1>
-<pre><code>## 
-##      Backwards Step-down - Original Model
-## 
-##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
-##  Tot_SNs_pos                0.00   1    0.9618  0.00     1   0.9618  -2.00
-##  SNstatus * multiple.fields 0.04   1    0.8415  0.04     2   0.9791  -3.96
-##  SNstatus * Loc_CAT         1.82   3    0.6102  1.86     5   0.8676  -8.14
-##  SNstatus * Histology       1.76   3    0.6242  3.62     8   0.8895 -12.38
-##  SNstatus * Ulceration      0.79   1    0.3740  4.41     9   0.8823 -13.59
-##  SNstatus * Age.SN          0.99   1    0.3202  5.40    10   0.8629 -14.60
-##  Dewar                      5.51   4    0.2392 10.91    14   0.6934 -17.09
-##  Tot_SNs_neg                1.84   1    0.1746 12.75    15   0.6216 -17.25
-## 
-## Approximate Estimates after Deleting Factors
-## 
-##                                         Coef    S.E.   Wald Z         P
-## SNstatus=Positive                   1.529531 0.15953  9.58782 0.000e+00
-## Sex=male                            0.267657 0.09500  2.81731 4.843e-03
-## Age.SN                              0.012947 0.00244  5.30608 1.120e-07
-## Ulceration=Yes                      0.443019 0.07508  5.90026 3.629e-09
-## Loc_CAT=leg                         0.148263 0.12340  1.20148 2.296e-01
-## Loc_CAT=trunk                       0.221867 0.11814  1.87804 6.038e-02
-## Loc_CAT=head &amp; neck                 0.635484 0.14968  4.24569 2.179e-05
-## Histology=NM                        0.232084 0.08106  2.86297 4.197e-03
-## Histology=ALM                       0.559093 0.16544  3.37946 7.263e-04
-## Histology=other                     0.005583 0.18074  0.03089 9.754e-01
-## Breslow                             0.781891 0.06283 12.44444 0.000e+00
-## multiple.fields=Multiple SN fields  0.316722 0.10778  2.93846 3.298e-03
-## Rdamcrit                            0.175585 0.03953  4.44231 8.900e-06
-## SNstatus=Positive * Sex=male       -0.328428 0.14000 -2.34592 1.898e-02
-## SNstatus=Positive * Breslow        -0.398687 0.09555 -4.17250 3.013e-05
-## 
-## Factors in Final Model
-## 
-##  [1] SNstatus           Sex                Age.SN             Ulceration        
-##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
-##  [9] Rdamcrit           SNstatus * Sex     SNstatus * Breslow
-## 
-##      Backwards Step-down - Original Model
-## 
-##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
-##  SNstatus * Histology       0.26   3    0.9674 0.26      3   0.9674  -5.74
-##  SNstatus * multiple.fields 0.00   1    0.9626 0.26      4   0.9921  -7.74
-##  SNstatus * Loc_CAT         0.76   3    0.8580 1.03      7   0.9944 -12.97
-##  Tot_SNs_pos                0.05   1    0.8184 1.08      8   0.9977 -14.92
-##  SNstatus * Ulceration      0.78   1    0.3761 1.86      9   0.9935 -16.14
-##  SNstatus * Age.SN          0.92   1    0.3376 2.78     10   0.9861 -17.22
-##  Dewar                      5.15   4    0.2722 7.93     14   0.8928 -20.07
-##  Tot_SNs_neg                1.79   1    0.1807 9.72     15   0.8367 -20.28
-## 
-## Approximate Estimates after Deleting Factors
-## 
-##                                        Coef     S.E.  Wald Z         P
-## SNstatus=Positive                   1.51629 0.158652  9.5574 0.000e+00
-## Sex=male                            0.27078 0.095249  2.8429 4.470e-03
-## Age.SN                              0.01297 0.002442  5.3123 1.082e-07
-## Ulceration=Yes                      0.45092 0.075341  5.9850 2.164e-09
-## Loc_CAT=leg                         0.17833 0.124928  1.4275 1.534e-01
-## Loc_CAT=trunk                       0.23881 0.120085  1.9887 4.674e-02
-## Loc_CAT=head &amp; neck                 0.66782 0.150829  4.4277 9.525e-06
-## Histology=NM                        0.22210 0.080772  2.7497 5.965e-03
-## Histology=ALM                       0.44619 0.172923  2.5803 9.872e-03
-## Histology=other                    -0.13239 0.190341 -0.6955 4.867e-01
-## Breslow                             0.75216 0.062356 12.0623 0.000e+00
-## multiple.fields=Multiple SN fields  0.31282 0.107451  2.9113 3.599e-03
-## Rdamcrit                            0.20480 0.040081  5.1096 3.228e-07
-## SNstatus=Positive * Sex=male       -0.30391 0.140029 -2.1704 2.998e-02
-## SNstatus=Positive * Breslow        -0.39049 0.095921 -4.0709 4.682e-05
-## 
-## Factors in Final Model
-## 
-##  [1] SNstatus           Sex                Age.SN             Ulceration        
-##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
-##  [9] Rdamcrit           SNstatus * Sex     SNstatus * Breslow
-## 
-##      Backwards Step-down - Original Model
-## 
-##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
-##  SNstatus * Histology       0.37   3    0.9470 0.37      3   0.9470  -5.63
-##  SNstatus * multiple.fields 0.19   1    0.6635 0.56      4   0.9678  -7.44
-##  SNstatus * Loc_CAT         1.84   3    0.6068 2.39      7   0.9349 -11.61
-##  SNstatus * Age.SN          0.42   1    0.5154 2.82      8   0.9453 -13.18
-##  Tot_SNs_pos                0.51   1    0.4762 3.32      9   0.9500 -14.68
-##  SNstatus * Ulceration      0.90   1    0.3436 4.22     10   0.9368 -15.78
-##  Tot_SNs_neg                1.90   1    0.1685 6.12     11   0.8654 -15.88
-## 
-## Approximate Estimates after Deleting Factors
-## 
-##                                        Coef     S.E.  Wald Z         P
-## SNstatus=Positive                   1.23095 0.201794  6.1000 1.060e-09
-## Sex=male                            0.28025 0.095274  2.9415 3.266e-03
-## Age.SN                              0.01209 0.002456  4.9206 8.628e-07
-## Ulceration=Yes                      0.44315 0.075340  5.8820 4.053e-09
-## Loc_CAT=leg                         0.11246 0.124429  0.9038 3.661e-01
-## Loc_CAT=trunk                       0.15620 0.118293  1.3205 1.867e-01
-## Loc_CAT=head &amp; neck                 0.61098 0.147497  4.1423 3.438e-05
-## Histology=NM                        0.18319 0.080515  2.2752 2.289e-02
-## Histology=ALM                       0.41447 0.174131  2.3802 1.730e-02
-## Histology=other                    -0.06141 0.183328 -0.3350 7.376e-01
-## Breslow                             0.78523 0.063225 12.4196 0.000e+00
-## multiple.fields=Multiple SN fields  0.28559 0.107991  2.6446 8.178e-03
-## Rdamcrit                            0.15148 0.055889  2.7104 6.719e-03
-## Dewar=combined                      0.46388 0.171048  2.7120 6.688e-03
-## Dewar=parenchymal                   0.27139 0.206077  1.3170 1.879e-01
-## Dewar=multifocal                   -0.14393 0.278258 -0.5173 6.050e-01
-## Dewar=extensive                     0.47676 0.227821  2.0927 3.637e-02
-## SNstatus=Positive * Sex=male       -0.30996 0.140168 -2.2114 2.701e-02
-## SNstatus=Positive * Breslow        -0.41513 0.096604 -4.2973 1.729e-05
-## 
-## Factors in Final Model
-## 
-##  [1] SNstatus           Sex                Age.SN             Ulceration        
-##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
-##  [9] Rdamcrit           Dewar              SNstatus * Sex     SNstatus * Breslow
-## 
-##      Backwards Step-down - Original Model
-## 
-##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
-##  Tot_SNs_pos                0.00   1    0.9986  0.00     1   0.9986  -2.00
-##  SNstatus * multiple.fields 0.00   1    0.9894  0.00     2   0.9999  -4.00
-##  SNstatus * Loc_CAT         0.73   3    0.8657  0.73     5   0.9812  -9.27
-##  SNstatus * Histology       1.06   3    0.7875  1.79     8   0.9868 -14.21
-##  SNstatus * Ulceration      1.29   1    0.2565  3.08     9   0.9612 -14.92
-##  SNstatus * Age.SN          1.42   1    0.2333  4.50    10   0.9221 -15.50
-##  Tot_SNs_neg                2.10   1    0.1469  6.60    11   0.8303 -15.40
-##  Dewar                      9.14   4    0.0578 15.74    15   0.3997 -14.26
-## 
-## Approximate Estimates after Deleting Factors
-## 
-##                                         Coef     S.E.   Wald Z         P
-## SNstatus=Positive                   1.574775 0.159113  9.89722 0.000e+00
-## Sex=male                            0.264617 0.094980  2.78602 5.336e-03
-## Age.SN                              0.012938 0.002444  5.29287 1.204e-07
-## Ulceration=Yes                      0.435667 0.075093  5.80173 6.563e-09
-## Loc_CAT=leg                         0.173056 0.123687  1.39915 1.618e-01
-## Loc_CAT=trunk                       0.239087 0.118921  2.01047 4.438e-02
-## Loc_CAT=head &amp; neck                 0.695644 0.151198  4.60087 4.207e-06
-## Histology=NM                        0.223285 0.081213  2.74936 5.971e-03
-## Histology=ALM                       0.511766 0.172277  2.97060 2.972e-03
-## Histology=other                    -0.001959 0.178200 -0.01099 9.912e-01
-## Breslow                             0.793893 0.063086 12.58435 0.000e+00
-## multiple.fields=Multiple SN fields  0.304386 0.107889  2.82130 4.783e-03
-## Rdamcrit                            0.198981 0.040500  4.91305 8.967e-07
-## SNstatus=Positive * Sex=male       -0.340782 0.139780 -2.43798 1.477e-02
-## SNstatus=Positive * Breslow        -0.415653 0.095689 -4.34380 1.400e-05
-## 
-## Factors in Final Model
-## 
-##  [1] SNstatus           Sex                Age.SN             Ulceration        
-##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
-##  [9] Rdamcrit           SNstatus * Sex     SNstatus * Breslow
-## 
-##      Backwards Step-down - Original Model
-## 
-##  Deleted                    Chi-Sq d.f. P      Residual d.f. P      AIC   
-##  SNstatus * Histology       0.11   3    0.9904  0.11     3   0.9904  -5.89
-##  SNstatus * multiple.fields 0.01   1    0.9097  0.12     4   0.9981  -7.88
-##  Tot_SNs_pos                0.02   1    0.8977  0.14     5   0.9996  -9.86
-##  SNstatus * Loc_CAT         1.65   3    0.6476  1.79     8   0.9867 -14.21
-##  SNstatus * Age.SN          0.99   1    0.3204  2.78     9   0.9724 -15.22
-##  SNstatus * Ulceration      0.99   1    0.3191  3.77    10   0.9570 -16.23
-##  Dewar                      6.13   4    0.1898  9.90    14   0.7694 -18.10
-##  Tot_SNs_neg                2.33   1    0.1270 12.23    15   0.6616 -17.77
-## 
-## Approximate Estimates after Deleting Factors
-## 
-##                                        Coef     S.E.  Wald Z         P
-## SNstatus=Positive                   1.57071 0.159158  9.8689 0.000e+00
-## Sex=male                            0.27662 0.095078  2.9094 3.621e-03
-## Age.SN                              0.01261 0.002443  5.1606 2.461e-07
-## Ulceration=Yes                      0.44371 0.075329  5.8904 3.854e-09
-## Loc_CAT=leg                         0.09742 0.122753  0.7936 4.274e-01
-## Loc_CAT=trunk                       0.17891 0.116930  1.5300 1.260e-01
-## Loc_CAT=head &amp; neck                 0.66902 0.149354  4.4795 7.483e-06
-## Histology=NM                        0.25980 0.080710  3.2189 1.287e-03
-## Histology=ALM                       0.52923 0.169842  3.1160 1.833e-03
-## Histology=other                    -0.06774 0.183205 -0.3697 7.116e-01
-## Breslow                             0.75729 0.063697 11.8890 0.000e+00
-## multiple.fields=Multiple SN fields  0.32348 0.107683  3.0040 2.664e-03
-## Rdamcrit                            0.22596 0.041143  5.4921 3.972e-08
-## SNstatus=Positive * Sex=male       -0.34884 0.139917 -2.4932 1.266e-02
-## SNstatus=Positive * Breslow        -0.41111 0.096106 -4.2777 1.889e-05
-## 
-## Factors in Final Model
-## 
-##  [1] SNstatus           Sex                Age.SN             Ulceration        
-##  [5] Loc_CAT            Histology          Breslow            multiple.fields   
-##  [9] Rdamcrit           SNstatus * Sex     SNstatus * Breslow</code></pre>
-</div>
-<div id="show-optimism" class="section level1">
-<h1>Show optimism</h1>
-<pre class="r"><code>mean(cindex.orig)</code></pre>
-<pre><code>## [1] 0.7697279</code></pre>
-<pre class="r"><code>optimism &lt;- mean(opt)
-optimism</code></pre>
-<pre><code>## [1] 0.006063667</code></pre>
-<pre class="r"><code>mean(cindex.B)</code></pre>
-<pre><code>## [1] 0.7636642</code></pre>
-<pre class="r"><code>mean(cindex.orig)-optimism</code></pre>
-<pre><code>## [1] 0.7636642</code></pre>
-</div>
-<div id="add-c-index-to-model-for-recurrence-and-msm-refit-table" class="section level1">
-<h1>Add C-index to model for Recurrence and MSM refit Table</h1>
-<pre class="r"><code>for (model in list(&quot;Rec.5&quot;, &quot;MSM.5.refit&quot;)){
-  if (model == &quot;Rec.5&quot;){
-    # plot predict
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Rec.png&quot;),
-        width=1800, height=1800, units=&quot;px&quot;, res=300)
-    plot.predict &lt;- plot(Predict(f.mi.full.Rec.5))
-    show(plot.predict)
-    grDevices::dev.off()
-
-    # plot predict Breslow
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/plot.predict.Breslow.Rec.png&quot;),
-        width=1800, height=1800, units=&quot;px&quot;, res=300)
-    plot.Breslow &lt;- plot(Predict(f.mi.full.Rec.5, Breslow=0:20, SNstatus), ~ Breslow, groups=&quot;SNstatus&quot;,
-                         adj.subtitle=FALSE, lwd=2, labels=FALSE,
-                         par.settings=list(superpose.line=list(lty=c(1, 2), 
-                                                               col=c(&quot;red&quot;, &quot;blue&quot;))),
-                         key=list(cex=.8,corner = c(0.1, .9),
-                                  lines=list(col=c(&quot;red&quot;,&quot;blue&quot;), 
-                                             lty=c(1,2), lwd=2),
-                                  text=list(c(&quot;Negative&quot;,&quot;Positive&quot;))))
-    show(plot.Breslow)
-    grDevices::dev.off()
-  }
-
-  # discrimination full and backward selected model
-  for (type in c(&quot;full&quot;, &quot;BS&quot;)){
-    # load model
-    f.mi &lt;- eval(parse(text=paste0(&quot;f.mi.&quot;, type, &quot;.&quot;, model)))
-    form.mi &lt;- eval(parse(text=paste0(&quot;form.&quot;, type, &quot;.&quot;, model)))
-    
-    # obtain predictions for each imputed data set
-    p &lt;- matrix(NA, nrow(training.data.to.be.imputed), m)
-    for (i in 1:m){
-      # baseline hazard
-      # f.Rec.basehaz.i &lt;- basehaz(f.mi, TRUE)
-      f.Rec.basehaz.i &lt;- survival::basehaz(cph(form.mi, 
-                                               data=mice::complete(imputed.training.data, i), 
-                                               se.fit=TRUE, x=TRUE, y=TRUE))
-      h0.Rec.i &lt;- f.Rec.basehaz.i$hazard[f.Rec.basehaz.i$time==max(f.Rec.basehaz.i$time[f.Rec.basehaz.i$time&lt;=horizon])]
-      
-      # probabilities
-      lp.i &lt;- predict(f.mi,newdata=mice::complete(imputed.training.data, i), type=&quot;lp&quot;)
-      p.i &lt;- fun.event(lp=lp.i, h0=h0.Rec.i)
-      p[, i] &lt;- p.i
-    }
-    
-    # load outcome
-    if (model==&quot;Rec.5&quot;){
-      S &lt;- S.Rec.training
-    }
-    else if (model==&quot;MSM.5.refit&quot;){
-      S &lt;- S.MSM.training
-    }
-    
-    png(file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/Figures/all.centers.&quot;, model, &quot;.&quot;, type, &quot;.png&quot;),
-        width=1800, height=1800, units=&quot;px&quot;, res=300)
-    out &lt;- PredictionTools::val.surv.mi(p=p, y=S, g=5, time=5,
-                                        main=&quot;All centers&quot;, CI.metrics=TRUE,
-                                        lim=c(0,1), dist=TRUE, n.iter=40)
-    grDevices::dev.off()
-    
-    final.full.table &lt;- eval(parse(text=paste0(&quot;final.&quot;, type, &quot;.table.&quot;, model)))
-    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$cindex)
-    final.full.table[&quot;Harrell&#39;s C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$cindex.lower),
-                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$cindex.upper), &quot;]&quot;)
-    final.full.table[&quot;Harrell&#39;s optimism-corrected C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$cindex-optimism)
-    final.full.table[&quot;Harrell&#39;s optimism-corrected C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$cindex.lower-optimism),
-                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$cindex.upper-optimism), &quot;]&quot;)
-    final.full.table[&quot;Uno&#39;s C-index&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$unoC)
-    final.full.table[&quot;Uno&#39;s C-index&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$unoC.lower),
-                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$unoC.upper), &quot;]&quot;)
-    final.full.table[&quot;AUC&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, out$AUC)
-    final.full.table[&quot;AUC&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$AUC.lower),
-                                                   &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$AUC.upper), &quot;]&quot;)
-    
-    assign(paste0(&quot;final.&quot;, type, &quot;.table.&quot;, model), final.full.table)
-    
-    if (type==&quot;BS&quot;&amp;model==&quot;Rec.5&quot;){
-      CIndex.BS.Rec.5.All &lt;- c(sprintf(&quot;%.2f&quot;, out$cindex-optimism), 
-                              paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, out$cindex.lower-optimism), 
-                                     &quot;; &quot;, sprintf(&quot;%.2f&quot;, out$cindex.upper-optimism), &quot;]&quot;))
-    }
-  }
-}</code></pre>
-</div>
-<div id="add-the-c-index-for-calibrated-msm-model-to-table-for-recurrence" class="section level1">
-<h1>Add the C-index for calibrated MSM model to Table for
-recurrence</h1>
-<pre class="r"><code>for (type in c(&quot;full&quot;, &quot;BS&quot;)){
-  f.mi &lt;- eval(parse(text=paste0(&quot;f.mi.&quot;, type, &quot;.Rec.5&quot;)))
-  cindex.MSM &lt;- rep(0, m)
-  cindex.se.MSM &lt;- rep(0, m)
-  unoC.MSM &lt;- rep(0, m)
-  AUC.MSM &lt;- rep(0, m)
-  for (i in 1:m){
-    lp.i &lt;- predict(f.mi, newdata=mice::complete(imputed.training.data,i), type=&quot;lp&quot;)
-    
-    # Harrell&#39;s C-index
-    rc &lt;- Hmisc::rcorr.cens(-lp.i, 
-                            S.MSM.5.training)
-    cindex.MSM[i] &lt;- rc[&quot;C Index&quot;]
-    cindex.se.MSM[i] &lt;- rc[&quot;S.D.&quot;]/2
-    
-    # Uno&#39;s C-index
-    Uno.data &lt;- cbind(S.MSM.5.training[, 1], S.MSM.5.training[, 2], lp.i)
-    unoC.MSM[i] &lt;- survC1::Est.Cval(mydata=Uno.data, 
-                                    tau=horizon, nofit=TRUE)$Dhat
-    if (i == 1){
-      unoC.boot &lt;- c()
-      nr.iter &lt;- 40
-      for (itr in 1:nr.iter){
-        boot &lt;- Uno.data[sample(1:nrow(Uno.data), nrow(Uno.data), replace=TRUE),]
-        unoC &lt;- survC1::Est.Cval(mydata=boot,
-                                  tau=horizon,
-                                  nofit=TRUE)$Dhat
-        unoC.boot &lt;- c(unoC.boot, unoC)
-      }
-      unoC.MSM.se &lt;- PredictionTools::Rubin.combine(mean(unoC.boot), sd(unoC.boot))$se
-    }
-    
-    # time-dependent ROC
-    AUC.MSM.i &lt;- timeROC::timeROC(T=S.MSM.training[, 1],
-                                   delta=S.MSM.training[, 2],
-                                   marker=lp.i,
-                                   times=horizon,
-                                   cause=1, 
-                                   iid=FALSE)
-    
-    # time-dependent ROC SE
-    if (i == 1){
-      AUC.MSM.i &lt;- timeROC::timeROC(T=S.MSM.training[, 1],
-                                   delta=S.MSM.training[, 2],
-                                   marker=lp.i,
-                                   times=horizon,
-                                   cause=1, 
-                                   iid=TRUE)
-      AUC.MSM.CI &lt;- stats::confint(AUC.MSM.i)
-      AUC.MSM.se &lt;- as.numeric((as.numeric(AUC.MSM.CI$CI_AUC[2])/100-as.numeric(AUC.MSM.i$AUC[2]))/AUC.MSM.CI$C.alpha)
-    }
-    AUC.MSM[i] &lt;- as.numeric(AUC.MSM.i$AUC[2])
-  }
-  cindex.mi.MSM &lt;- Rubin.combine(cindex.MSM, cindex.se.MSM)
-  
-  final.full.table &lt;- eval(parse(text=paste0(&quot;final.&quot;, type, &quot;.table.Rec.5&quot;)))
-  final.full.table[&quot;Harrell&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est)
-  final.full.table[&quot;Harrell&#39;s C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, 
-    sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est+qnorm(.025)*cindex.mi.MSM$se),
-    &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est+qnorm(.975)*cindex.mi.MSM$se), &quot;]&quot;)
-  final.full.table[&quot;Harrell&#39;s optimism-corrected C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est-optimism)
-  final.full.table[&quot;Harrell&#39;s optimism-corrected C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, 
-    sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est+qnorm(.025)*cindex.mi.MSM$se-optimism),
-    &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.MSM$est+qnorm(.975)*cindex.mi.MSM$se-optimism), &quot;]&quot;)
-  final.full.table[&quot;Uno&#39;s C-index MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, mean(unoC.MSM))
-  final.full.table[&quot;Uno&#39;s C-index MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, 
-    sprintf(&quot;%.2f&quot;, mean(unoC.MSM)+qnorm(.025)*unoC.MSM.se),
-    &quot;; &quot;, sprintf(&quot;%.2f&quot;, mean(unoC.MSM)+qnorm(.975)*unoC.MSM.se), &quot;]&quot;)
-  final.full.table[&quot;AUC MSM&quot;, &quot;HR&quot;] &lt;- sprintf(&quot;%.2f&quot;, mean(AUC.MSM))
-  final.full.table[&quot;AUC MSM&quot;, &quot;CI&quot;] &lt;- paste0(&quot;[&quot;, 
-    sprintf(&quot;%.2f&quot;, mean(AUC.MSM)+qnorm(.025)*AUC.MSM.se),
-    &quot;; &quot;, sprintf(&quot;%.2f&quot;, mean(AUC.MSM)+qnorm(.975)*AUC.MSM.se), &quot;]&quot;)
-  
-  assign(paste0(&quot;final.&quot;, type, &quot;.table.Rec.5&quot;), final.full.table)
-}</code></pre>
-</div>
-<div id="save-dataframes-of-result-tables" class="section level1">
-<h1>Save dataframes of result Tables</h1>
-<pre class="r"><code># replace NA by blank
-for (df in c(&quot;final.full.table.Rec.5&quot;, &quot;final.full.table.MSM.5.refit&quot;, 
-             &quot;final.BS.table.Rec.5&quot;, &quot;final.BS.table.MSM.5.refit&quot;)){
-  final.df &lt;- eval(parse(text=df))
-  final.df[final.df==&quot;[NA; NA]&quot;] &lt;- NA
-  final.df[final.df==&quot;NA&quot;] &lt;- NA
-  final.df[is.na(final.df)] &lt;- &quot;&quot;
-  assign(df, final.df)
+<div id="final-model-for-recurrence-selected-by-backward-selection-with-p-0.01" class="section level1">
+<h1>Final model for recurrence selected by backward selection with p =
+0.01</h1>
+<pre class="r"><code># center Breslow by using all imputated data sets
+c.Breslow.all &lt;- c()
+for (i in 1:m){
+  c.Breslow.all &lt;- c(c.Breslow.all, 
+                     mean(log(mice::complete(imputed.training.data, i)$Breslow)))
 }
+c.Breslow &lt;- mean(c.Breslow.all)
 
-# set rownames
-final.full.table.Rec.5 &lt;- as.data.frame(final.full.table.Rec.5)
-row.names(final.full.table.Rec.5) &lt;- c(&quot;Positive SN status&quot;, &quot;Male&quot;,
-                                    &quot;Age iqr&quot;, &quot;Ulceration&quot;, &quot;Location&quot;,
-                                    &quot;Arm&quot;, &quot;Leg&quot;, &quot;Trunk&quot;, &quot;Head and neck&quot;,
-                                    &quot;Histology&quot;, &quot;SSM&quot;, &quot;NM&quot;, &quot;ALM&quot;, &quot;Other&quot;,
-                                    &quot;Breslow iqr&quot;, &quot;Multiple fields&quot;, 
-                                    &quot;Total number of negative nodes&quot;,
-                                    &quot;Total number of positive nodes&quot;,
-                                    &quot;SN tumour burden iqr&quot;, 
-                                    &quot;Location metastasis in lymph node&quot;,
-                                    &quot;Subcap&quot;, &quot;Combined&quot;, &quot;Parenchymal&quot;,
-                                    &quot;Multifocal&quot;, &quot;Extensive&quot;,
-                                    rownames(final.full.table.Rec.5)[(nrow(final.full.table.Rec.5)-7):nrow(final.full.table.Rec.5)])
-final.full.table.MSM.5.refit &lt;- as.data.frame(final.full.table.MSM.5.refit)
-row.names(final.full.table.MSM.5.refit) &lt;- c(&quot;Positive SN status&quot;, &quot;Male&quot;,
-                                          &quot;Age&quot;, &quot;Ulceration&quot;, &quot;Location&quot;,
-                                          &quot;Arm&quot;, &quot;Leg&quot;, &quot;Trunk&quot;, &quot;Head and neck&quot;,
-                                          &quot;Histology&quot;, &quot;SSM&quot;, &quot;NM&quot;, &quot;ALM&quot;, &quot;Other&quot;,
-                                          &quot;Breslow&quot;, &quot;Multiple fields&quot;, 
-                                          &quot;Total number of negative nodes&quot;,
-                                          &quot;Total number of positive nodes&quot;,
-                                          &quot;SN tumour burden&quot;, 
-                                          &quot;Location metastasis in lymph node&quot;,
-                                          &quot;Subcap&quot;, &quot;Combined&quot;, &quot;Parenchymal&quot;,
-                                          &quot;Multifocal&quot;, &quot;Extensive&quot;,
-                                          row.names(final.full.table.MSM.5.refit)[(nrow(final.full.table.MSM.5.refit)-3):nrow(final.full.table.MSM.5.refit)])
-final.BS.table.Rec.5 &lt;- as.data.frame(final.BS.table.Rec.5)
-row.names(final.BS.table.Rec.5) &lt;- c(&quot;SN status&quot;,
-                                     &quot;Negative SN status&quot;,
-                                     &quot;Positive SN status&quot;, 
-                                     &quot;Age&quot;, 
-                                     &quot;Ulceration&quot;,
-                                     &quot;Location&quot;, 
-                                     &quot;Upper limb&quot;, 
-                                     &quot;Lower limb&quot;, 
-                                     &quot;Trunk&quot;, 
-                                     &quot;Head and neck&quot;,
-                                     &quot;Breslow&quot;,
-                                     &quot;Breslow (negative)&quot;,
-                                     &quot;Breslow (positive)&quot;,
-                                     &quot;SN tumour burden&quot;, 
-                                   row.names(final.BS.table.Rec.5)[(nrow(final.BS.table.Rec.5)-7):nrow(final.BS.table.Rec.5)])
-final.BS.table.MSM.5.refit &lt;- as.data.frame(final.BS.table.MSM.5.refit)
-row.names(final.BS.table.MSM.5.refit) &lt;- c(&quot;SN status&quot;,
-                                     &quot;Negative SN status&quot;,
-                                     &quot;Positive SN status&quot;, 
-                                     &quot;Age&quot;, 
-                                     &quot;Ulceration&quot;,
-                                     &quot;Location&quot;, 
-                                     &quot;Upper limb&quot;, 
-                                     &quot;Lower limb&quot;, 
-                                     &quot;Trunk&quot;, 
-                                     &quot;Head and neck&quot;,
-                                     &quot;Breslow&quot;,
-                                     &quot;Breslow (negative)&quot;,
-                                     &quot;Breslow (positive)&quot;,
-                                     &quot;SN tumour burden&quot;,  
-                                   row.names(final.BS.table.MSM.5.refit)[(nrow(final.BS.table.MSM.5.refit)-3):nrow(final.BS.table.MSM.5.refit)])
+form.BS.Rec.5 &lt;- S.Rec.5.training ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow)
+f.mi.BS.Rec.5 &lt;- Hmisc::fit.mult.impute(form.BS.Rec.5,cph,
+                                        xtrans=imputed.training.data,
+                                        data=training.data.to.be.imputed,
+                                        n.impute=m, pr=FALSE,fit.reps=TRUE,
+                                        fitargs=list(y=TRUE,x=TRUE,se.fit=TRUE))
 
-# save tables
-write.table(final.full.table.Rec.5,
-            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/final.full.table.Rec.txt&quot;, 
-            sep=&quot;,&quot;)
-write.table(final.full.table.MSM.5.refit,
-            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/final.full.table.MSM.refit.txt&quot;, 
-            sep=&quot;,&quot;)
-write.table(final.BS.table.Rec.5,
-            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/final.BS.table.Rec.txt&quot;, 
-            sep=&quot;,&quot;)
-write.table(final.BS.table.MSM.5.refit,
-            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/final.BS.table.MSM.refit.txt&quot;, 
-            sep=&quot;,&quot;)
+# check Cox Proportional Hazards Assumption
+PH.assumption &lt;- survival::cox.zph(f.mi.BS.Rec.5)
 
-# show tables
-final.full.table.Rec.5</code></pre>
-<pre><code>##                                          HR.neg       CI.neg HR.pos
-## Positive SN status                                             3.83
-## Male                                       1.32 [1.09; 1.60]   0.98
-## Age iqr                                    1.27 [1.10; 1.47]   1.41
-## Ulceration                                 1.65 [1.36; 2.01]   1.42
-## Location                                                           
-## Arm                                       (ref)               (ref)
-## Leg                                        1.23 [0.92; 1.66]   1.00
-## Trunk                                      1.33 [1.00; 1.77]   1.04
-## Head and neck                              2.18 [1.52; 3.15]   1.60
-## Histology                                                          
-## SSM                                       (ref)               (ref)
-## NM                                         1.24 [0.98; 1.57]   1.27
-## ALM                                        1.70 [1.04; 2.76]   1.54
-## Other                                      0.92 [0.61; 1.40]   1.09
-## Breslow iqr                                2.29 [1.96; 2.67]   1.50
-## Multiple fields                            1.47 [1.07; 2.01]   1.41
-## Total number of negative nodes             0.96 [0.91; 1.02]   0.96
-## Total number of positive nodes                                 0.98
-## SN tumour burden iqr                                           3.65
-## Location metastasis in lymph node                                  
-## Subcap                                                        (ref)
-## Combined                                                       1.38
-## Parenchymal                                                    1.08
-## Multifocal                                                     0.78
-## Extensive                                                      1.29
-## Harrell&#39;s C-index                                                  
-## Harrell&#39;s optimism-corrected C-index                               
-## Uno&#39;s C-index                                                      
-## AUC                                                                
-## Harrell&#39;s C-index MSM                                              
-## Harrell&#39;s optimism-corrected C-index MSM                           
-## Uno&#39;s C-index MSM                                                  
-## AUC MSM                                                            
-##                                                CI.pos Main Int   HR
-## Positive SN status                       [2.09; 7.02]   42  27     
-## Male                                     [0.79; 1.21]    8   4     
-## Age iqr                                  [1.18; 1.69]   25   1     
-## Ulceration                               [1.13; 1.79]   34   1     
-## Location                                                23   1     
-## Arm                                                                
-## Leg                                      [0.61; 1.65]              
-## Trunk                                    [0.66; 1.62]              
-## Head and neck                            [0.91; 2.81]              
-## Histology                                               11   0     
-## SSM                                                                
-## NM                                       [0.96; 1.67]              
-## ALM                                      [0.91; 2.59]              
-## Other                                    [0.47; 2.54]              
-## Breslow iqr                              [1.25; 1.79]  124  13     
-## Multiple fields                          [1.03; 1.94]   10   0     
-## Total number of negative nodes           [0.91; 1.02]    2         
-## Total number of positive nodes           [0.82; 1.17]    0         
-## SN tumour burden iqr                     [1.42; 9.34]    7         
-## Location metastasis in lymph node                        6         
-## Subcap                                                             
-## Combined                                 [0.91; 2.09]              
-## Parenchymal                              [0.67; 1.74]              
-## Multifocal                               [0.40; 1.53]              
-## Extensive                                [0.74; 2.27]              
-## Harrell&#39;s C-index                                              0.77
-## Harrell&#39;s optimism-corrected C-index                           0.76
-## Uno&#39;s C-index                                                  0.76
-## AUC                                                            0.80
-## Harrell&#39;s C-index MSM                                          0.80
-## Harrell&#39;s optimism-corrected C-index MSM                       0.79
-## Uno&#39;s C-index MSM                                              0.79
-## AUC MSM                                                        0.82
-##                                                    CI
-## Positive SN status                                   
-## Male                                                 
-## Age iqr                                              
-## Ulceration                                           
-## Location                                             
-## Arm                                                  
-## Leg                                                  
-## Trunk                                                
-## Head and neck                                        
-## Histology                                            
-## SSM                                                  
-## NM                                                   
-## ALM                                                  
-## Other                                                
-## Breslow iqr                                          
-## Multiple fields                                      
-## Total number of negative nodes                       
-## Total number of positive nodes                       
-## SN tumour burden iqr                                 
-## Location metastasis in lymph node                    
-## Subcap                                               
-## Combined                                             
-## Parenchymal                                          
-## Multifocal                                           
-## Extensive                                            
-## Harrell&#39;s C-index                        [0.76; 0.79]
-## Harrell&#39;s optimism-corrected C-index     [0.75; 0.78]
-## Uno&#39;s C-index                            [0.75; 0.78]
-## AUC                                      [0.78; 0.82]
-## Harrell&#39;s C-index MSM                    [0.78; 0.82]
-## Harrell&#39;s optimism-corrected C-index MSM [0.77; 0.81]
-## Uno&#39;s C-index MSM                        [0.77; 0.81]
-## AUC MSM                                  [0.80; 0.84]</code></pre>
-<pre class="r"><code>final.full.table.MSM.5.refit</code></pre>
-<pre><code>##                                      HR.neg       CI.neg HR.pos        CI.pos
-## Positive SN status                                         6.04 [2.41; 15.12]
-## Male                                   1.65 [1.22; 2.23]   1.25  [0.93; 1.70]
-## Age                                    0.93 [0.74; 1.16]   1.37  [1.08; 1.74]
-## Ulceration                             2.08 [1.52; 2.84]   1.58  [1.16; 2.16]
-## Location                                                                     
-## Arm                                   (ref)               (ref)              
-## Leg                                    1.13 [0.70; 1.84]   0.96  [0.49; 1.89]
-## Trunk                                  1.80 [1.15; 2.82]   0.94  [0.52; 1.71]
-## Head and neck                          1.85 [0.99; 3.47]   1.58  [0.73; 3.41]
-## Histology                                                                    
-## SSM                                   (ref)               (ref)              
-## NM                                     1.40 [0.96; 2.04]   1.16  [0.81; 1.66]
-## ALM                                    1.69 [0.68; 4.22]   1.22  [0.56; 2.68]
-## Other                                  0.99 [0.50; 1.98]   0.71  [0.17; 3.00]
-## Breslow                                2.52 [1.99; 3.18]   1.56  [1.22; 1.99]
-## Multiple fields                        1.23 [0.76; 1.97]   1.45  [0.96; 2.21]
-## Total number of negative nodes         0.95 [0.87; 1.03]   0.95  [0.87; 1.03]
-## Total number of positive nodes                             0.98  [0.77; 1.25]
-## SN tumour burden                                           6.30 [1.37; 28.95]
-## Location metastasis in lymph node                                            
-## Subcap                                                    (ref)              
-## Combined                                                   1.24  [0.73; 2.10]
-## Parenchymal                                                1.36  [0.71; 2.60]
-## Multifocal                                                 1.23  [0.57; 2.63]
-## Extensive                                                  1.46  [0.76; 2.82]
-## Harrell&#39;s C-index                                                            
-## Harrell&#39;s optimism-corrected C-index                                         
-## Uno&#39;s C-index                                                                
-## AUC                                                                          
-##                                      Main Int   HR           CI
-## Positive SN status                     39  32                  
-## Male                                   13   2                  
-## Age                                     7   5                  
-## Ulceration                             29   1                  
-## Location                               15   6                  
-## Arm                                                            
-## Leg                                                            
-## Trunk                                                          
-## Head and neck                                                  
-## Histology                               5   1                  
-## SSM                                                            
-## NM                                                             
-## ALM                                                            
-## Other                                                          
-## Breslow                                70   8                  
-## Multiple fields                         4   0                  
-## Total number of negative nodes          2                      
-## Total number of positive nodes          0                      
-## SN tumour burden                        6                      
-## Location metastasis in lymph node       1                      
-## Subcap                                                         
-## Combined                                                       
-## Parenchymal                                                    
-## Multifocal                                                     
-## Extensive                                                      
-## Harrell&#39;s C-index                             0.81 [0.79; 0.83]
-## Harrell&#39;s optimism-corrected C-index          0.80 [0.78; 0.82]
-## Uno&#39;s C-index                                 0.80 [0.78; 0.82]
-## AUC                                           0.83 [0.80; 0.85]</code></pre>
-<pre class="r"><code>final.BS.table.Rec.5</code></pre>
-<pre><code>##                                             HR            CI Imp.
-## SN status                                                     153
-## Negative SN status                       (ref)                   
-## Positive SN status                        2.96  [2.48; 3.54]     
-## Age                                       1.37  [1.23; 1.53]   31
-## Ulceration                                1.61  [1.39; 1.87]   41
-## Location                                                       21
-## Upper limb                               (ref)                   
-## Lower limb                                1.14  [0.89; 1.46]     
-## Trunk                                     1.29  [1.02; 1.63]     
-## Head and neck                             1.89  [1.41; 2.54]     
-## Breslow                                                          
-## Breslow (negative)                        2.43  [2.14; 2.76]  199
-## Breslow (positive)                        1.52  [1.29; 1.80]   21
-## SN tumour burden                          5.74 [2.67; 12.30]   20
-## Harrell&#39;s C-index                         0.77  [0.75; 0.78]     
-## Harrell&#39;s optimism-corrected C-index      0.76  [0.74; 0.78]     
-## Uno&#39;s C-index                             0.76  [0.74; 0.77]     
-## AUC                                       0.80  [0.78; 0.81]     
-## Harrell&#39;s C-index MSM                     0.79  [0.77; 0.81]     
-## Harrell&#39;s optimism-corrected C-index MSM  0.79  [0.77; 0.81]     
-## Uno&#39;s C-index MSM                         0.79  [0.77; 0.81]     
-## AUC MSM                                   0.81  [0.79; 0.84]</code></pre>
-<pre class="r"><code>final.BS.table.MSM.5.refit</code></pre>
-<pre><code>##                                         HR            CI Imp.
-## SN status                                                  83
-## Negative SN status                   (ref)                   
-## Positive SN status                    3.40  [2.60; 4.45]     
-## Age                                   1.17  [1.00; 1.37]    4
-## Ulceration                            1.84  [1.48; 2.29]   30
-## Location                                                   14
-## Upper limb                           (ref)                   
-## Lower limb                            1.00  [0.68; 1.47]     
-## Trunk                                 1.44  [1.01; 2.04]     
-## Head and neck                         1.75  [1.11; 2.78]     
-## Breslow                                                      
-## Breslow (negative)                    2.79  [2.31; 3.38]  119
-## Breslow (positive)                    1.57  [1.25; 1.98]   16
-## SN tumour burden                      9.63 [2.85; 32.54]   13
-## Harrell&#39;s C-index                     0.80  [0.78; 0.82]     
-## Harrell&#39;s optimism-corrected C-index  0.79  [0.77; 0.81]     
-## Uno&#39;s C-index                         0.79  [0.77; 0.81]     
-## AUC                                   0.82  [0.80; 0.84]</code></pre>
+# backward selection
+# round(stats::anova(f.mi.BS.Rec.5)[order(stats::anova(f.mi.BS.Rec.5)[, &quot;P&quot;]),], 3)
+summary(f.mi.BS.Rec.5, Breslow=exp(c.Breslow))</code></pre>
+<pre><code>##              Effects              Response : S.Rec.5.training 
+## 
+##  Factor                       Low   High Diff. Effect   S.E.     Lower 0.95
+##  Age.SN                       43.00 66.0 23.00  0.31439 0.056105  0.20443  
+##   Hazard Ratio                43.00 66.0 23.00  1.36940       NA  1.22680  
+##  Breslow                       1.20  3.5  2.30  0.88875 0.065066  0.76122  
+##   Hazard Ratio                 1.20  3.5  2.30  2.43210       NA  2.14090  
+##  Rdamcrit                      0.01 38.0 37.99  1.74660 0.389130  0.98394  
+##   Hazard Ratio                 0.01 38.0 37.99  5.73530       NA  2.67500  
+##  SNstatus - Positive:Negative  1.00  2.0    NA  1.08620 0.090288  0.90925  
+##   Hazard Ratio                 1.00  2.0    NA  2.96300       NA  2.48250  
+##  Ulceration - Yes:No           1.00  2.0    NA  0.47863 0.074800  0.33202  
+##   Hazard Ratio                 1.00  2.0    NA  1.61390       NA  1.39380  
+##  Loc_CAT - arm:trunk           3.00  1.0    NA -0.25329 0.119140 -0.48680  
+##   Hazard Ratio                 3.00  1.0    NA  0.77624       NA  0.61459  
+##  Loc_CAT - leg:trunk           3.00  2.0    NA -0.12495 0.082706 -0.28705  
+##   Hazard Ratio                 3.00  2.0    NA  0.88255       NA  0.75048  
+##  Loc_CAT - head &amp; neck:trunk   3.00  4.0    NA  0.38243 0.119880  0.14748  
+##   Hazard Ratio                 3.00  4.0    NA  1.46580       NA  1.15890  
+##  Upper 0.95
+##   0.424360 
+##   1.528600 
+##   1.016300 
+##   2.762900 
+##   2.509300 
+##  12.297000 
+##   1.263200 
+##   3.536600 
+##   0.625230 
+##   1.868700 
+##  -0.019787 
+##   0.980410 
+##   0.037156 
+##   1.037900 
+##   0.617390 
+##   1.854100 
+## 
+## Adjusted to: SNstatus=Negative Breslow=2.04991</code></pre>
+<pre class="r"><code>coef(f.mi.BS.Rec.5)</code></pre>
+<pre><code>##           SNstatus=Positive                      Age.SN 
+##                  1.08621071                  0.01366932 
+##              Ulceration=Yes                 Loc_CAT=leg 
+##                  0.47862830                  0.12834775 
+##               Loc_CAT=trunk         Loc_CAT=head &amp; neck 
+##                  0.25329321                  0.63572751 
+##                     Breslow                    Rdamcrit 
+##                  0.83026128                  0.21189902 
+## SNstatus=Positive * Breslow 
+##                 -0.43670541</code></pre>
+<pre class="r"><code>stats::anova(f.mi.BS.Rec.5)</code></pre>
+<pre><code>##                 Wald Statistics          Response: S.Rec.5.training 
+## 
+##  Factor                                            Chi-Square d.f. P     
+##  SNstatus  (Factor+Higher Order Factors)           152.72     2    &lt;.0001
+##   All Interactions                                  21.22     1    &lt;.0001
+##  Age.SN                                             31.40     1    &lt;.0001
+##  Ulceration                                         40.94     1    &lt;.0001
+##  Loc_CAT                                            21.41     3    1e-04 
+##  Breslow  (Factor+Higher Order Factors)            198.65     2    &lt;.0001
+##   All Interactions                                  21.22     1    &lt;.0001
+##  Rdamcrit                                           20.15     1    &lt;.0001
+##  SNstatus * Breslow  (Factor+Higher Order Factors)  21.22     1    &lt;.0001
+##  TOTAL                                             736.39     9    &lt;.0001</code></pre>
 </div>
-<div id="c-index-of-final-model-for-recurrence-stratified-by-sn-status" class="section level1">
-<h1>C-index of final model for recurrence stratified by SN status</h1>
-<pre class="r"><code>for (arm in c(&quot;Positive&quot;, &quot;Negative&quot;)){
-  f.mi.stratified &lt;- eval(parse(text=paste0(&quot;f.mi.BS.Rec.5&quot;)))
-  S.5.subset &lt;- S.Rec.5.training[last.imputed.training.data.set$SNstatus==arm,]
-
-  cindex.stratified &lt;- rep(0, m)
-  cindex.se.stratified &lt;- rep(0, m)
-  for (i in 1:m){
-    subset.imputed.training.data &lt;- as.data.frame(mice::complete(imputed.training.data, i)[last.imputed.training.data.set$SNstatus==arm,])
-    rc &lt;- Hmisc::rcorr.cens(-predict(f.mi.stratified,
-                                     newdata=subset.imputed.training.data, 
-                                     type=&quot;lp&quot;), 
-                            S.5.subset)
-    cindex.stratified[i] &lt;- rc[&quot;C Index&quot;]
-    cindex.se.stratified[i] &lt;- rc[&quot;S.D.&quot;]/2
-  }
-  cindex.mi.stratified &lt;- Rubin.combine(cindex.stratified, cindex.se.stratified)
-
-  assign(paste0(&quot;CIndex.BS.Rec.5.&quot;, arm),
-         c(sprintf(&quot;%.2f&quot;, cindex.mi.stratified$est),
-           paste0(&quot;[&quot;, sprintf(&quot;%.2f&quot;, cindex.mi.stratified$est+qnorm(.025)*cindex.mi.stratified$se),
-                  &quot;; &quot;, sprintf(&quot;%.2f&quot;, cindex.mi.stratified$est+qnorm(.975)*cindex.mi.stratified$se), &quot;]&quot;)))
+<div id="refitted-full-model-for-melanoma-specific-mortality" class="section level1">
+<h1>Refitted full model for melanoma specific mortality</h1>
+<pre class="r"><code>form.full.MSM.5.refit &lt;- S.MSM.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  Histology +
+  log(Breslow) +
+  multiple.fields +
+  Tot_SNs_neg +
+  Tot_SNs_pos +
+  log(Rdamcrit) +
+  Dewar +
+  SNstatus:Sex +
+  SNstatus:Age.SN +
+  SNstatus:Ulceration +
+  SNstatus:Loc_CAT +
+  SNstatus:Histology +
+  SNstatus:log(Breslow) +
+  SNstatus:multiple.fields
+f.mi.full.MSM.5.refit &lt;- Hmisc::fit.mult.impute(form.full.MSM.5.refit,cph,
+                                                xtrans=imputed.training.data,
+                                                data=training.data.to.be.imputed,
+                                                n.impute=m, pr=FALSE,
+                                                fit.reps=TRUE,
+                                                fitargs=list(y=TRUE,x=TRUE,
+                                                             se.fit=TRUE))
+summary(f.mi.full.MSM.5.refit, Tot_SNs_pos=c(0, 1))</code></pre>
+<pre><code>##              Effects              Response : S.MSM.5.training 
+## 
+##  Factor                                     Low   High Diff. Effect    S.E.    
+##  Age.SN                                     43.00 66.0 23.00 -0.074008 0.114610
+##   Hazard Ratio                              43.00 66.0 23.00  0.928660       NA
+##  Breslow                                     1.20  3.5  2.30  0.922350 0.120300
+##   Hazard Ratio                               1.20  3.5  2.30  2.515200       NA
+##  Tot_SNs_neg                                 1.00  2.0  1.00 -0.054962 0.043042
+##   Hazard Ratio                               1.00  2.0  1.00  0.946520       NA
+##  Tot_SNs_pos                                 0.00  1.0  1.00 -0.019292 0.122920
+##   Hazard Ratio                               0.00  1.0  1.00  0.980890       NA
+##  Rdamcrit                                    0.01 38.0 37.99  1.840300 0.778160
+##   Hazard Ratio                               0.01 38.0 37.99  6.298300       NA
+##  SNstatus - Positive:Negative                1.00  2.0    NA  1.148700 0.367480
+##   Hazard Ratio                               1.00  2.0    NA  3.154100       NA
+##  Sex - male:female                           1.00  2.0    NA  0.500510 0.154850
+##   Hazard Ratio                               1.00  2.0    NA  1.649600       NA
+##  Ulceration - Yes:No                         1.00  2.0    NA  0.730720 0.159610
+##   Hazard Ratio                               1.00  2.0    NA  2.076600       NA
+##  Loc_CAT - arm:trunk                         3.00  1.0    NA -0.589680 0.228640
+##   Hazard Ratio                               3.00  1.0    NA  0.554510       NA
+##  Loc_CAT - leg:trunk                         3.00  2.0    NA -0.467750 0.190220
+##   Hazard Ratio                               3.00  2.0    NA  0.626410       NA
+##  Loc_CAT - head &amp; neck:trunk                 3.00  4.0    NA  0.026016 0.261420
+##   Hazard Ratio                               3.00  4.0    NA  1.026400       NA
+##  Histology - NM:SSM                          1.00  2.0    NA  0.335790 0.192350
+##   Hazard Ratio                               1.00  2.0    NA  1.399100       NA
+##  Histology - ALM:SSM                         1.00  3.0    NA  0.524250 0.467130
+##   Hazard Ratio                               1.00  3.0    NA  1.689200       NA
+##  Histology - other:SSM                       1.00  4.0    NA -0.008154 0.353350
+##   Hazard Ratio                               1.00  4.0    NA  0.991880       NA
+##  multiple.fields - Multiple SN fields:Other  1.00  2.0    NA  0.203130 0.242330
+##   Hazard Ratio                               1.00  2.0    NA  1.225200       NA
+##  Dewar - combined:subcap                     1.00  2.0    NA  0.211540 0.270050
+##   Hazard Ratio                               1.00  2.0    NA  1.235600       NA
+##  Dewar - parenchymal:subcap                  1.00  3.0    NA  0.305310 0.331580
+##   Hazard Ratio                               1.00  3.0    NA  1.357000       NA
+##  Dewar - multifocal:subcap                   1.00  4.0    NA  0.203050 0.390050
+##   Hazard Ratio                               1.00  4.0    NA  1.225100       NA
+##  Dewar - extensive:subcap                    1.00  5.0    NA  0.379020 0.335430
+##   Hazard Ratio                               1.00  5.0    NA  1.460900       NA
+##  Lower 0.95 Upper 0.95
+##  -0.298650   0.150630 
+##   0.741820   1.162600 
+##   0.686570   1.158100 
+##   1.986900   3.184000 
+##  -0.139320   0.029399 
+##   0.869950   1.029800 
+##  -0.260200   0.221620 
+##   0.770890   1.248100 
+##   0.315110   3.365400 
+##   1.370400  28.946000 
+##   0.428450   1.869000 
+##   1.534900   6.481500 
+##   0.197010   0.804010 
+##   1.217800   2.234500 
+##   0.417880   1.043600 
+##   1.518700   2.839300 
+##  -1.037800  -0.141550 
+##   0.354230   0.868010 
+##  -0.840580  -0.094926 
+##   0.431460   0.909440 
+##  -0.486360   0.538390 
+##   0.614860   1.713200 
+##  -0.041199   0.712790 
+##   0.959640   2.039700 
+##  -0.391310   1.439800 
+##   0.676170   4.219900 
+##  -0.700700   0.684390 
+##   0.496240   1.982600 
+##  -0.271830   0.678080 
+##   0.761990   1.970100 
+##  -0.317750   0.740830 
+##   0.727780   2.097700 
+##  -0.344580   0.955200 
+##   0.708520   2.599200 
+##  -0.561430   0.967520 
+##   0.570390   2.631400 
+##  -0.278400   1.036400 
+##   0.756990   2.819200 
+## 
+## Adjusted to: SNstatus=Negative Sex=female Age.SN=55 Ulceration=No Loc_CAT=trunk Histology=SSM Breslow=2 multiple.fields=Other</code></pre>
+<pre class="r"><code>stats::anova(f.mi.full.MSM.5.refit)</code></pre>
+<pre><code>##                 Wald Statistics          Response: S.MSM.5.training 
+## 
+##  Factor                                                    Chi-Square d.f.
+##  SNstatus  (Factor+Higher Order Factors)                    38.82     12  
+##   All Interactions                                          31.68     11  
+##  Sex  (Factor+Higher Order Factors)                         12.55      2  
+##   All Interactions                                           1.57      1  
+##  Age.SN  (Factor+Higher Order Factors)                       6.92      2  
+##   All Interactions                                           5.29      1  
+##  Ulceration  (Factor+Higher Order Factors)                  29.41      2  
+##   All Interactions                                           1.45      1  
+##  Loc_CAT  (Factor+Higher Order Factors)                     14.79      6  
+##   All Interactions                                           5.59      3  
+##  Histology  (Factor+Higher Order Factors)                    5.37      6  
+##   All Interactions                                           0.77      3  
+##  Breslow  (Factor+Higher Order Factors)                     69.51      2  
+##   All Interactions                                           7.95      1  
+##  multiple.fields  (Factor+Higher Order Factors)              3.65      2  
+##   All Interactions                                           0.30      1  
+##  Tot_SNs_neg                                                 1.63      1  
+##  Tot_SNs_pos                                                 0.02      1  
+##  Rdamcrit                                                    5.59      1  
+##  Dewar                                                       1.45      4  
+##  SNstatus * Sex  (Factor+Higher Order Factors)               1.57      1  
+##  SNstatus * Age.SN  (Factor+Higher Order Factors)            5.29      1  
+##  SNstatus * Ulceration  (Factor+Higher Order Factors)        1.45      1  
+##  SNstatus * Loc_CAT  (Factor+Higher Order Factors)           5.59      3  
+##  SNstatus * Histology  (Factor+Higher Order Factors)         0.77      3  
+##  SNstatus * Breslow  (Factor+Higher Order Factors)           7.95      1  
+##  SNstatus * multiple.fields  (Factor+Higher Order Factors)   0.30      1  
+##  TOTAL INTERACTION                                          31.68     11  
+##  TOTAL                                                     456.56     30  
+##  P     
+##  0.0001
+##  0.0009
+##  0.0019
+##  0.2101
+##  0.0314
+##  0.0214
+##  &lt;.0001
+##  0.2291
+##  0.0220
+##  0.1331
+##  0.4976
+##  0.8563
+##  &lt;.0001
+##  0.0048
+##  0.1611
+##  0.5860
+##  0.2016
+##  0.8753
+##  0.0180
+##  0.8356
+##  0.2101
+##  0.0214
+##  0.2291
+##  0.1331
+##  0.8563
+##  0.0048
+##  0.5860
+##  0.0009
+##  &lt;.0001</code></pre>
+</div>
+<div id="refitted-final-model-for-melanoma-specific-mortality" class="section level1">
+<h1>Refitted final model for melanoma specific mortality</h1>
+<pre class="r"><code>form.BS.MSM.5.refit &lt;- S.MSM.5.training ~
+  SNstatus +
+  Age.SN +
+  Ulceration +
+  Loc_CAT +
+  I(log(Breslow)-c.Breslow) +
+  log(Rdamcrit) +
+  SNstatus:I(log(Breslow)-c.Breslow)
+f.mi.BS.MSM.5.refit &lt;- Hmisc::fit.mult.impute(form.BS.MSM.5.refit,cph,
+                                              xtrans=imputed.training.data,
+                                              data=training.data.to.be.imputed,
+                                              n.impute=m,
+                                              pr=FALSE,fit.reps=TRUE,
+                                              fitargs=list(y=TRUE,x=TRUE,
+                                                           se.fit=TRUE))
+summary(f.mi.BS.MSM.5.refit, Breslow=exp(c.Breslow))</code></pre>
+<pre><code>##              Effects              Response : S.MSM.5.training 
+## 
+##  Factor                       Low   High Diff. Effect   S.E.     Lower 0.95
+##  Age.SN                       43.00 66.0 23.00  0.15699 0.081982 -0.0036913
+##   Hazard Ratio                43.00 66.0 23.00  1.17000       NA  0.9963200
+##  Breslow                       1.20  3.5  2.30  1.02650 0.097584  0.8352600
+##   Hazard Ratio                 1.20  3.5  2.30  2.79130       NA  2.3054000
+##  Rdamcrit                      0.01 38.0 37.99  2.26520 0.621150  1.0477000
+##   Hazard Ratio                 0.01 38.0 37.99  9.63270       NA  2.8512000
+##  SNstatus - Positive:Negative  1.00  2.0    NA  1.22360 0.136990  0.9551200
+##   Hazard Ratio                 1.00  2.0    NA  3.39940       NA  2.5990000
+##  Ulceration - Yes:No           1.00  2.0    NA  0.60950 0.110870  0.3921900
+##   Hazard Ratio                 1.00  2.0    NA  1.83950       NA  1.4802000
+##  Loc_CAT - arm:trunk           3.00  1.0    NA -0.36347 0.178660 -0.7136400
+##   Hazard Ratio                 3.00  1.0    NA  0.69526       NA  0.4898600
+##  Loc_CAT - leg:trunk           3.00  2.0    NA -0.36067 0.125410 -0.6064700
+##   Hazard Ratio                 3.00  2.0    NA  0.69721       NA  0.5452700
+##  Loc_CAT - head &amp; neck:trunk   3.00  4.0    NA  0.19758 0.178110 -0.1515000
+##   Hazard Ratio                 3.00  4.0    NA  1.21850       NA  0.8594200
+##  Upper 0.95
+##   0.317670 
+##   1.373900 
+##   1.217800 
+##   3.379700 
+##   3.482600 
+##  32.544000 
+##   1.492100 
+##   4.446400 
+##   0.826800 
+##   2.286000 
+##  -0.013307 
+##   0.986780 
+##  -0.114860 
+##   0.891490 
+##   0.546670 
+##   1.727500 
+## 
+## Adjusted to: SNstatus=Negative Breslow=2.04991</code></pre>
+<pre class="r"><code>stats::anova(f.mi.BS.MSM.5.refit)</code></pre>
+<pre><code>##                 Wald Statistics          Response: S.MSM.5.training 
+## 
+##  Factor                                            Chi-Square d.f. P     
+##  SNstatus  (Factor+Higher Order Factors)            83.39     2    &lt;.0001
+##   All Interactions                                  15.53     1    0.0001
+##  Age.SN                                              3.67     1    0.0555
+##  Ulceration                                         30.22     1    &lt;.0001
+##  Loc_CAT                                            14.11     3    0.0028
+##  Breslow  (Factor+Higher Order Factors)            118.69     2    &lt;.0001
+##   All Interactions                                  15.53     1    0.0001
+##  Rdamcrit                                           13.30     1    0.0003
+##  SNstatus * Breslow  (Factor+Higher Order Factors)  15.53     1    0.0001
+##  TOTAL                                             423.48     9    &lt;.0001</code></pre>
+</div>
+<div id="calibrated-final-model-for-melanoma-specific-mortality" class="section level1">
+<h1>Calibrated final model for melanoma specific mortality</h1>
+<p>Fit disease specific mortality to the linear predictor of
+recurrence</p>
+<pre class="r"><code># Combine calibration coefficients for all imputated data sets 
+MSM.cal.fact.all &lt;- c()
+MSM.cal.fact.SE &lt;- c()
+for (i in 1:m){
+  lp.i&lt;-predict(f.mi.BS.Rec.5,
+                newdata=mice::complete(imputed.training.data,i), 
+                type=&quot;lp&quot;)
+  f.mi.i &lt;- rms::cph(S.MSM.5.training~lp.i,y=TRUE,x=TRUE) 
+  MSM.cal.fact.all &lt;- c(MSM.cal.fact.all, stats::coef(f.mi.i))
+  MSM.cal.fact.SE &lt;- c(MSM.cal.fact.SE, sqrt(diag(vcov(f.mi.i))))
 }
+MSM.cal.fact.combined &lt;- Rubin.combine(MSM.cal.fact.all, MSM.cal.fact.SE)
+MSM.cal.fact &lt;- MSM.cal.fact.combined$est
 
-# optimism-corrected
-CIndex.Rec.Table &lt;- rbind(CIndex.BS.Rec.5.All, CIndex.BS.Rec.5.Positive, CIndex.BS.Rec.5.Negative)
-CIndex.Rec.Table</code></pre>
-<pre><code>##                          [,1]   [,2]          
-## CIndex.BS.Rec.5.All      &quot;0.76&quot; &quot;[0.74; 0.78]&quot;
-## CIndex.BS.Rec.5.Positive &quot;0.68&quot; &quot;[0.66; 0.71]&quot;
-## CIndex.BS.Rec.5.Negative &quot;0.74&quot; &quot;[0.72; 0.76]&quot;</code></pre>
-<pre class="r"><code># utils::write.table(CIndex.Rec.Table,
-#               file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Results/CIndex.train.txt&quot;),
-#               row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)
+utils::write.table(paste0(sprintf(&quot;%.2f&quot;, MSM.cal.fact), &quot; [&quot;,
+            sprintf(&quot;%.2f&quot;, MSM.cal.fact.combined$est+qnorm(.025)*MSM.cal.fact.combined$se), &quot;; &quot;,
+            sprintf(&quot;%.2f&quot;, MSM.cal.fact.combined$est+qnorm(.975)*MSM.cal.fact.combined$se), &quot;]&quot;),
+            file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/calibration.MSS.txt&quot;, 
+            row.names=FALSE, col.names=FALSE, sep=&quot;,&quot;)
 
+load(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.RData&quot;)
+save(list=c(&quot;dd.validation&quot;, &quot;validation.data.to.be.imputed&quot;, &quot;m&quot;, 
+            &quot;imputed.validation.data&quot;, &quot;last.imputed.validation.data.set&quot;, &quot;horizon&quot;, 
+            &quot;S.Rec.validation&quot;, &quot;S.MSM.validation&quot;, 
+            &quot;S.Rec.5.validation&quot;, &quot;S.MSM.5.validation&quot;, &quot;f.mi.BS.Rec.5&quot;),
+     file=paste0(&quot;Z:/Project Melanoom/PaperMelanoma/Data/validation/validation.data.Rdata&quot;), compress=TRUE)</code></pre>
+</div>
+<div id="redevelop-model" class="section level1">
+<h1>Redevelop model</h1>
+<pre class="r"><code>form.full.MSM.5.redev &lt;- S.MSM.5.training ~
+  SNstatus +
+  Sex +
+  Age.SN +
+  Ulceration +
+  # Loc_CAT +
+  # Histology +
+  log(Breslow) +
+  # multiple.fields +
+  # Tot_SNs_neg +
+  # Tot_SNs_pos +
+  log(Rdamcrit) +
+  # Dewar +
+  # SNstatus:Sex +
+  SNstatus:Age.SN +
+  # SNstatus:Ulceration +
+  # SNstatus:Loc_CAT +
+  # SNstatus:Histology +
+  SNstatus:log(Breslow) 
+  # SNstatus:multiple.fields
+f.mi.full.MSM.5.redev &lt;- Hmisc::fit.mult.impute(form.full.MSM.5.redev,cph,
+                                                xtrans=imputed.training.data,
+                                                data=training.data.to.be.imputed,
+                                                n.impute=m,pr=FALSE,fit.reps=TRUE,
+                                                fitargs=list(y=TRUE,x=TRUE,se.fit=TRUE))
+# summary(f.mi.full.MSM.5.redev)
+stats::anova(f.mi.full.MSM.5.redev)</code></pre>
+<pre><code>##                 Wald Statistics          Response: S.MSM.5.training 
+## 
+##  Factor                                            Chi-Square d.f. P     
+##  SNstatus  (Factor+Higher Order Factors)            98.42     3    &lt;.0001
+##   All Interactions                                  21.00     2    &lt;.0001
+##  Sex                                                18.96     1    &lt;.0001
+##  Age.SN  (Factor+Higher Order Factors)               8.68     2    0.0130
+##   All Interactions                                   6.35     1    0.0117
+##  Ulceration                                         29.19     1    &lt;.0001
+##  Breslow  (Factor+Higher Order Factors)            118.79     2    &lt;.0001
+##   All Interactions                                  16.50     1    &lt;.0001
+##  Rdamcrit                                           14.44     1    0.0001
+##  SNstatus * Age.SN  (Factor+Higher Order Factors)    6.35     1    0.0117
+##  SNstatus * Breslow  (Factor+Higher Order Factors)  16.50     1    &lt;.0001
+##  TOTAL INTERACTION                                  21.00     2    &lt;.0001
+##  TOTAL                                             453.82     8    &lt;.0001</code></pre>
+<pre class="r"><code># backward selection
+# round(stats::anova(f.mi.full.MSM.5.redev)[order(stats::anova(f.mi.full.MSM.5.redev)[, &quot;P&quot;]),], 3)
+
+# c-index
+p.MSM.5.redev&lt;- matrix(NA, nrow(training.data.to.be.imputed), m)
+f.MSM.basehaz &lt;- survival::basehaz(cph(form.full.MSM.5.redev, 
+                             data=mice::complete(imputed.training.data, 1), 
+                             se.fit=TRUE, x=TRUE, y=TRUE))
+h0.MSM.redev &lt;- f.MSM.basehaz$hazard[f.MSM.basehaz$time==max(f.MSM.basehaz$time[f.MSM.basehaz$time&lt;=horizon])]
+for (i in 1:m){
+  lp.val.i &lt;- predict(f.mi.full.MSM.5.redev,
+                      newdata=mice::complete(imputed.training.data, i),
+                      type=&quot;lp&quot;)
+  p.MSM.5.redev[, i] &lt;- 1-exp(-h0.MSM.redev*exp(lp.val.i))
+}
+PredictionTools::val.surv.mi(p.MSM.5.redev, S.MSM.training, g=5,
+                             main=&quot;All patients&quot;, time=5, lim=c(0, 1),
+                             dist=TRUE)</code></pre>
+<p><img src="data:image/png;base64,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" width="672" /></p>
+<pre><code>## $main
+## [1] &quot;All patients&quot;
+## 
+## $n
+## [1] 4071
+## 
+## $quants
+##        20%        40%        60%        80% 
+## 0.03243131 0.05254630 0.09912698 0.21349019 
+## 
+## $p.mi
+##          1          2          3          4          5 
+## 0.02329410 0.04164697 0.07301327 0.14792330 0.38615764 
+## 
+## $obs.mi
+## [1] 0.01573790 0.03697682 0.06854644 0.16683752 0.38520680
+## 
+## $obs.mi.lower
+## [1] 0.007718561 0.023846488 0.049605306 0.137086748 0.345636264
+## 
+## $obs.mi.upper
+## [1] 0.03195383 0.05712241 0.09435266 0.20225088 0.42765969
+## 
+## $int
+## [1] 0.01268791
+## 
+## $int.lower
+## [1] -0.09006291
+## 
+## $int.upper
+## [1] 0.1154387
+## 
+## $slope
+## [1] 0.999829
+## 
+## $slope.lower
+## [1] 0.9076966
+## 
+## $slope.upper
+## [1] 1.091961
+## 
+## $HarrellC
+## [1] 0.7992567
+## 
+## $HarrellC.se
+## [1] 0.0105708
+## 
+## $HarrellC.lower
+## [1] 0.7785383
+## 
+## $HarrellC.upper
+## [1] 0.8199751
+## 
+## $UnoC
+## [1] 0.7927477
+## 
+## $UnoC.se
+## [1] 0.0107813
+## 
+## $UnoC.lower
+## [1] 0.7716168
+## 
+## $UnoC.upper
+## [1] 0.8138787
+## 
+## $AUC
+## [1] 0.8171382
+## 
+## $AUC.se
+## [1] 0
+## 
+## $AUC.lower
+## [1] 0.8171382
+## 
+## $AUC.upper
+## [1] 0.8171382</code></pre>
+</div>
+<div id="calculate-baseline-hazards" class="section level1">
+<h1>Calculate baseline hazards</h1>
+<pre class="r"><code># baseline hazard of recurrence averaged over all imputed data sets
+h0.Rec.all &lt;- c()
+for (i in 1:m){
+  f.Rec.basehaz.i &lt;- survival::basehaz(cph(form.BS.Rec.5, data=mice::complete(imputed.training.data, i), se.fit=TRUE, x=TRUE, y=TRUE))
+  h0.Rec.i &lt;- f.Rec.basehaz.i$hazard[f.Rec.basehaz.i$time==max(f.Rec.basehaz.i$time[f.Rec.basehaz.i$time&lt;=horizon])]
+  h0.Rec.all &lt;- c(h0.Rec.all, h0.Rec.i)
+}
+h0.Rec &lt;- mean(h0.Rec.all)
+
+# baseline hazard of MSM
+h0.MSM.all &lt;- c()
+for (i in 1:m){
+  lp.i&lt;-predict(f.mi.BS.Rec.5,
+                newdata=mice::complete(imputed.training.data,i), 
+                type=&quot;lp&quot;)
+  f.MSM.basehaz.i &lt;- survival::basehaz(rms::cph(S.MSM.5.training~lp.i,y=TRUE,x=TRUE))
+  h0.MSM.i &lt;- f.MSM.basehaz.i$hazard[f.MSM.basehaz.i$time==max(f.MSM.basehaz.i$time[f.MSM.basehaz.i$time&lt;=horizon])]
+  h0.MSM.all &lt;- c(h0.MSM.all, h0.MSM.i)
+}
+h0.MSM &lt;- mean(h0.MSM.all)</code></pre>
+</div>
+<div id="save-for-webapp" class="section level1">
+<h1>Save for webapp</h1>
+<pre class="r"><code>save(f.mi.BS.Rec.5, MSM.cal.fact, h0.Rec, h0.MSM, c.Breslow,
+     file=&quot;Z:/Project Melanoom/PaperMelanoma/Results/model.Rdata&quot;, 
+     compress=TRUE)
 save(list=c(&quot;dd.training&quot;, &quot;training.data.to.be.imputed&quot;, &quot;m&quot;, 
             &quot;imputed.training.data&quot;, &quot;last.imputed.training.data.set&quot;, 
-            &quot;horizon&quot;, 
-            &quot;S.Rec.training&quot;, &quot;S.MSM.training&quot;,
+            &quot;horizon&quot;, &quot;S.Rec.training&quot;, &quot;S.MSM.training&quot;,
             &quot;S.Rec.5.training&quot;, &quot;S.MSM.5.training&quot;,
             &quot;f.mi.full.Rec.5&quot;, &quot;f.mi.BS.Rec.5&quot;, &quot;f.mi.full.MSM.5.refit&quot;, 
-            &quot;f.mi.BS.MSM.5.refit&quot;, &quot;MSM.cal.fact&quot;, &quot;c.Breslow&quot;, &quot;optimism&quot;,
-            &quot;form.full.Rec.5&quot;, &quot;form.BS.Rec.5&quot;, 
-            &quot;form.full.MSM.5.refit&quot;, &quot;form.BS.MSM.5.refit&quot;),
+            &quot;f.mi.BS.MSM.5.refit&quot;, &quot;MSM.cal.fact&quot;, &quot;c.Breslow&quot;, &quot;h0.Rec&quot;, &quot;h0.MSM&quot;,
+            &quot;form.full.Rec.5&quot;, &quot;form.BS.Rec.5&quot;, &quot;form.full.MSM.5.refit&quot;, &quot;form.BS.MSM.5.refit&quot;),
      file=&quot;Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata&quot;, compress=TRUE)</code></pre>
 </div>
 

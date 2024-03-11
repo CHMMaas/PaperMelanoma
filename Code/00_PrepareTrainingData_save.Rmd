@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Load packages, functions, and data 
 ```{r, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
 # erase memory
-rm(list = ls(all.names = TRUE))
+# rm(list = ls(all.names = TRUE))
 
 # for reproducibility
 set.seed(100)
@@ -206,7 +206,7 @@ dd.training<-rms::datadist(training.data.to.be.imputed)
 options(datadist="dd.training")
 options(digits=8)
 save(list=c("dd.training", "training.data.to.be.imputed"),
-     file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata", 
+     file="Z:/Project Melanoom/PaperMelanoma/Data/training/training.data.Rdata",
      compress=TRUE)
 ```
 

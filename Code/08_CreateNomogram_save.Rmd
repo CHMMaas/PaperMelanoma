@@ -39,15 +39,6 @@ Rdamcrit.class <- c(0.01, 0.1, 0.3, 1, 3, 10)
 nom.0 <- rms::nomogram(f.mi.BS.Rec.5,maxscale=10,
                   Breslow=Breslow.class, Rdamcrit=Rdamcrit.class, Age.SN=Age.class)
 
-# baseline hazard of recurrence averaged over all imputed data sets
-h0.Rec.all <- c()
-for (i in 1:m){
-  f.Rec.basehaz.i <- basehaz(cph(form.BS.Rec.5, data=mice::complete(imputed.training.data, i), se.fit=TRUE, x=TRUE, y=TRUE))
-  h0.Rec.i <- f.Rec.basehaz.i$hazard[f.Rec.basehaz.i$time==max(f.Rec.basehaz.i$time[f.Rec.basehaz.i$time<=horizon])]
-  h0.Rec.all <- c(h0.Rec.all, h0.Rec.i)
-}
-h0.Rec <- mean(h0.Rec.all)
-
 # lp range Recurrence
 rc.Rec <- (1/attributes(nom.0)$info$sc)
 int.Rec <- attributes(nom.0)$info$Intercept
@@ -74,7 +65,8 @@ save(list=c("dd.training", "training.data.to.be.imputed", "m",
             "S.Rec.training", "S.MSM.training",
             "S.Rec.5.training", "S.MSM.5.training",
             "f.mi.full.Rec.5", "f.mi.BS.Rec.5", "f.mi.full.MSM.5.refit", 
-            "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "c.Breslow", "optimism",
+            "f.mi.BS.MSM.5.refit", "MSM.cal.fact", "h0.Rec", "h0.MSM",
+            "c.Breslow", "optimism",
             "form.full.Rec.5", "form.BS.Rec.5", 
             "form.full.MSM.5.refit", "form.BS.MSM.5.refit", 
             "rc.Rec", "int.Rec", "h0.Rec"),
