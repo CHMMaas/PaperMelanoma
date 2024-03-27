@@ -196,6 +196,7 @@ variables.to.be.imputed <- c("Center", "SNstatus", "Sex", "Age.SN", "Ulceration"
                              "Mitosis", "Status", 
                              "Rec.composite", "logRec.composite.time",
                              "MSM", "logFU.time")
+                             # "SNdate", "Date_1st_Rec", "Last_FU")
 training.data.to.be.imputed <- sel.train.data[, variables.to.be.imputed]
 missings.table(training.data.to.be.imputed)
 ```

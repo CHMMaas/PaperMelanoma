@@ -20,6 +20,7 @@ rm(list = ls(all.names = TRUE))
 set.seed(100)
 
 # load libraries
+library(dplyr)
 library(rms)
 library(survival)
 source("Z:/Project Melanoom/PaperMelanoma/Code/PaperMelanomaFunctions.R")
@@ -320,4 +321,75 @@ p.RFS <- fun.event(lp=predict(f.mi.BS.Rec.5), h0=h0.Rec)
 p.MSS <- fun.event(lp=MSM.cal.fact*predict(f.mi.BS.Rec.5), h0=h0.MSM)
 plot(p.RFS, p.MSS)
 abline(a=0, b=1, col="red")
+```
+# Stability plot
+```{r, eval=TRUE}
+# give each individual a unique ID
+last.imputed.training.data.set$ID <- 1:nrow(last.imputed.training.data.set)
+
+# fit model
+final.model <- cph(form.BS.Rec.5, data=last.imputed.training.data.set, y=TRUE, x=TRUE, se.fit=TRUE)
+
+# get linear predictor
+lp.final <- predict(final.model, type="lp")
+
+# obtain baseline hazard
+f.basehaz.final <- survival::basehaz(final.model)
+h0.final <- f.basehaz.final$hazard[f.basehaz.final$time==max(f.basehaz.final$time[f.basehaz.final$time<=horizon])]
+
+# obtain probability prediction
+p.original <- fun.event(h0=h0.final, lp=lp.final)
+
+# check final model
+SF<-survival::survfit(S.Rec.5.training~1,data=last.imputed.training.data.set)
+cat(" KM      :", (1-SF$surv[SF$time==max(SF$time[SF$time<=horizon])]), "\n",
+    "avg pred:", mean(p.original), "\n")
+
+# fit model on bootstrapped sample
+p.boot <- c()
+B <- 200
+set.seed(1)
+for (i in 1:B){
+  # bootstrap sample
+  boot.indices <- sample(last.imputed.training.data.set$ID, 
+                             nrow(last.imputed.training.data.set), 
+                             replace=TRUE)
+  bootstrap.sample <- last.imputed.training.data.set[boot.indices,]
+  S.boot <- S.Rec.5.training[boot.indices,]
+  
+  # fit model on bootstrap
+  form.boot <- update(form.BS.Rec.5, S.boot ~ .)
+  boot.model <- cph(form.boot, data=bootstrap.sample, y=TRUE, x=TRUE, se.fit=TRUE)
+  
+  # linear predictor
+  lp.b <- predict(boot.model, newdata=last.imputed.training.data.set, type="lp")
+
+  # baseline hazard
+  f.basehaz.boot <- survival::basehaz(boot.model)
+  h0.boot <- f.basehaz.boot$hazard[f.basehaz.boot$time==max(f.basehaz.boot$time[f.basehaz.boot$time<=horizon])]
+  
+  # predict probability
+  p.boot <- c(p.boot, fun.event(h0=h0.boot, lp=lp.b))
+  
+  # check bootstrapped model
+  SF.boot<-survival::survfit(S.Rec.5.training~1, data=bootstrap.sample)
+  # cat(" KM      :", (1-SF.boot$surv[SF.boot$time==max(SF.boot$time[SF.boot$time<=horizon])]), "\n",
+  #     "avg pred:", mean(p.boot), "\n")
+}
+p.df <- data.frame(p.original=rep(p.original, B), p.boot=p.boot)
+```
+```{r, eval=TRUE}
+library(ggplot2)
+ggplot(data=p.df, 
+       mapping=aes(x=p.original, y=p.boot))+
+  geom_point(alpha=0.3)+
+  geom_abline(intercept=0, slope=1)+
+  ylim(c(0, 1))+ylab("Predictions using bootstrap models")+
+  xlim(c(0, 1))+xlab("Prediction using original model")+
+  theme_bw()
+```
+```{r,eval=TRUE}
+library(dcurves)
+dca(S ~ Model, data=data.frame(S=S.Rec.training, Model=p.RFS), time=5) %>% plot(smooth=TRUE)
+dca(S ~ Model, data=data.frame(S=S.MSM.training, Model=p.MSS), time=5) %>% plot(smooth=TRUE)
 ```
