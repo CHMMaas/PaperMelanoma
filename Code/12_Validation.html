@@ -405,6 +405,7 @@ for (i in 1:m){
 # TODO: validation based on dd.training or dd.validation?
 for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
   for (outcome in c(&quot;Rec&quot;, &quot;MSM&quot;)){
+    cat(&quot;Make calibration plot for&quot;, data.type, &quot;data, for the outcome&quot;, outcome, &quot;\n&quot;)
     options(datadist=paste0(&quot;dd.&quot;, data.type))
   
     S &lt;- eval(parse(text=paste0(&quot;S.&quot;, outcome, &quot;.&quot;, data.type)))
@@ -417,7 +418,8 @@ for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
     PredictionTools::val.surv.mi(p, S,
                                  g=5, main=&quot;All patients&quot;, time=horizon, 
                                  lim=c(0,1), dist=TRUE, 
-                                 CI.metrics=TRUE, n.iter=40,
+                                 CI.metrics=TRUE,
+                                 show.metrics=c(rep(TRUE, 5), FALSE),
                                  optimism.C=ifelse(data.type==&quot;training&quot;, optimism, 0))
     grDevices::dev.off()
     
@@ -428,7 +430,8 @@ for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
                                  S[data$SNstatus==&quot;Positive&quot;,],
                                  g=5, main=&quot;Patients with positive SN&quot;, 
                                  time=horizon, lim=c(0,1), dist=TRUE, 
-                                 CI.metrics=TRUE, n.iter=40,
+                                 CI.metrics=TRUE, 
+                                 show.metrics=c(rep(TRUE, 5), FALSE),
                                  optimism.C=ifelse(data.type==&quot;training&quot;, optimism, 0))
     grDevices::dev.off()
     
@@ -439,7 +442,8 @@ for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
                                  S[data$SNstatus==&quot;Negative&quot;,],
                                  g=5, main=&quot;Patients with negative SN&quot;, 
                                  time=horizon, lim=c(0,1), dist=TRUE, 
-                                 CI.metrics=TRUE, n.iter=40,
+                                 CI.metrics=TRUE, 
+                                 show.metrics=c(rep(TRUE, 5), FALSE),
                                  optimism.C=ifelse(data.type==&quot;training&quot;, optimism, 0))
     grDevices::dev.off()
     
@@ -466,6 +470,10 @@ for (data.type in c(&quot;training&quot;, &quot;validation&quot;)){
     grDevices::dev.off()
   }
 }</code></pre>
+<pre><code>## Make calibration plot for training data, for the outcome Rec</code></pre>
+<pre><code>## Make calibration plot for training data, for the outcome MSM</code></pre>
+<pre><code>## Make calibration plot for validation data, for the outcome Rec</code></pre>
+<pre><code>## Make calibration plot for validation data, for the outcome MSM</code></pre>
 </div>
 
 

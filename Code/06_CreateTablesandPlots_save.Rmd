@@ -301,7 +301,7 @@ for (model in list("Rec.5", "MSM.5.refit")){
         width=1800, height=1800, units="px", res=300)
     out <- PredictionTools::val.surv.mi(p=p, y=S, g=5, time=5,
                                         main="All centers", CI.metrics=TRUE,
-                                        lim=c(0,1), dist=TRUE, n.iter=40)
+                                        lim=c(0,1), dist=TRUE)
     grDevices::dev.off()
     
     final.full.table <- eval(parse(text=paste0("final.", type, ".table.", model)))
