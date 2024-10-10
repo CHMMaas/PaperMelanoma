@@ -3,3 +3,6 @@ For more information, go to https://www.thelancet.com/journals/lanonc/article/PI
 
 # Data sharing
 Please contact EORTC for the European data set (https://www.eortc.org/data-sharing/) and Melanoma Institute Australia for the Australian data set.
+
+# Dependencies
+The development of this package makes use of the package PredictionTools (https://github.com/CHMMaas/PredictionTools). This package is still in development, please let me know if you encounter any issues.
